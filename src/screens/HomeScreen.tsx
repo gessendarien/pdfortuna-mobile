@@ -12,6 +12,7 @@ import { PdfGridItem } from '../components/PdfGridItem';
 import { RenameModal } from '../components/RenameModal';
 import { FilterModal } from '../components/FilterModal';
 import { FileOptionsModal } from '../components/FileOptionsModal';
+import { DocxViewerModal } from '../components/DocxViewerModal';
 import { UndoToast } from '../components/UndoToast';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -34,6 +35,10 @@ export const HomeScreen = () => {
     const [isGridView, setIsGridView] = useState(false);
     const [optionsFile, setOptionsFile] = useState<LocalFile | null>(null);
     const [optionsModalVisible, setOptionsModalVisible] = useState(false);
+
+    // Docx Viewer
+    const [docxFile, setDocxFile] = useState<LocalFile | null>(null);
+    const [docxViewerVisible, setDocxViewerVisible] = useState(false);
 
     // Filter State
     const [filterType, setFilterType] = useState<'all' | 'pdf' | 'doc' | 'odf'>('all');
@@ -113,10 +118,12 @@ export const HomeScreen = () => {
     const handleFilePress = (file: LocalFile) => {
         if (file.type === 'pdf') {
             navigation.navigate('PdfViewer', { uri: file.path, name: file.name });
+        } else if (file.type === 'docx') {
+            setDocxFile(file);
+            setDocxViewerVisible(true);
         } else {
             let mime = '*/*';
             if (file.type === 'doc') mime = 'application/msword';
-            else if (file.type === 'docx') mime = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
             else if (file.type === 'odf') mime = 'application/vnd.oasis.opendocument.text';
 
             openFileInExternalApp(file.path, mime);
@@ -437,6 +444,15 @@ export const HomeScreen = () => {
                 }}
                 onFavorite={() => {
                     if (optionsFile) handleFavorite(optionsFile);
+                }}
+            />
+
+            <DocxViewerModal
+                visible={docxViewerVisible}
+                file={docxFile}
+                onClose={() => {
+                    setDocxViewerVisible(false);
+                    setDocxFile(null);
                 }}
             />
         </View>
