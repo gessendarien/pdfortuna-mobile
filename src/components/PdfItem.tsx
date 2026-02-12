@@ -1,12 +1,11 @@
-
-import React, { useMemo, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Animated, Dimensions } from 'react-native';
+import React, { useMemo, useEffect, useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Animated, Dimensions, Image } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import FileIcon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { theme } from '../theme';
-import { LocalFile } from '../services/FileService';
+import { LocalFile, getThumbnail } from '../services/FileService';
 import { format } from 'date-fns';
-import Swipeable from 'react-native-gesture-handler/Swipeable';
+import { FavoriteParticles } from './FavoriteParticles';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -20,10 +19,34 @@ interface Props {
     onDelete: () => void;
     isDeleting?: boolean;
     isRestoring?: boolean;
+    onLongPress?: () => void;
+    showPreview?: boolean;
 }
 
-export const PdfItem = ({ file, onPress, onShare, onFavorite, isFavorite, onRename, onDelete, isDeleting, isRestoring }: Props) => {
+export const PdfItem = ({ file, onPress, onShare, onFavorite, isFavorite, onRename, onDelete, isDeleting, isRestoring, onLongPress, showPreview = false }: Props) => {
     const formattedDate = useMemo(() => format(file.date, 'MMM dd, yyyy'), [file.date]);
+    const [showBurst, setShowBurst] = React.useState(false);
+    const prevFavorite = useRef(isFavorite);
+    const [thumbnailUri, setThumbnailUri] = useState<string | null>(null);
+
+    // Load thumbnail if preview is enabled
+    useEffect(() => {
+        let isMounted = true;
+        if (showPreview && file.type === 'pdf') {
+            getThumbnail(file.path).then(uri => {
+                if (isMounted) setThumbnailUri(uri);
+            });
+        }
+        return () => { isMounted = false; };
+    }, [showPreview, file.path]);
+
+    useEffect(() => {
+        if (!prevFavorite.current && isFavorite) {
+            setShowBurst(true);
+            setTimeout(() => setShowBurst(false), 1000);
+        }
+        prevFavorite.current = isFavorite;
+    }, [isFavorite]);
 
     // Icon logic
     const { iconName, iconColor, bgColor } = useMemo(() => {
@@ -80,88 +103,48 @@ export const PdfItem = ({ file, onPress, onShare, onFavorite, isFavorite, onRena
         return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
     }, [file.size]);
 
-    // Swipeable Ref and Timer
-    const swipeableRef = useRef<Swipeable>(null);
-    const swipeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-    // Clear timer when unmounting or when swiping closes
-    useEffect(() => {
-        return () => {
-            if (swipeTimerRef.current) clearTimeout(swipeTimerRef.current);
-        };
-    }, []);
-
-    const handleSwipeableOpen = () => {
-        if (swipeTimerRef.current) clearTimeout(swipeTimerRef.current);
-        swipeTimerRef.current = setTimeout(() => {
-            swipeableRef.current?.close();
-        }, 1500);
-    };
-
-    const handleSwipeableClose = () => {
-        if (swipeTimerRef.current) clearTimeout(swipeTimerRef.current);
-    };
-
-    const renderLeftActions = (progress: any, dragX: any) => {
-        return (
-            <View style={styles.leftActionsContainer}>
-                <TouchableOpacity style={[styles.actionButtonSwipe, styles.editAction]} onPress={() => {
-                    swipeableRef.current?.close();
-                    if (swipeTimerRef.current) clearTimeout(swipeTimerRef.current);
-                    onRename();
-                }}>
-                    <Icon name="edit" size={24} color="#fff" />
-                    <Text style={styles.actionText}>Editar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.actionButtonSwipe, styles.deleteAction]} onPress={() => {
-                    swipeableRef.current?.close();
-                    if (swipeTimerRef.current) clearTimeout(swipeTimerRef.current);
-                    onDelete();
-                }}>
-                    <Icon name="delete" size={24} color="#fff" />
-                    <Text style={styles.actionText}>Eliminar</Text>
-                </TouchableOpacity>
-            </View>
-        );
-    };
-
     return (
         <Animated.View style={[styles.swipeWrapper, { transform: [{ translateX }] }]}>
-            <Swipeable
-                ref={swipeableRef}
-                renderLeftActions={renderLeftActions}
-                onSwipeableOpen={handleSwipeableOpen}
-                onSwipeableClose={handleSwipeableClose}
-            >
-                <View style={styles.container}>
-                    <TouchableOpacity
-                        style={styles.mainContent}
-                        onPress={onPress}
-                        activeOpacity={0.7}
-                    >
-                        <View style={[styles.iconContainer, { backgroundColor: bgColor }]}>
+            <View style={styles.container}>
+                <TouchableOpacity
+                    style={styles.mainContent}
+                    onPress={onPress}
+                    onLongPress={onLongPress}
+                    activeOpacity={0.7}
+                >
+                    <View style={[styles.iconContainer, {
+                        backgroundColor: (showPreview && file.type === 'pdf' && thumbnailUri) ? '#f1f5f9' : bgColor,
+                        overflow: 'hidden'
+                    }]}>
+                        {showPreview && file.type === 'pdf' && thumbnailUri ? (
+                            <Image
+                                source={{ uri: thumbnailUri }}
+                                style={{ width: '100%', height: '100%', resizeMode: 'cover' }}
+                            />
+                        ) : (
                             <FileIcon name={iconName} size={28} color={iconColor} />
-                        </View>
-                        <View style={styles.infoContainer}>
-                            <Text style={styles.name} numberOfLines={1}>{file.name}</Text>
-                            <View style={styles.metaContainer}>
-                                <Text style={styles.metaText}>{formattedSize}</Text>
-                                <View style={styles.dot} />
-                                <Text style={styles.metaText}>{formattedDate}</Text>
-                            </View>
-                        </View>
-                    </TouchableOpacity>
-
-                    <View style={styles.actionsContainer}>
-                        <TouchableOpacity onPress={onFavorite} style={styles.actionButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                            <Icon name={isFavorite ? "favorite" : "favorite-border"} size={24} color={isFavorite ? "#ef4444" : "#94a3b8"} />
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={onShare} style={styles.actionButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                            <Icon name="share" size={20} color={theme.colors.primary} />
-                        </TouchableOpacity>
+                        )}
                     </View>
+                    <View style={styles.infoContainer}>
+                        <Text style={styles.name} numberOfLines={1}>{file.name}</Text>
+                        <View style={styles.metaContainer}>
+                            <Text style={styles.metaText}>{formattedSize}</Text>
+                            <View style={styles.dot} />
+                            <Text style={styles.metaText}>{formattedDate}</Text>
+                        </View>
+                    </View>
+                </TouchableOpacity>
+
+                <View style={styles.actionsContainer}>
+                    <TouchableOpacity onPress={onFavorite} style={styles.actionButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                        <Icon name={isFavorite ? "favorite" : "favorite-border"} size={24} color={isFavorite ? "#ef4444" : "#94a3b8"} />
+                        <FavoriteParticles trigger={showBurst} />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={onShare} style={styles.actionButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                        <Icon name="share" size={20} color={theme.colors.primary} />
+                    </TouchableOpacity>
                 </View>
-            </Swipeable>
+            </View>
         </Animated.View>
     );
 };
@@ -232,30 +215,5 @@ const styles = StyleSheet.create({
     },
     actionButton: {
         padding: 6,
-    },
-    leftActionsContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingRight: 8,
-    },
-    actionButtonSwipe: {
-        justifyContent: 'center',
-        alignItems: 'center',
-        width: 70,
-        height: '100%',
-        borderRadius: theme.borderRadius.l,
-        marginRight: 8,
-    },
-    editAction: {
-        backgroundColor: '#3b82f6',
-    },
-    deleteAction: {
-        backgroundColor: '#ef4444',
-    },
-    actionText: {
-        color: '#fff',
-        fontSize: 10,
-        fontWeight: 'bold',
-        marginTop: 4,
     }
 });

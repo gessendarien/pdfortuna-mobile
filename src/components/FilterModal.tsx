@@ -9,9 +9,12 @@ interface Props {
     currentFilter: 'all' | 'pdf' | 'doc' | 'odf';
     onClose: () => void;
     onSelect: (filter: 'all' | 'pdf' | 'doc' | 'odf') => void;
+    showDoc?: boolean;
+    showODF?: boolean;
+    showAll?: boolean;
 }
 
-export const FilterModal = ({ visible, currentFilter, onClose, onSelect }: Props) => {
+export const FilterModal = ({ visible, currentFilter, onClose, onSelect, showDoc = true, showODF = true, showAll = true }: Props) => {
 
     // Helper for rendering an option
     const renderOption = (
@@ -19,19 +22,21 @@ export const FilterModal = ({ visible, currentFilter, onClose, onSelect }: Props
         label: string,
         iconName: string,
         iconColor: string,
-        IconComponent: any = Icon
+        IconComponent: any = Icon,
+        disabled: boolean = false
     ) => {
         const isSelected = currentFilter === value;
 
         return (
             <TouchableOpacity
                 style={[styles.option, isSelected && styles.optionSelected]}
-                onPress={() => onSelect(value)}
+                onPress={disabled ? undefined : () => onSelect(value)}
+                disabled={disabled}
             >
                 <View style={[styles.optionIconContainer, { backgroundColor: isSelected ? iconColor + '20' : '#f1f5f9' }]}>
                     <IconComponent name={iconName} size={24} color={isSelected ? iconColor : theme.colors.textSecondary} />
                 </View>
-                <Text style={[styles.optionText, isSelected && { color: theme.colors.text, fontWeight: '600' }]}>
+                <Text style={[styles.optionText, isSelected && { color: theme.colors.text, fontWeight: '600' }, disabled && { opacity: 0.5 }]}>
                     {label}
                 </Text>
                 {isSelected && (
@@ -52,10 +57,10 @@ export const FilterModal = ({ visible, currentFilter, onClose, onSelect }: Props
                 <TouchableOpacity activeOpacity={1} style={styles.content}>
                     <Text style={styles.title}>Filtrar por tipo</Text>
 
-                    {renderOption('all', 'Todos', 'dashboard', theme.colors.primary)}
-                    {renderOption('pdf', 'PDF', 'file-pdf-box', '#ef4444', MaterialCommunityIcons)}
-                    {renderOption('doc', 'Word', 'file-word-box', '#3b82f6', MaterialCommunityIcons)}
-                    {renderOption('odf', 'ODF', 'text-box', '#f59e0b', MaterialCommunityIcons)}
+                    {showAll && renderOption('all', 'Todos', 'dashboard', theme.colors.primary)}
+                    {renderOption('pdf', 'PDF', 'file-pdf-box', '#ef4444', MaterialCommunityIcons, !showAll && !showDoc && !showODF)}
+                    {showDoc && renderOption('doc', 'Word', 'file-word-box', '#3b82f6', MaterialCommunityIcons)}
+                    {showODF && renderOption('odf', 'ODF', 'text-box', '#f59e0b', MaterialCommunityIcons)}
 
                     <TouchableOpacity style={styles.buttonClose} onPress={onClose}>
                         <Text style={styles.buttonCloseText}>Cancelar</Text>

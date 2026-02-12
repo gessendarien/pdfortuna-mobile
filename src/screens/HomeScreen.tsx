@@ -1,8 +1,9 @@
 
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { View, Text, FlatList, TextInput, TouchableOpacity, ActivityIndicator, StatusBar, StyleSheet, AppState, LayoutAnimation, Platform, UIManager } from 'react-native';
+import { View, Text, FlatList, TextInput, TouchableOpacity, ActivityIndicator, StatusBar, StyleSheet, AppState, LayoutAnimation, Platform, UIManager, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Share from 'react-native-share';
+import RNFS from 'react-native-fs';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { LocalFile, scanDocuments, requestFilePermissions, checkManagePermission, deleteFile, renameFile, openFileInExternalApp } from '../services/FileService';
 import { StorageService } from '../services/StorageService';
@@ -13,7 +14,10 @@ import { RenameModal } from '../components/RenameModal';
 import { FilterModal } from '../components/FilterModal';
 import { FileOptionsModal } from '../components/FileOptionsModal';
 import { DocxViewerModal } from '../components/DocxViewerModal';
+import { SettingsModal } from '../components/SettingsModal';
+import { ConfirmModal } from '../components/ConfirmModal';
 import { UndoToast } from '../components/UndoToast';
+import { CreditsModal } from '../components/CreditsModal';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -26,7 +30,9 @@ export const HomeScreen = () => {
     const navigation = useNavigation<any>();
     const [files, setFiles] = useState<LocalFile[]>([]);
     const [permissionGranted, setPermissionGranted] = useState<boolean>(false);
+    const [isCheckingPermissions, setIsCheckingPermissions] = useState<boolean>(true);
     const [loading, setLoading] = useState<boolean>(true);
+    const [refreshing, setRefreshing] = useState<boolean>(false);
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [favorites, setFavorites] = useState<string[]>([]);
     const [activeTab, setActiveTab] = useState<'all' | 'recent' | 'favorites'>('all');
@@ -40,6 +46,17 @@ export const HomeScreen = () => {
     const [docxFile, setDocxFile] = useState<LocalFile | null>(null);
     const [docxViewerVisible, setDocxViewerVisible] = useState(false);
 
+    // Settings
+    const [settingsVisible, setSettingsVisible] = useState(false);
+    const [creditsVisible, setCreditsVisible] = useState(false);
+    const [isSettingsLoaded, setIsSettingsLoaded] = useState(false);
+
+    // Default settings: All FALSE (disabled) for new installations
+    const [showPreviews, setShowPreviews] = useState(false);
+    const [showWord, setShowWord] = useState(false);
+    const [openWordInApp, setOpenWordInApp] = useState(false);
+    const [showODF, setShowODF] = useState(false);
+
     // Filter State
     const [filterType, setFilterType] = useState<'all' | 'pdf' | 'doc' | 'odf'>('all');
     const [filterModalVisible, setFilterModalVisible] = useState(false);
@@ -47,32 +64,67 @@ export const HomeScreen = () => {
     // Rename/Delete state
     const [renameModalVisible, setRenameModalVisible] = useState(false);
     const [fileToRename, setFileToRename] = useState<LocalFile | null>(null);
+    const [confirmDeleteFile, setConfirmDeleteFile] = useState<LocalFile | null>(null);
+    const [confirmDeleteVisible, setConfirmDeleteVisible] = useState(false);
 
     // Undo Delete State
     const [pendingDeleteFile, setPendingDeleteFile] = useState<LocalFile | null>(null);
     const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
     const [restoringFileId, setRestoringFileId] = useState<string | null>(null);
 
+    // Share State - Prevent multiple share dialogs
+    const [isSharing, setIsSharing] = useState<boolean>(false);
+
     const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const animationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // Load persisted settings
+    useEffect(() => {
+        const load = async () => {
+            const prefs = await StorageService.loadSettings();
+            if (prefs) {
+                if (prefs.showPreviews !== undefined) setShowPreviews(prefs.showPreviews);
+                if (prefs.showWord !== undefined) setShowWord(prefs.showWord);
+                if (prefs.openWordInApp !== undefined) setOpenWordInApp(prefs.openWordInApp);
+                if (prefs.showODF !== undefined) setShowODF(prefs.showODF);
+                if (prefs.isGridView !== undefined) setIsGridView(prefs.isGridView);
+            }
+            setIsSettingsLoaded(true);
+        };
+        load();
+    }, []);
+
+    // Save settings
+    useEffect(() => {
+        if (!isSettingsLoaded) return;
+        StorageService.saveSettings({
+            showPreviews,
+            showWord,
+            openWordInApp,
+            showODF,
+            isGridView
+        });
+    }, [isSettingsLoaded, showPreviews, showWord, openWordInApp, showODF, isGridView]);
 
     useEffect(() => {
         checkPermission();
         loadFavorites();
 
-        // Listen for app state changes to re-check permission when returning from settings
-        const subscription = AppState.addEventListener('change', nextAppState => {
-            if (nextAppState === 'active') {
-                checkPermission();
-            }
-        });
-
         return () => {
-            subscription.remove();
             if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current);
             if (animationTimerRef.current) clearTimeout(animationTimerRef.current);
         };
     }, []);
+
+    // Auto-reset filter to 'all' when Word or ODF get re-enabled from settings
+    useEffect(() => {
+        // If at least one format is now enabled (Word or ODF)
+        // and filter is currently 'pdf' (meaning it might have been the only option)
+        // then reset to 'all' to show the new options
+        if ((showWord || showODF) && filterType === 'pdf') {
+            setFilterType('all');
+        }
+    }, [showWord, showODF]);
 
     const checkPermission = async () => {
         setLoading(true);
@@ -81,6 +133,7 @@ export const HomeScreen = () => {
         const isManaged = await checkManagePermission();
         if (isManaged) {
             setPermissionGranted(true);
+            setIsCheckingPermissions(false);
             scanFiles();
             return; // Stop here, we are good
         }
@@ -93,6 +146,7 @@ export const HomeScreen = () => {
             setPermissionGranted(false);
             setLoading(false);
         }
+        setIsCheckingPermissions(false);
     };
 
     const loadFavorites = async () => {
@@ -107,6 +161,13 @@ export const HomeScreen = () => {
         setLoading(false);
     };
 
+    const handleRefresh = async () => {
+        setRefreshing(true);
+        const scanned = await scanDocuments();
+        setFiles(scanned);
+        setRefreshing(false);
+    };
+
     const handleGrantPermission = async () => {
         const granted = await requestFilePermissions();
         if (granted) {
@@ -119,8 +180,12 @@ export const HomeScreen = () => {
         if (file.type === 'pdf') {
             navigation.navigate('PdfViewer', { uri: file.path, name: file.name });
         } else if (file.type === 'docx') {
-            setDocxFile(file);
-            setDocxViewerVisible(true);
+            if (openWordInApp) {
+                setDocxFile(file);
+                setDocxViewerVisible(true);
+            } else {
+                openFileInExternalApp(file.path, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+            }
         } else {
             let mime = '*/*';
             if (file.type === 'doc') mime = 'application/msword';
@@ -131,14 +196,69 @@ export const HomeScreen = () => {
     };
 
     const handleShare = async (file: LocalFile) => {
+        // Prevent multiple share dialogs from opening
+        if (isSharing) {
+            console.log('Share already in progress, ignoring...');
+            return;
+        }
+
+        setIsSharing(true);
+        let destPath = '';
         try {
+            // Strategy 1: Copy to temp (cache) to fix permission/path issues
+            destPath = `${RNFS.CachesDirectoryPath}/${file.name}`;
+
+            if (await RNFS.exists(destPath)) {
+                await RNFS.unlink(destPath);
+            }
+
+            await RNFS.copyFile(file.path, destPath);
+            const cleanUrl = `file://${destPath}`;
+
             await Share.open({
-                url: `file://${file.path}`,
-                type: 'application/pdf', // This might need update if generic sharing? But works for intent share usually
-                title: 'Compartir Archivo'
+                url: cleanUrl,
+                title: 'Compartir Archivo',
+                failOnCancel: false,
             });
-        } catch (error) {
-            console.log('Error sharing:', error);
+        } catch (error: any) {
+            console.log('Copy/Share failed, trying Base64:', error);
+
+            // If user simply cancelled, don't try base64 or alert
+            if (error && error.message === 'User did not share') return;
+
+            try {
+                const base64Data = await RNFS.readFile(file.path, 'base64');
+                let mimeType = 'application/pdf';
+                if (file.type === 'doc') mimeType = 'application/msword';
+                else if (file.type === 'docx') mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+                else if (file.type === 'odf') mimeType = 'application/vnd.oasis.opendocument.text';
+
+                const dataUrl = `data:${mimeType};base64,${base64Data}`;
+
+                await Share.open({
+                    url: dataUrl,
+                    title: 'Compartir Archivo',
+                    type: mimeType,
+                    failOnCancel: false,
+                    filename: file.name,
+                });
+            } catch (err2) {
+                console.log('Base64 share failed:', err2);
+                Alert.alert('Error', 'No se pudo compartir el archivo.');
+            }
+        } finally {
+            // Always reset the sharing state
+            setIsSharing(false);
+
+            if (destPath) {
+                try {
+                    if (await RNFS.exists(destPath)) {
+                        await RNFS.unlink(destPath);
+                    }
+                } catch (e) {
+                    // ignore
+                }
+            }
         }
     };
 
@@ -148,6 +268,11 @@ export const HomeScreen = () => {
     };
 
     const handleDelete = (file: LocalFile) => {
+        setConfirmDeleteFile(file);
+        setConfirmDeleteVisible(true);
+    };
+
+    const performDelete = (file: LocalFile) => {
         // If there's already a pending delete, commit it instantly to handle the new one
         if (pendingDeleteFile) {
             commitDeleteNow(pendingDeleteFile);
@@ -267,15 +392,23 @@ export const HomeScreen = () => {
             }
         }
 
+        if (!showWord) {
+            result = result.filter(f => f.type !== 'doc' && f.type !== 'docx');
+        }
+        if (!showODF) {
+            result = result.filter(f => f.type !== 'odf');
+        }
+
         // Filter by search
         if (searchQuery) {
             result = result.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase()));
         }
 
         return result;
-    }, [files, searchQuery, favorites, activeTab, filterType]);
+    }, [files, searchQuery, favorites, activeTab, filterType, showWord, showODF]);
 
-    if (!permissionGranted) {
+    // Only show permission request if we are done checking and definitely don't have permissions
+    if (!isCheckingPermissions && !permissionGranted) {
         return (
             <View style={styles.permissionContainer}>
                 <Icon name="folder-open" size={64} color={theme.colors.primary} />
@@ -283,7 +416,7 @@ export const HomeScreen = () => {
                 <Text style={styles.permissionText}>
                     PDFortuna necesita acceso a los archivos de tu dispositivo para encontrar tus documentos.
                     {'\n'}
-                    Esta app no envía ninguna información a servidores externos y toda la información permanece en tu dispositivo por lo que tu privacidad está protegida.
+                    Esta app no envía ninguna información a servidores externos y todos los datos permanecen en tu dispositivo por lo que tu privacidad está protegida.
                     {'\n'}
                     Para continuar otorga los permisos necesarios.
                 </Text>
@@ -300,9 +433,11 @@ export const HomeScreen = () => {
 
             {/* Header */}
             <View style={styles.header}>
-                <Text style={styles.headerTitle}>PDFortuna</Text>
-                <TouchableOpacity onPress={scanFiles}>
-                    <Icon name="refresh" size={24} color={theme.colors.primary} />
+                <TouchableOpacity onPress={() => setCreditsVisible(true)}>
+                    <Text style={styles.headerTitle}>PDFortuna</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setSettingsVisible(true)}>
+                    <Icon name="settings" size={24} color={theme.colors.textSecondary} />
                 </TouchableOpacity>
             </View>
 
@@ -343,7 +478,7 @@ export const HomeScreen = () => {
             </View>
 
             {/* Content */}
-            {loading ? (
+            {(loading || isCheckingPermissions) ? (
                 <View style={styles.center}>
                     <ActivityIndicator size="large" color={theme.colors.primary} />
                     <Text style={{ marginTop: 10, color: theme.colors.textSecondary }}>Escaneando archivos...</Text>
@@ -355,6 +490,8 @@ export const HomeScreen = () => {
                 </View>
             ) : (
                 <FlatList
+                    refreshing={refreshing}
+                    onRefresh={handleRefresh}
                     key={isGridView ? 'grid' : 'list'}
                     data={filteredFiles}
                     keyExtractor={(item) => item.path}
@@ -373,6 +510,9 @@ export const HomeScreen = () => {
                                 setOptionsModalVisible(true);
                             }}
                             isFavorite={favorites.includes(item.path)}
+                            showPreview={showPreviews}
+                            isDeleting={deletingFileId === item.path}
+                            isRestoring={restoringFileId === item.path}
                         />
                     ) : (
                         <PdfItem
@@ -388,6 +528,11 @@ export const HomeScreen = () => {
                             onDelete={() => handleDelete(item)}
                             isDeleting={deletingFileId === item.path}
                             isRestoring={restoringFileId === item.path}
+                            showPreview={showPreviews}
+                            onLongPress={() => {
+                                setOptionsFile(item);
+                                setOptionsModalVisible(true);
+                            }}
                         />
                     )}
                     contentContainerStyle={{ paddingBottom: 80 }}
@@ -416,6 +561,9 @@ export const HomeScreen = () => {
                 visible={filterModalVisible}
                 currentFilter={filterType}
                 onClose={() => setFilterModalVisible(false)}
+                showDoc={showWord}
+                showODF={showODF}
+                showAll={showWord || showODF}
                 onSelect={(filter) => {
                     setFilterType(filter);
                     setFilterModalVisible(false);
@@ -454,6 +602,40 @@ export const HomeScreen = () => {
                     setDocxViewerVisible(false);
                     setDocxFile(null);
                 }}
+            />
+
+            <SettingsModal
+                visible={settingsVisible}
+                onClose={() => setSettingsVisible(false)}
+                showPreviews={showPreviews}
+                onTogglePreviews={setShowPreviews}
+                showWord={showWord}
+                onToggleShowWord={setShowWord}
+                openWordInApp={openWordInApp}
+                onToggleOpenWordInApp={setOpenWordInApp}
+                currentViewMode={isGridView}
+                onToggleViewMode={setIsGridView}
+                showODF={showODF}
+                onToggleShowODF={setShowODF}
+            />
+
+            <CreditsModal
+                visible={creditsVisible}
+                onClose={() => setCreditsVisible(false)}
+            />
+
+            <ConfirmModal
+                visible={confirmDeleteVisible}
+                title="Eliminar archivo"
+                message={`¿Estás seguro de que deseas eliminar "${confirmDeleteFile?.name || 'este archivo'}"?`}
+                onConfirm={() => {
+                    if (confirmDeleteFile) performDelete(confirmDeleteFile);
+                    setConfirmDeleteVisible(false);
+                }}
+                onCancel={() => setConfirmDeleteVisible(false)}
+                confirmText="Eliminar"
+                cancelText="Cancelar"
+                confirmColor={theme.colors.error}
             />
         </View>
     );

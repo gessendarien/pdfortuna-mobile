@@ -1,11 +1,12 @@
-import React, { useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Platform } from 'react-native';
+import React, { useMemo, useRef, useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Platform, Animated, Image } from 'react-native';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import Pdf from 'react-native-pdf';
+// import Pdf from 'react-native-pdf'; // Removed heavy Pdf component
 import { theme } from '../theme';
-import { LocalFile } from '../services/FileService';
+import { LocalFile, getThumbnail } from '../services/FileService';
 import { format } from 'date-fns';
+import { FavoriteParticles } from './FavoriteParticles';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CARD_WIDTH = (SCREEN_WIDTH - 48) / 2; // (16 padding on sides + 16 gap) / 2
@@ -15,9 +16,55 @@ interface Props {
     onPress: () => void;
     onMore: () => void;
     isFavorite: boolean;
+    showPreview?: boolean;
+    isDeleting?: boolean;
+    isRestoring?: boolean;
 }
 
-export const PdfGridItem = ({ file, onPress, onMore, isFavorite }: Props) => {
+export const PdfGridItem = ({ file, onPress, onMore, isFavorite, showPreview = false, isDeleting, isRestoring }: Props) => {
+
+    const scaleAnim = useRef(new Animated.Value(1)).current;
+    const [thumbnailUri, setThumbnailUri] = useState<string | null>(null);
+
+    useEffect(() => {
+        let isMounted = true;
+        if (showPreview && file.type === 'pdf') {
+            getThumbnail(file.path).then(uri => {
+                if (isMounted) setThumbnailUri(uri);
+            });
+        }
+        return () => { isMounted = false; };
+    }, [showPreview, file.path]);
+
+    useEffect(() => {
+        if (isDeleting) {
+            Animated.timing(scaleAnim, {
+                toValue: 0,
+                duration: 300,
+                useNativeDriver: true,
+            }).start();
+        } else if (isRestoring) {
+            scaleAnim.setValue(0);
+            Animated.spring(scaleAnim, {
+                toValue: 1,
+                useNativeDriver: true,
+                bounciness: 6
+            }).start();
+        } else {
+            scaleAnim.setValue(1);
+        }
+    }, [isDeleting, isRestoring]);
+
+    const [showBurst, setShowBurst] = useState(false);
+    const prevFavorite = useRef(isFavorite);
+
+    useEffect(() => {
+        if (!prevFavorite.current && isFavorite) {
+            setShowBurst(true);
+            setTimeout(() => setShowBurst(false), 1000);
+        }
+        prevFavorite.current = isFavorite;
+    }, [isFavorite]);
 
     // Icon logic
     const { iconName, iconColor, bgColor } = useMemo(() => {
@@ -46,33 +93,46 @@ export const PdfGridItem = ({ file, onPress, onMore, isFavorite }: Props) => {
     }, [file.size]);
 
     return (
-        <TouchableOpacity
-            style={styles.card}
-            onPress={onPress}
-            activeOpacity={0.7}
-            onLongPress={onMore} // Long press as fallback if no button
-        >
-            {isFavorite && (
-                <View style={styles.favoriteBadge}>
-                    <MaterialIcon name="favorite" size={18} color="#ef4444" />
+        <Animated.View style={{ transform: [{ scale: scaleAnim }], opacity: scaleAnim }}>
+            <TouchableOpacity
+                style={styles.card}
+                onPress={onPress}
+                activeOpacity={0.7}
+                onLongPress={onMore} // Long press as fallback if no button
+            >
+                {isFavorite && (
+                    <View style={styles.favoriteBadge}>
+                        <MaterialIcon name="favorite" size={18} color="#ef4444" />
+                        <FavoriteParticles trigger={showBurst} />
+                    </View>
+                )}
+                <View
+                    style={[styles.iconContainer, { backgroundColor: (showPreview && file.type === 'pdf') ? '#f1f5f9' : bgColor, overflow: 'hidden' }]}
+                    pointerEvents="none"
+                >
+                    {showPreview && file.type === 'pdf' && thumbnailUri ? (
+                        <Image
+                            source={{ uri: thumbnailUri }}
+                            style={{ flex: 1, width: '100%', height: '100%', resizeMode: 'cover' }}
+                        />
+                    ) : (
+                        <MaterialCommunityIcons name={iconName} size={48} color={iconColor} />
+                    )}
                 </View>
-            )}
-            <View style={[styles.iconContainer, { backgroundColor: bgColor }]}>
-                <MaterialCommunityIcons name={iconName} size={48} color={iconColor} />
-            </View>
 
-            <View style={styles.infoContainer}>
-                <Text style={styles.name} numberOfLines={2}>{file.name}</Text>
-                <View style={styles.metaRow}>
-                    <Text style={styles.metaText}>{formattedSize}</Text>
-                    <Text style={styles.metaText}> • {formattedDate}</Text>
+                <View style={styles.infoContainer}>
+                    <Text style={styles.name} numberOfLines={2}>{file.name}</Text>
+                    <View style={styles.metaRow}>
+                        <Text style={styles.metaText}>{formattedSize}</Text>
+                        <Text style={styles.metaText}> • {formattedDate}</Text>
+                    </View>
                 </View>
-            </View>
 
-            <TouchableOpacity style={styles.moreButton} onPress={onMore} hitSlop={10}>
-                <MaterialIcon name="more-vert" size={20} color={theme.colors.textSecondary} />
+                <TouchableOpacity style={styles.moreButton} onPress={onMore} hitSlop={10}>
+                    <MaterialIcon name="more-vert" size={20} color={theme.colors.textSecondary} />
+                </TouchableOpacity>
             </TouchableOpacity>
-        </TouchableOpacity>
+        </Animated.View>
     );
 };
 

@@ -8,7 +8,7 @@ NC='\033[0m' # No Color
 
 correr_app() {
     echo -e "\n${VERDE}✔ Dispositivo conectado.${NC}"
-    echo -e "${AZUL}🚀 Iniciando aplicación... Espere un momento.${NC}"
+    echo -e "${AZUL} Iniciando aplicación... Espere un momento.${NC}"
     
     # Iniciar Metro Bundler en una nueva terminal si es posible, o en segundo plano
     if command -v gnome-terminal &> /dev/null; then

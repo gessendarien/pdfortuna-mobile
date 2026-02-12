@@ -36,5 +36,33 @@ export const StorageService = {
     async hasPermissionBeenRequested(): Promise<boolean> {
         const val = await AsyncStorage.getItem(PERMISSION_SHOWN_KEY);
         return val === 'true';
+    },
+
+    // User Settings Persistence
+    async saveSettings(settings: any) {
+        try {
+            await AsyncStorage.setItem('user_settings', JSON.stringify(settings));
+        } catch (e) {
+            console.log('Error saving settings', e);
+        }
+    },
+
+    async loadSettings() {
+        try {
+            const json = await AsyncStorage.getItem('user_settings');
+            if (json) {
+                return JSON.parse(json);
+            }
+        } catch (e) {
+            console.log('Error loading settings', e);
+        }
+        // Default settings (First time load) -> All False by default
+        return {
+            showPreviews: false,
+            showWord: false,     // Default disabled
+            openWordInApp: false, // Default disabled
+            showODF: false,      // Default disabled
+            isGridView: false
+        };
     }
 };
