@@ -1,9 +1,47 @@
-# OSX
-#
+# ===========================
+# OS Generated Files
+# ===========================
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
 
-# Xcode
-#
+# ===========================
+# IDE & Editors
+# ===========================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+.project
+.classpath
+.settings/
+
+# ===========================
+# Node.js
+# ===========================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# ===========================
+# React Native - Metro
+# ===========================
+.metro-health-check*
+*.jsbundle
+
+# ===========================
+# iOS / Xcode
+# ===========================
 build/
 *.pbxuser
 !default.pbxuser
@@ -13,60 +51,53 @@ build/
 !default.mode2v3
 *.perspectivev3
 !default.perspectivev3
-xcuserdata
+xcuserdata/
 *.xccheckout
 *.moved-aside
-DerivedData
+DerivedData/
 *.hmap
 *.ipa
 *.xcuserstate
 **/.xcode.env.local
+**/Pods/
+ios/Pods/
 
-# Android/IntelliJ
-#
-build/
-.idea
-.gradle
+# ===========================
+# Android / IntelliJ
+# ===========================
+.gradle/
+.cxx/
+.kotlin/
 local.properties
 *.iml
 *.hprof
-.cxx/
 *.keystore
 !debug.keystore
-.kotlin/
+android/app/build/
+android/build/
 
-# node.js
-#
-node_modules/
-npm-debug.log
-yarn-error.log
-
-# fastlane
-#
-# It is recommended to not store the screenshots in the git repo. Instead, use fastlane to re-generate the
-# screenshots whenever they are needed.
-# For more information about the recommended setup visit:
-# https://docs.fastlane.tools/best-practices/source-control/
-
+# ===========================
+# Fastlane
+# ===========================
 **/fastlane/report.xml
 **/fastlane/Preview.html
 **/fastlane/screenshots
 **/fastlane/test_output
 
-# Bundle artifact
-*.jsbundle
-
+# ===========================
 # Ruby / CocoaPods
-**/Pods/
+# ===========================
 /vendor/bundle/
+Gemfile.lock
 
-# Temporary files created by Metro to check the health of the file watcher
-.metro-health-check*
-
-# testing
+# ===========================
+# Testing
+# ===========================
 /coverage
 
+# ===========================
 # Yarn
+# ===========================
 .yarn/*
 !.yarn/patches
 !.yarn/plugins
@@ -74,6 +105,20 @@ yarn-error.log
 !.yarn/sdks
 !.yarn/versions
 
-# Wireframes
-wireframe/
+# ===========================
+# Bundle
+# ===========================
+.bundle/
 
+# ===========================
+# Environment Variables
+# ===========================
+.env
+.env.local
+.env.*.local
+
+# ===========================
+# Project-specific
+# ===========================
+wireframe/
+connect.sh
