@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Animated, Dimensions, Image }
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import FileIcon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { theme } from '../theme';
+import { useTheme } from '../theme/ThemeContext';
 import { LocalFile, getThumbnail } from '../services/FileService';
 import { format } from 'date-fns';
 import { FavoriteParticles } from './FavoriteParticles';
@@ -24,6 +25,7 @@ interface Props {
 }
 
 export const PdfItem = ({ file, onPress, onShare, onFavorite, isFavorite, onRename, onDelete, isDeleting, isRestoring, onLongPress, showPreview = false }: Props) => {
+    const { colors } = useTheme();
     const formattedDate = useMemo(() => format(file.date, 'MMM dd, yyyy'), [file.date]);
     const [showBurst, setShowBurst] = React.useState(false);
     const prevFavorite = useRef(isFavorite);
@@ -57,8 +59,7 @@ export const PdfItem = ({ file, onPress, onShare, onFavorite, isFavorite, onRena
             case 'docx':
                 return { iconName: 'file-word-box', iconColor: '#3b82f6', bgColor: '#dbeafe' };
             case 'odf':
-                // Using a distinct color and icon for Open Document Format
-                return { iconName: 'text-box', iconColor: '#f59e0b', bgColor: '#fef3c7' }; // Amber/Orange
+                return { iconName: 'text-box', iconColor: '#f59e0b', bgColor: '#fef3c7' };
             default:
                 return { iconName: 'file', iconColor: '#64748b', bgColor: '#f1f5f9' };
         }
@@ -69,18 +70,12 @@ export const PdfItem = ({ file, onPress, onShare, onFavorite, isFavorite, onRena
 
     useEffect(() => {
         if (isDeleting) {
-            // Slide out to LEFT
             Animated.timing(translateX, {
                 toValue: -SCREEN_WIDTH,
                 duration: 300,
                 useNativeDriver: true,
             }).start();
         } else if (isRestoring) {
-            // If restoring, we might want to start from -SCREEN_WIDTH and go to 0
-            // But React renders a new component instance unless we keep key consistent. 
-            // Assuming key is consistent, we can animate back.
-            // If key changes, we need to set initial value.
-            // Let's assume parent handles state/key properly.
             translateX.setValue(-SCREEN_WIDTH);
             Animated.spring(translateX, {
                 toValue: 0,
@@ -88,7 +83,6 @@ export const PdfItem = ({ file, onPress, onShare, onFavorite, isFavorite, onRena
                 bounciness: 6
             }).start();
         } else {
-            // Reset if needed (e.g. recycling views)
             translateX.setValue(0);
         }
     }, [isDeleting, isRestoring]);
@@ -105,7 +99,7 @@ export const PdfItem = ({ file, onPress, onShare, onFavorite, isFavorite, onRena
 
     return (
         <Animated.View style={[styles.swipeWrapper, { transform: [{ translateX }] }]}>
-            <View style={styles.container}>
+            <View style={[styles.container, { backgroundColor: colors.surfaceLight }]}>
                 <TouchableOpacity
                     style={styles.mainContent}
                     onPress={onPress}
@@ -126,11 +120,15 @@ export const PdfItem = ({ file, onPress, onShare, onFavorite, isFavorite, onRena
                         )}
                     </View>
                     <View style={styles.infoContainer}>
-                        <Text style={styles.name} numberOfLines={1}>{file.name}</Text>
+                        <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{file.name}</Text>
                         <View style={styles.metaContainer}>
-                            <Text style={styles.metaText}>{formattedSize}</Text>
-                            <View style={styles.dot} />
-                            <Text style={styles.metaText}>{formattedDate}</Text>
+                            <Text style={[styles.metaText, { color: colors.textSecondary }]}>{formattedDate}</Text>
+                            {file.pageCount !== undefined && (
+                                <>
+                                    <View style={[styles.dot, { backgroundColor: colors.border }]} />
+                                    <Text style={[styles.metaText, { color: colors.textSecondary }]}>{file.pageCount} p.</Text>
+                                </>
+                            )}
                         </View>
                     </View>
                 </TouchableOpacity>
@@ -141,7 +139,7 @@ export const PdfItem = ({ file, onPress, onShare, onFavorite, isFavorite, onRena
                         <FavoriteParticles trigger={showBurst} />
                     </TouchableOpacity>
                     <TouchableOpacity onPress={onShare} style={styles.actionButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                        <Icon name="share" size={20} color={theme.colors.primary} />
+                        <Icon name="share" size={20} color={colors.primary} />
                     </TouchableOpacity>
                 </View>
             </View>
@@ -159,9 +157,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         padding: theme.spacing.m,
-        backgroundColor: theme.colors.surfaceLight,
         borderRadius: theme.borderRadius.l,
-        // Shadow
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.1,
@@ -177,7 +173,6 @@ const styles = StyleSheet.create({
         width: 40,
         height: 40,
         borderRadius: theme.borderRadius.m,
-        backgroundColor: '#fee2e2', // red-50
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: theme.spacing.m,
@@ -189,7 +184,6 @@ const styles = StyleSheet.create({
     name: {
         fontSize: 16,
         fontWeight: '600',
-        color: theme.colors.text,
         marginBottom: 2,
     },
     metaContainer: {
@@ -198,14 +192,12 @@ const styles = StyleSheet.create({
     },
     metaText: {
         fontSize: 12,
-        color: theme.colors.textSecondary,
         fontWeight: '500',
     },
     dot: {
         width: 4,
         height: 4,
         borderRadius: 2,
-        backgroundColor: '#cbd5e1',
         marginHorizontal: 6,
     },
     actionsContainer: {

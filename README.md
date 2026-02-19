@@ -22,24 +22,7 @@
 
 ---
 
-## ✨ Features
-
----
-
-## 📸 Screenshots
-
-<!-- Add your screenshots here -->
-<!-- <p align="center">
-  <img src="docs/screenshots/home.png" width="200" />
-  <img src="docs/screenshots/viewer.png" width="200" />
-  <img src="docs/screenshots/search.png" width="200" />
-</p> -->
-
-> _Screenshots coming soon_
-
----
-
-## 📂 Project Structure
+## Project Structure
 
 ```
 PDFortuna/
@@ -74,7 +57,7 @@ PDFortuna/
 ```
 ---
 
-## 📝 License
+## License
 
 This project is licensed under the **Creative Commons Attribution-NonCommercial 4.0 International License** — see the [LICENSE](LICENSE) file for details.
 

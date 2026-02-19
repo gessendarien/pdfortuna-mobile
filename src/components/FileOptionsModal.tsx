@@ -1,9 +1,12 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+import { format } from 'date-fns';
 import { View, Text, Modal, TouchableOpacity, StyleSheet } from 'react-native';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { theme } from '../theme';
+import { useTheme } from '../theme/ThemeContext';
 import { LocalFile } from '../services/FileService';
 import { MarqueeText } from './MarqueeText';
+import { t } from '../i18n';
 
 interface Props {
     visible: boolean;
@@ -17,7 +20,20 @@ interface Props {
 }
 
 export const FileOptionsModal = ({ visible, file, isFavorite, onClose, onRename, onDelete, onShare, onFavorite }: Props) => {
+    const { colors, isDarkMode } = useTheme();
+
     if (!file) return null;
+
+    const formattedDate = useMemo(() => format(file.date, 'MMM dd, yyyy'), [file.date]);
+
+    const formattedSize = useMemo(() => {
+        const bytes = file.size;
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    }, [file.size]);
 
     const renderOption = (
         icon: string,
@@ -25,7 +41,7 @@ export const FileOptionsModal = ({ visible, file, isFavorite, onClose, onRename,
         onPress: () => void,
         iconColor: string,
         bgColor: string,
-        textColor: string = theme.colors.text
+        textColor: string = colors.text
     ) => (
         <TouchableOpacity
             style={styles.option}
@@ -36,7 +52,7 @@ export const FileOptionsModal = ({ visible, file, isFavorite, onClose, onRename,
                 <MaterialIcon name={icon} size={22} color={iconColor} />
             </View>
             <Text style={[styles.optionText, { color: textColor }]}>{label}</Text>
-            <MaterialIcon name="chevron-right" size={20} color="#cbd5e1" style={styles.chevron} />
+            <MaterialIcon name="chevron-right" size={20} color={colors.border} style={styles.chevron} />
         </TouchableOpacity>
     );
 
@@ -48,32 +64,39 @@ export const FileOptionsModal = ({ visible, file, isFavorite, onClose, onRename,
             onRequestClose={onClose}
         >
             <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose}>
-                <TouchableOpacity activeOpacity={1} style={styles.content}>
+                <TouchableOpacity activeOpacity={1} style={[styles.content, { backgroundColor: colors.surfaceLight }]}>
                     {/* Header with marquee file name */}
                     <View style={styles.header}>
-                        <MaterialIcon name="description" size={24} color={theme.colors.primary} />
-                        <MarqueeText text={file.name} style={styles.title} />
+                        <View style={styles.titleRow}>
+                            <MaterialIcon name="description" size={24} color={colors.primary} />
+                            <MarqueeText text={file.name} style={[styles.title, { color: colors.text }]} />
+                        </View>
+                        <Text style={[styles.metaText, { color: colors.textSecondary }]}>
+                            {formattedSize}
+                            {` • ${formattedDate}`}
+                            {file.pageCount !== undefined ? ` • ${file.pageCount} p.` : ''}
+                        </Text>
                     </View>
 
-                    <View style={styles.divider} />
+                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
                     {/* Options */}
                     <View style={styles.optionsContainer}>
                         {renderOption(
                             isFavorite ? "favorite" : "favorite-border",
-                            isFavorite ? "Quitar de favoritos" : "Añadir a favoritos",
+                            isFavorite ? t('fileOptions.removeFavorite') : t('fileOptions.addFavorite'),
                             () => {
                                 onFavorite();
                                 onClose();
                             },
                             isFavorite ? "#ef4444" : "#f87171",
                             isFavorite ? "#fee2e2" : "#fef2f2",
-                            isFavorite ? "#ef4444" : theme.colors.text
+                            isFavorite ? "#ef4444" : colors.text
                         )}
 
                         {renderOption(
                             "share",
-                            "Compartir",
+                            t('fileOptions.share'),
                             () => {
                                 onClose();
                                 setTimeout(onShare, 300);
@@ -84,7 +107,7 @@ export const FileOptionsModal = ({ visible, file, isFavorite, onClose, onRename,
 
                         {renderOption(
                             "edit",
-                            "Renombrar",
+                            t('fileOptions.rename'),
                             () => {
                                 onClose();
                                 setTimeout(onRename, 300);
@@ -95,20 +118,20 @@ export const FileOptionsModal = ({ visible, file, isFavorite, onClose, onRename,
 
                         {renderOption(
                             "delete",
-                            "Eliminar",
+                            t('fileOptions.delete'),
                             () => {
                                 onClose();
                                 setTimeout(onDelete, 300);
                             },
                             "#64748b",
-                            "#f1f5f9",
-                            "#64748b"
+                            isDarkMode ? '#FFFFFF' : "#e2e8f0",
+                            colors.text
                         )}
                     </View>
 
                     {/* Cancel button */}
-                    <TouchableOpacity style={styles.buttonClose} onPress={onClose}>
-                        <Text style={styles.buttonCloseText}>Cancelar</Text>
+                    <TouchableOpacity style={[styles.buttonClose, { backgroundColor: isDarkMode ? '#2a2a2a' : '#f8fafc' }]} onPress={onClose}>
+                        <Text style={[styles.buttonCloseText, { color: colors.textSecondary }]}>{t('fileOptions.cancel')}</Text>
                     </TouchableOpacity>
                 </TouchableOpacity>
             </TouchableOpacity>
@@ -125,7 +148,6 @@ const styles = StyleSheet.create({
     },
     content: {
         width: '100%',
-        backgroundColor: '#fff',
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
         paddingBottom: 24,
@@ -136,21 +158,26 @@ const styles = StyleSheet.create({
         shadowRadius: 12,
     },
     header: {
-        flexDirection: 'row',
-        alignItems: 'center',
         paddingHorizontal: 24,
         paddingTop: 24,
         paddingBottom: 16,
+    },
+    titleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
         gap: 12,
+        marginBottom: 4,
+    },
+    metaText: {
+        fontSize: 13,
+        marginLeft: 36, // 24(icon) + 12(gap)
     },
     title: {
         fontSize: 17,
         fontWeight: '600',
-        color: theme.colors.text,
     },
     divider: {
         height: 1,
-        backgroundColor: '#f1f5f9',
         marginHorizontal: 24,
     },
     optionsContainer: {
@@ -174,7 +201,6 @@ const styles = StyleSheet.create({
         flex: 1,
         fontSize: 16,
         fontWeight: '500',
-        color: theme.colors.text,
     },
     chevron: {
         opacity: 0.3,
@@ -184,11 +210,9 @@ const styles = StyleSheet.create({
         marginHorizontal: 24,
         alignItems: 'center',
         paddingVertical: 14,
-        backgroundColor: '#f8fafc',
         borderRadius: 12,
     },
     buttonCloseText: {
-        color: theme.colors.textSecondary,
         fontSize: 16,
         fontWeight: '600',
     }

@@ -5,9 +5,11 @@ import { useNavigation } from '@react-navigation/native';
 import Share from 'react-native-share';
 import RNFS from 'react-native-fs';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { LocalFile, scanDocuments, requestFilePermissions, checkManagePermission, deleteFile, renameFile, openFileInExternalApp } from '../services/FileService';
+import { LocalFile, scanDocuments, requestFilePermissions, checkManagePermission, checkFilePermissions, deleteFile, renameFile, openFileInExternalApp } from '../services/FileService';
 import { StorageService } from '../services/StorageService';
 import { theme } from '../theme';
+import { useTheme } from '../theme/ThemeContext';
+import { t } from '../i18n';
 import { PdfItem } from '../components/PdfItem';
 import { PdfGridItem } from '../components/PdfGridItem';
 import { RenameModal } from '../components/RenameModal';
@@ -18,6 +20,8 @@ import { SettingsModal } from '../components/SettingsModal';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { UndoToast } from '../components/UndoToast';
 import { CreditsModal } from '../components/CreditsModal';
+import { BannerAdItem } from '../components/BannerAdItem';
+import { AdConfig } from '../config/AdConfig';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -28,6 +32,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 export const HomeScreen = () => {
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<any>();
+    const { colors } = useTheme();
     const [files, setFiles] = useState<LocalFile[]>([]);
     const [permissionGranted, setPermissionGranted] = useState<boolean>(false);
     const [isCheckingPermissions, setIsCheckingPermissions] = useState<boolean>(true);
@@ -39,6 +44,7 @@ export const HomeScreen = () => {
 
     // View Mode
     const [isGridView, setIsGridView] = useState(false);
+    const [startupViewMode, setStartupViewMode] = useState(false);
     const [optionsFile, setOptionsFile] = useState<LocalFile | null>(null);
     const [optionsModalVisible, setOptionsModalVisible] = useState(false);
 
@@ -73,7 +79,7 @@ export const HomeScreen = () => {
     const [restoringFileId, setRestoringFileId] = useState<string | null>(null);
 
     // Share State - Prevent multiple share dialogs
-    const [isSharing, setIsSharing] = useState<boolean>(false);
+    const isSharingRef = useRef<boolean>(false);
 
     const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const animationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -83,11 +89,21 @@ export const HomeScreen = () => {
         const load = async () => {
             const prefs = await StorageService.loadSettings();
             if (prefs) {
-                if (prefs.showPreviews !== undefined) setShowPreviews(prefs.showPreviews);
-                if (prefs.showWord !== undefined) setShowWord(prefs.showWord);
-                if (prefs.openWordInApp !== undefined) setOpenWordInApp(prefs.openWordInApp);
-                if (prefs.showODF !== undefined) setShowODF(prefs.showODF);
-                if (prefs.isGridView !== undefined) setIsGridView(prefs.isGridView);
+                if (prefs.showPreviews !== undefined) setShowPreviews(!!prefs.showPreviews);
+                if (prefs.showWord !== undefined) setShowWord(!!prefs.showWord);
+                if (prefs.openWordInApp !== undefined) setOpenWordInApp(!!prefs.openWordInApp);
+                if (prefs.showODF !== undefined) setShowODF(!!prefs.showODF);
+
+                // Load startup view mode
+                let startup = false;
+                if (prefs.startupViewMode !== undefined) {
+                    startup = !!prefs.startupViewMode;
+                } else if (prefs.isGridView !== undefined) {
+                    // Migration: used old setting
+                    startup = !!prefs.isGridView;
+                }
+                setStartupViewMode(startup);
+                setIsGridView(startup); // Set current view to startup preference
             }
             setIsSettingsLoaded(true);
         };
@@ -102,15 +118,23 @@ export const HomeScreen = () => {
             showWord,
             openWordInApp,
             showODF,
-            isGridView
+            startupViewMode // Save the preferred startup mode, not the current view
         });
-    }, [isSettingsLoaded, showPreviews, showWord, openWordInApp, showODF, isGridView]);
+    }, [isSettingsLoaded, showPreviews, showWord, openWordInApp, showODF, startupViewMode]);
 
     useEffect(() => {
         checkPermission();
         loadFavorites();
 
+        // Add AppState listener to re-check permissions when app comes to foreground
+        const subscription = AppState.addEventListener('change', nextAppState => {
+            if (nextAppState === 'active') {
+                checkPermission();
+            }
+        });
+
         return () => {
+            subscription.remove();
             if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current);
             if (animationTimerRef.current) clearTimeout(animationTimerRef.current);
         };
@@ -118,28 +142,26 @@ export const HomeScreen = () => {
 
     // Auto-reset filter to 'all' when Word or ODF get re-enabled from settings
     useEffect(() => {
-        // If at least one format is now enabled (Word or ODF)
-        // and filter is currently 'pdf' (meaning it might have been the only option)
-        // then reset to 'all' to show the new options
         if ((showWord || showODF) && filterType === 'pdf') {
             setFilterType('all');
         }
     }, [showWord, showODF]);
 
+
     const checkPermission = async () => {
         setLoading(true);
-
-        // Try the new check first for Android 11+
+        // First check if manage permission logic applies (for Android 11+)
         const isManaged = await checkManagePermission();
         if (isManaged) {
             setPermissionGranted(true);
             setIsCheckingPermissions(false);
             scanFiles();
-            return; // Stop here, we are good
+            return;
         }
 
-        const canScan = await requestFilePermissions();
-        if (canScan) {
+        // Use checkFilePermissions to see if we have access WITHOUT requesting
+        const hasAccess = await checkFilePermissions();
+        if (hasAccess) {
             setPermissionGranted(true);
             scanFiles();
         } else {
@@ -174,6 +196,8 @@ export const HomeScreen = () => {
             setPermissionGranted(true);
             scanFiles();
         }
+        // If not granted (returned false), it might be because we redirected to settings.
+        // The AppState listener will handle the check on return.
     };
 
     const handleFilePress = (file: LocalFile) => {
@@ -196,16 +220,14 @@ export const HomeScreen = () => {
     };
 
     const handleShare = async (file: LocalFile) => {
-        // Prevent multiple share dialogs from opening
-        if (isSharing) {
+        if (isSharingRef.current) {
             console.log('Share already in progress, ignoring...');
             return;
         }
 
-        setIsSharing(true);
+        isSharingRef.current = true;
         let destPath = '';
         try {
-            // Strategy 1: Copy to temp (cache) to fix permission/path issues
             destPath = `${RNFS.CachesDirectoryPath}/${file.name}`;
 
             if (await RNFS.exists(destPath)) {
@@ -217,13 +239,12 @@ export const HomeScreen = () => {
 
             await Share.open({
                 url: cleanUrl,
-                title: 'Compartir Archivo',
+                title: t('viewer.shareTitle'),
                 failOnCancel: false,
             });
         } catch (error: any) {
             console.log('Copy/Share failed, trying Base64:', error);
 
-            // If user simply cancelled, don't try base64 or alert
             if (error && error.message === 'User did not share') return;
 
             try {
@@ -237,18 +258,17 @@ export const HomeScreen = () => {
 
                 await Share.open({
                     url: dataUrl,
-                    title: 'Compartir Archivo',
+                    title: t('viewer.shareTitle'),
                     type: mimeType,
                     failOnCancel: false,
                     filename: file.name,
                 });
             } catch (err2) {
                 console.log('Base64 share failed:', err2);
-                Alert.alert('Error', 'No se pudo compartir el archivo.');
+                Alert.alert('Error', t('errors.shareError'));
             }
         } finally {
-            // Always reset the sharing state
-            setIsSharing(false);
+            isSharingRef.current = false;
 
             if (destPath) {
                 try {
@@ -273,115 +293,81 @@ export const HomeScreen = () => {
     };
 
     const performDelete = (file: LocalFile) => {
-        // If there's already a pending delete, commit it instantly to handle the new one
         if (pendingDeleteFile) {
             commitDeleteNow(pendingDeleteFile);
         }
 
-        // 1. Trigger exit animation
         setDeletingFileId(file.path);
 
-        // 2. Wait for animation to finish before removing from list
         if (animationTimerRef.current) clearTimeout(animationTimerRef.current);
         animationTimerRef.current = setTimeout(() => {
-            // Animated remove from list (closing the gap)
             LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-
-            // Remove locally from state
             setFiles(prev => prev.filter(f => f.path !== file.path));
             setDeletingFileId(null);
-
-            // Set pending for Undo
             setPendingDeleteFile(file);
 
-            // Start commit timer (3s)
             if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current);
             deleteTimerRef.current = setTimeout(() => {
                 commitDeleteNow(file);
             }, 3000);
-
-        }, 300); // 300ms matches PdfItem animation duration
+        }, 300);
     };
 
     const commitDeleteNow = async (file: LocalFile) => {
         if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current);
-        setPendingDeleteFile(null); // Clear pending UI
-
-        // Actual delete
+        setPendingDeleteFile(null);
         const success = await deleteFile(file.path);
         if (!success) {
-            // If failed, we should probably add it back, but handling that edge case seamlessly is tricky.
-            // For now, re-scan to ensure truth.
             scanFiles();
         }
     };
 
     const handleUndoDelete = () => {
         if (!pendingDeleteFile) return;
-
-        // Clear timer
         if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current);
-
         const fileToRestore = pendingDeleteFile;
-
-        // 1. Add back to list invisible or preparing to animate in
-        // LayoutAnimation handles the gap opening
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         setFiles(prev => [...prev, fileToRestore]);
-
-        // 2. Set as restoring to trigger "slide in" animation in PdfItem
         setRestoringFileId(fileToRestore.path);
         setPendingDeleteFile(null);
-
-        // 3. Clear restoring status after animation
         setTimeout(() => {
             setRestoringFileId(null);
-        }, 400); // Slightly longer than 300ms to be safe
+        }, 400);
     };
 
     const onRenameFile = async (newName: string) => {
         if (!fileToRename) return;
 
-        // Ensure extension is kept or managed.
-        // Simple logic: if newName lacks extension, add original extension??
-        // Wait, RenameModal forces .pdf.
-        // We probably should adapt RenameModal to be generic or keep .pdf logic?
-        // User explicitly asked to restrict extension editing.
-        // But if it is .docx, forcing .pdf is WRONG.
-        // I need to update RenameModal logic in HomeScreen or RenameModal itself.
-        // Actually RenameModal handles UI. onRenameFile receives the new name.
-        // RenameModal currently hardcodes ".pdf". This is a potential bug if editing a .docx.
-        // But for now let's just update HomeScreen logic first.
-
-        // I SHOULD FIX RenameModal too if I want it to respect other extensions.
-        // But first let's get HomeScreen working.
+        // Check if currently a favorite before renaming
+        const wasFavorite = favorites.includes(fileToRename.path);
+        const oldPath = fileToRename.path; // capture old path
 
         const success = await renameFile(fileToRename.path, newName);
         if (success) {
-            scanFiles(); // Refresh list
-        } else {
-            // Alert.alert('Error', 'No se pudo renombrar el archivo.');
+            if (wasFavorite) {
+                // Calculate new path based on how renameFile does it (same folder)
+                const lastSlash = oldPath.lastIndexOf('/');
+                const newPath = oldPath.substring(0, lastSlash + 1) + newName;
+                await StorageService.replaceFavoritePath(oldPath, newPath);
+                loadFavorites(); // Refresh favorites list
+            }
+            scanFiles();
         }
     };
 
     const filteredFiles = useMemo(() => {
         let result = [...files];
 
-        // Filter by tab
         if (activeTab === 'favorites') {
             result = result.filter(f => favorites.includes(f.path));
-            // Sort favorites alphabetically too
             result.sort((a, b) => a.name.localeCompare(b.name));
         } else if (activeTab === 'recent') {
-            // Sort by date desc
             result.sort((a, b) => b.date.getTime() - a.date.getTime());
             result = result.slice(0, 10);
         } else {
-            // Default 'all': Sort alphabetically
             result.sort((a, b) => a.name.localeCompare(b.name));
         }
 
-        // Filter by Type
         if (filterType !== 'all') {
             if (filterType === 'pdf') {
                 result = result.filter(f => f.type === 'pdf');
@@ -399,7 +385,6 @@ export const HomeScreen = () => {
             result = result.filter(f => f.type !== 'odf');
         }
 
-        // Filter by search
         if (searchQuery) {
             result = result.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase()));
         }
@@ -407,134 +392,198 @@ export const HomeScreen = () => {
         return result;
     }, [files, searchQuery, favorites, activeTab, filterType, showWord, showODF]);
 
+    const displayList = useMemo(() => {
+        if (!isGridView) {
+            const list: any[] = [];
+            filteredFiles.forEach((file, index) => {
+                list.push(file);
+                if ((index + 1) % 10 === 0) {
+                    list.push({ type: 'ad', id: `ad-${index}`, path: `ad-${index}` });
+                }
+            });
+            const remainder = filteredFiles.length % 10;
+            if (remainder >= 4) {
+                list.push({ type: 'ad', id: `ad-last`, path: `ad-last` });
+            }
+            return list;
+        } else {
+            const list: any[] = [];
+            let currentPair: LocalFile[] = [];
+            let fileCount = 0;
+
+            filteredFiles.forEach((file, index) => {
+                currentPair.push(file);
+                fileCount++;
+
+                if (currentPair.length === 2) {
+                    list.push({ type: 'row', id: `row-${index}`, items: [...currentPair] });
+                    currentPair = [];
+                }
+
+                if (fileCount > 0 && fileCount % 10 === 0) {
+                    list.push({ type: 'ad', id: `ad-g-${fileCount}` });
+                }
+            });
+
+            if (currentPair.length > 0) {
+                list.push({ type: 'row', id: `row-last`, items: [...currentPair] });
+            }
+
+            const remainder = filteredFiles.length % 10;
+            if (remainder >= 4) {
+                list.push({ type: 'ad', id: `ad-g-last` });
+            }
+
+            return list;
+        }
+    }, [filteredFiles, isGridView]);
+
     // Only show permission request if we are done checking and definitely don't have permissions
     if (!isCheckingPermissions && !permissionGranted) {
         return (
-            <View style={styles.permissionContainer}>
-                <Icon name="folder-open" size={64} color={theme.colors.primary} />
-                <Text style={styles.permissionTitle}>Permiso de Acceso</Text>
-                <Text style={styles.permissionText}>
-                    PDFortuna necesita acceso a los archivos de tu dispositivo para encontrar tus documentos.
-                    {'\n'}
-                    Esta app no envía ninguna información a servidores externos y todos los datos permanecen en tu dispositivo por lo que tu privacidad está protegida.
-                    {'\n'}
-                    Para continuar otorga los permisos necesarios.
+            <View style={[styles.permissionContainer, { backgroundColor: colors.backgroundLight }]}>
+                <Icon name="folder-open" size={64} color={colors.primary} />
+                <Text style={[styles.permissionTitle, { color: colors.text }]}>{t('permission.title')}</Text>
+                <Text style={[styles.permissionText, { color: colors.textSecondary }]}>
+                    {t('permission.text')}
                 </Text>
-                <TouchableOpacity style={styles.permissionButton} onPress={handleGrantPermission}>
-                    <Text style={styles.permissionButtonText}>Permitir acceso</Text>
+                <TouchableOpacity style={[styles.permissionButton, { backgroundColor: colors.primary }]} onPress={handleGrantPermission}>
+                    <Text style={styles.permissionButtonText}>{t('permission.button')}</Text>
                 </TouchableOpacity>
             </View>
         );
     }
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top }]}>
-            <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent={true} />
-
+        <View style={[styles.container, { backgroundColor: colors.backgroundLight, paddingTop: insets.top }]}>
             {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => setCreditsVisible(true)}>
-                    <Text style={styles.headerTitle}>PDFortuna</Text>
+                    <Text style={[styles.headerTitle, { color: colors.text }]}>PDFortuna</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => setSettingsVisible(true)}>
-                    <Icon name="settings" size={24} color={theme.colors.textSecondary} />
+                    <Icon name="settings" size={24} color={colors.textSecondary} />
                 </TouchableOpacity>
             </View>
 
             {/* Search */}
-            <View style={styles.searchContainer}>
+            <View style={[styles.searchContainer, { backgroundColor: colors.surfaceLight, borderColor: colors.border }]}>
                 <TouchableOpacity onPress={() => setFilterModalVisible(true)} style={{ marginRight: 8 }} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                    <Icon name="filter-list" size={24} color={filterType !== 'all' ? theme.colors.primary : theme.colors.textSecondary} />
+                    <Icon name="filter-list" size={24} color={filterType !== 'all' ? colors.primary : colors.textSecondary} />
                 </TouchableOpacity>
                 <TextInput
-                    style={styles.searchInput}
-                    placeholder="Buscar documentos..."
-                    placeholderTextColor={theme.colors.textSecondary}
+                    style={[styles.searchInput, { color: colors.text }]}
+                    placeholder={t('home.searchPlaceholder')}
+                    placeholderTextColor={colors.textSecondary}
                     value={searchQuery}
                     onChangeText={setSearchQuery}
                 />
                 {searchQuery.length > 0 &&
                     <TouchableOpacity onPress={() => setSearchQuery('')}>
-                        <Icon name="close" size={20} color={theme.colors.textSecondary} />
+                        <Icon name="close" size={20} color={colors.textSecondary} />
                     </TouchableOpacity>
                 }
             </View>
 
             {/* Tabs */}
             <View style={styles.tabsContainer}>
-                <TouchableOpacity onPress={() => setActiveTab('all')} style={[styles.tab, activeTab === 'all' && styles.activeTab]}>
-                    <Text style={[styles.tabText, activeTab === 'all' && styles.activeTabText]}>Todos</Text>
+                <TouchableOpacity onPress={() => setActiveTab('all')} style={[styles.tab, { backgroundColor: colors.surfaceLight, borderColor: colors.border }, activeTab === 'all' && { backgroundColor: colors.primary, borderColor: colors.primary }]}>
+                    <Text style={[styles.tabText, { color: colors.textSecondary }, activeTab === 'all' && styles.activeTabText]}>{t('tabs.all')}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => setActiveTab('recent')} style={[styles.tab, activeTab === 'recent' && styles.activeTab]}>
-                    <Text style={[styles.tabText, activeTab === 'recent' && styles.activeTabText]}>Recientes</Text>
+                <TouchableOpacity onPress={() => setActiveTab('recent')} style={[styles.tab, { backgroundColor: colors.surfaceLight, borderColor: colors.border }, activeTab === 'recent' && { backgroundColor: colors.primary, borderColor: colors.primary }]}>
+                    <Text style={[styles.tabText, { color: colors.textSecondary }, activeTab === 'recent' && styles.activeTabText]}>{t('tabs.recent')}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => setActiveTab('favorites')} style={[styles.tab, activeTab === 'favorites' && styles.activeTab]}>
-                    <Text style={[styles.tabText, activeTab === 'favorites' && styles.activeTabText]}>Favoritos</Text>
+                <TouchableOpacity onPress={() => setActiveTab('favorites')} style={[styles.tab, { backgroundColor: colors.surfaceLight, borderColor: colors.border }, activeTab === 'favorites' && { backgroundColor: colors.primary, borderColor: colors.primary }]}>
+                    <Text style={[styles.tabText, { color: colors.textSecondary }, activeTab === 'favorites' && styles.activeTabText]}>{t('tabs.favorites')}</Text>
                 </TouchableOpacity>
                 <View style={{ flex: 1 }} />
                 <TouchableOpacity onPress={() => setIsGridView(!isGridView)} style={{ padding: 6 }}>
-                    <Icon name={isGridView ? "view-list" : "grid-view"} size={24} color={theme.colors.textSecondary} />
+                    <Icon name={isGridView ? "view-list" : "grid-view"} size={24} color={colors.textSecondary} />
                 </TouchableOpacity>
             </View>
 
             {/* Content */}
             {(loading || isCheckingPermissions) ? (
                 <View style={styles.center}>
-                    <ActivityIndicator size="large" color={theme.colors.primary} />
-                    <Text style={{ marginTop: 10, color: theme.colors.textSecondary }}>Escaneando archivos...</Text>
+                    <ActivityIndicator size="large" color={colors.primary} />
+                    <Text style={{ marginTop: 10, color: colors.textSecondary }}>{t('home.scanning')}</Text>
                 </View>
             ) : filteredFiles.length === 0 ? (
                 <View style={styles.center}>
-                    <Icon name="search-off" size={48} color={theme.colors.textSecondary} />
-                    <Text style={{ marginTop: 10, color: theme.colors.textSecondary }}>No se encontraron documentos</Text>
+                    <Icon name="search-off" size={48} color={colors.textSecondary} />
+                    <Text style={{ marginTop: 10, color: colors.textSecondary }}>
+                        {activeTab === 'favorites' ? t('home.noFavorites') :
+                            activeTab === 'recent' ? t('home.noRecent') :
+                                t('home.noDocuments')}
+                    </Text>
                 </View>
             ) : (
                 <FlatList
                     refreshing={refreshing}
                     onRefresh={handleRefresh}
                     key={isGridView ? 'grid' : 'list'}
-                    data={filteredFiles}
-                    keyExtractor={(item) => item.path}
-                    numColumns={isGridView ? 2 : 1}
-                    columnWrapperStyle={isGridView ? { justifyContent: 'space-between', paddingHorizontal: 16 } : undefined}
+                    data={displayList}
+                    keyExtractor={(item) => item.path || item.id}
+                    numColumns={1}
                     initialNumToRender={isGridView ? 4 : 8}
                     maxToRenderPerBatch={isGridView ? 2 : 10}
                     windowSize={isGridView ? 3 : 11}
                     removeClippedSubviews={true}
-                    renderItem={({ item }) => isGridView ? (
-                        <PdfGridItem
-                            file={item}
-                            onPress={() => handleFilePress(item)}
-                            onMore={() => {
-                                setOptionsFile(item);
-                                setOptionsModalVisible(true);
-                            }}
-                            isFavorite={favorites.includes(item.path)}
-                            showPreview={showPreviews}
-                            isDeleting={deletingFileId === item.path}
-                            isRestoring={restoringFileId === item.path}
-                        />
-                    ) : (
-                        <PdfItem
-                            file={item}
-                            onPress={() => handleFilePress(item)}
-                            onShare={() => handleShare(item)}
-                            onFavorite={() => handleFavorite(item)}
-                            isFavorite={favorites.includes(item.path)}
-                            onRename={() => {
-                                setFileToRename(item);
-                                setRenameModalVisible(true);
-                            }}
-                            onDelete={() => handleDelete(item)}
-                            isDeleting={deletingFileId === item.path}
-                            isRestoring={restoringFileId === item.path}
-                            showPreview={showPreviews}
-                            onLongPress={() => {
-                                setOptionsFile(item);
-                                setOptionsModalVisible(true);
-                            }}
-                        />
-                    )}
+                    renderItem={({ item }) => {
+                        if (item.type === 'ad') {
+                            return <BannerAdItem unitId={AdConfig.bannerId} />;
+                        }
+
+                        if (isGridView) {
+                            if (item.type === 'row') {
+                                return (
+                                    <View style={{ flexDirection: 'row', paddingHorizontal: 16, justifyContent: 'space-between' }}>
+                                        {item.items.map((file: LocalFile) => (
+                                            <View key={file.path} style={{ width: '48%' }}>
+                                                <PdfGridItem
+                                                    file={file}
+                                                    onPress={() => handleFilePress(file)}
+                                                    onMore={() => {
+                                                        setOptionsFile(file);
+                                                        setOptionsModalVisible(true);
+                                                    }}
+                                                    isFavorite={favorites.includes(file.path)}
+                                                    showPreview={showPreviews}
+                                                    isDeleting={deletingFileId === file.path}
+                                                    isRestoring={restoringFileId === file.path}
+                                                />
+                                            </View>
+                                        ))}
+                                        {/* Spacer for odd number of items */}
+                                        {item.items.length === 1 && <View style={{ width: '48%' }} />}
+                                    </View>
+                                );
+                            }
+                            return null;
+                        }
+
+                        return (
+                            <PdfItem
+                                file={item}
+                                onPress={() => handleFilePress(item)}
+                                onShare={() => handleShare(item)}
+                                onFavorite={() => handleFavorite(item)}
+                                isFavorite={favorites.includes(item.path)}
+                                onRename={() => {
+                                    setFileToRename(item);
+                                    setRenameModalVisible(true);
+                                }}
+                                onDelete={() => handleDelete(item)}
+                                isDeleting={deletingFileId === item.path}
+                                isRestoring={restoringFileId === item.path}
+                                showPreview={showPreviews}
+                                onLongPress={() => {
+                                    setOptionsFile(item);
+                                    setOptionsModalVisible(true);
+                                }}
+                            />
+                        );
+                    }}
                     contentContainerStyle={{ paddingBottom: 80 }}
                 />
             )}
@@ -553,7 +602,7 @@ export const HomeScreen = () => {
 
             <UndoToast
                 visible={!!pendingDeleteFile}
-                message="Archivo eliminado"
+                message={t('delete.undoMessage')}
                 onUndo={handleUndoDelete}
             />
 
@@ -613,8 +662,8 @@ export const HomeScreen = () => {
                 onToggleShowWord={setShowWord}
                 openWordInApp={openWordInApp}
                 onToggleOpenWordInApp={setOpenWordInApp}
-                currentViewMode={isGridView}
-                onToggleViewMode={setIsGridView}
+                startupViewMode={startupViewMode}
+                onToggleStartupViewMode={setStartupViewMode}
                 showODF={showODF}
                 onToggleShowODF={setShowODF}
             />
@@ -626,16 +675,16 @@ export const HomeScreen = () => {
 
             <ConfirmModal
                 visible={confirmDeleteVisible}
-                title="Eliminar archivo"
-                message={`¿Estás seguro de que deseas eliminar "${confirmDeleteFile?.name || 'este archivo'}"?`}
+                title={t('delete.title')}
+                message={t('delete.message', { name: confirmDeleteFile?.name || '' })}
                 onConfirm={() => {
                     if (confirmDeleteFile) performDelete(confirmDeleteFile);
                     setConfirmDeleteVisible(false);
                 }}
                 onCancel={() => setConfirmDeleteVisible(false)}
-                confirmText="Eliminar"
-                cancelText="Cancelar"
-                confirmColor={theme.colors.error}
+                confirmText={t('delete.confirm')}
+                cancelText={t('delete.cancel')}
+                confirmColor={colors.error}
             />
         </View>
     );
@@ -644,31 +693,26 @@ export const HomeScreen = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: theme.colors.backgroundLight,
     },
     permissionContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
         padding: 24,
-        backgroundColor: theme.colors.backgroundLight,
     },
     permissionTitle: {
         fontSize: 22,
         fontWeight: 'bold',
         marginTop: 20,
         marginBottom: 10,
-        color: theme.colors.text,
     },
     permissionText: {
         fontSize: 16,
         textAlign: 'center',
-        color: theme.colors.textSecondary,
         marginBottom: 30,
         lineHeight: 24,
     },
     permissionButton: {
-        backgroundColor: theme.colors.primary,
         paddingHorizontal: 24,
         paddingVertical: 12,
         borderRadius: theme.borderRadius.full,
@@ -688,24 +732,20 @@ const styles = StyleSheet.create({
     headerTitle: {
         fontSize: 24,
         fontWeight: 'bold',
-        color: theme.colors.text,
     },
     searchContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: theme.colors.surfaceLight,
         marginHorizontal: 16,
         paddingHorizontal: 12,
         borderRadius: 12,
         height: 48,
         marginBottom: 16,
         borderWidth: 1,
-        borderColor: theme.colors.border
     },
     searchInput: {
         flex: 1,
         fontSize: 16,
-        color: theme.colors.text,
     },
     tabsContainer: {
         flexDirection: 'row',
@@ -717,18 +757,11 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 6,
         borderRadius: 20,
-        backgroundColor: theme.colors.surfaceLight,
         borderWidth: 1,
-        borderColor: theme.colors.border,
-    },
-    activeTab: {
-        backgroundColor: theme.colors.primary,
-        borderColor: theme.colors.primary,
     },
     tabText: {
         fontSize: 14,
         fontWeight: '500',
-        color: theme.colors.textSecondary,
     },
     activeTabText: {
         color: '#fff',

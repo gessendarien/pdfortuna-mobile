@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, Animated, Easing } from 'react-native';
-import { theme } from '../theme';
+import { useTheme } from '../theme/ThemeContext';
 
 interface Props {
     trigger: boolean;
@@ -8,9 +8,10 @@ interface Props {
 
 const PARTICLE_COUNT = 12;
 const RADIUS = 35;
-const COLORS = [theme.colors.primary, '#ef4444', '#f59e0b', '#3b82f6'];
 
 export const FavoriteParticles = ({ trigger }: Props) => {
+    const { colors } = useTheme();
+    const COLORS = [colors.primary, '#ef4444', '#f59e0b', '#3b82f6'];
     // Array of animations for each particle
     const particles = useRef([...Array(PARTICLE_COUNT)].map(() => new Animated.Value(0))).current;
 
@@ -54,7 +55,7 @@ export const FavoriteParticles = ({ trigger }: Props) => {
                 });
                 const scale = anim.interpolate({
                     inputRange: [0, 1],
-                    outputRange: [1.5, 0] // Start larger
+                    outputRange: [1.5, 0]
                 });
 
                 return (

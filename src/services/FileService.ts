@@ -4,7 +4,7 @@ import SendIntentAndroid from 'react-native-send-intent';
 import FileViewer from 'react-native-file-viewer';
 import PdfThumbnail from "react-native-pdf-thumbnail";
 
-const { FileOpener } = NativeModules;
+const { FileOpener, PdfMeta } = NativeModules;
 
 export interface LocalFile {
     name: string;
@@ -12,13 +12,50 @@ export interface LocalFile {
     size: number;
     date: Date;
     type: 'pdf' | 'doc' | 'docx' | 'odf';
+    pageCount?: number;
 }
+
+export const checkFilePermissions = async (): Promise<boolean> => {
+    if (Platform.OS === 'android') {
+        if (Platform.Version >= 30) {
+            return await PermissionsAndroid.check('android.permission.MANAGE_EXTERNAL_STORAGE' as any);
+        }
+
+        const read = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE);
+        const write = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE);
+        return read && write;
+    }
+    return true;
+};
 
 export const requestFilePermissions = async (): Promise<boolean> => {
     if (Platform.OS === 'android') {
         try {
             if (Platform.Version >= 30) {
-                return true;
+                // Check if we already have the permission
+                const hasPermission = await PermissionsAndroid.check('android.permission.MANAGE_EXTERNAL_STORAGE' as any);
+                if (hasPermission) {
+                    return true;
+                }
+
+                // Use our own native module which implements the correct Intent with package URI
+                try {
+                    const { PermissionModule } = NativeModules;
+                    if (PermissionModule && typeof PermissionModule.openManageAllFilesAccessSettings === 'function') {
+                        PermissionModule.openManageAllFilesAccessSettings();
+                    } else {
+                        // Fallback just in case native module is missing (shouldn't happen)
+                        await Linking.openSettings();
+                    }
+                } catch (e) {
+                    console.warn('Native permission request failed', e);
+                    try {
+                        await Linking.openSettings();
+                    } catch (e2) {
+                        console.warn('Fallback linking failed', e2);
+                    }
+                }
+                return false;
             }
 
             const granted = await PermissionsAndroid.requestMultiple([
@@ -40,7 +77,15 @@ export const requestFilePermissions = async (): Promise<boolean> => {
 
 export const checkManagePermission = async (): Promise<boolean> => {
     if (Platform.OS === 'android' && Platform.Version >= 30) {
-        return await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE);
+        try {
+            const { PermissionModule } = NativeModules;
+            if (PermissionModule && typeof PermissionModule.checkManageAllFilesAccessPermission === 'function') {
+                return await PermissionModule.checkManageAllFilesAccessPermission();
+            }
+        } catch (e) {
+            console.warn('Native permission check failed', e);
+        }
+        return await PermissionsAndroid.check('android.permission.MANAGE_EXTERNAL_STORAGE' as any);
     }
     return true;
 };
@@ -59,12 +104,25 @@ const scanDirRecursive = async (path: string): Promise<LocalFile[]> => {
                     else if (ext === 'docx') type = 'docx';
                     else if (ext === 'odt' || ext === 'odf') type = 'odf';
 
+                    let pageCount: number | undefined;
+                    if (type === 'pdf') {
+                        // Use native module
+                        try {
+                            if (PdfMeta && PdfMeta.getPageCount) {
+                                pageCount = await PdfMeta.getPageCount(item.path);
+                            }
+                        } catch (e) {
+                            // ignore
+                        }
+                    }
+
                     files.push({
                         name: item.name,
                         path: item.path,
                         size: Number(item.size),
                         date: item.mtime || new Date(),
                         type,
+                        pageCount,
                     });
                 }
             } else if (item.isDirectory()) {

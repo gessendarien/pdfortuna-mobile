@@ -1,0 +1,92 @@
+{
+    "appName": "PDFortuna",
+    "permission": {
+        "title": "Permiso de Acceso",
+        "text": "PDFortuna necesita acceso a los archivos de tu dispositivo para encontrar tus documentos.\nEsta app no envía ninguna información a servidores externos y todos los datos permanecen en tu dispositivo por lo que tu privacidad está protegida.\nPara continuar otorga los permisos necesarios.",
+        "button": "Permitir acceso"
+    },
+    "home": {
+        "scanning": "Escaneando archivos...",
+        "noDocuments": "No se encontraron documentos",
+        "noFavorites": "No hay favoritos aún",
+        "noRecent": "No hay documentos recientes",
+        "searchPlaceholder": "Buscar documentos..."
+    },
+    "tabs": {
+        "all": "Todos",
+        "recent": "Recientes",
+        "favorites": "Favoritos"
+    },
+    "settings": {
+        "title": "Configuración",
+        "gridView": "Vista de inicio en cuadrícula",
+        "gridViewDesc": "Muestra los archivos en modo cuadrícula por defecto",
+        "previews": "Mostrar vista previa",
+        "previewsDesc": "Muestra miniaturas de la primera página en PDFs",
+        "showWord": "Mostrar documentos Word",
+        "showWordDesc": "Incluye archivos .doc y .docx en la lista",
+        "openWordInApp": "Abrir Word en la App",
+        "openWordInAppDesc": "Usa el visor rápido integrado en lugar de abrir una app externa",
+        "showODF": "Mostrar documentos ODF",
+        "showODFDesc": "Incluye archivos .odt y .odf en la lista",
+        "removeAds": "Eliminar anuncios",
+        "removeAdsDesc": "Obtén la versión PRO sin anuncios",
+        "darkMode": "Modo oscuro",
+        "darkModeDesc": "Cambia la apariencia de la app"
+    },
+    "fileOptions": {
+        "addFavorite": "Añadir a favoritos",
+        "removeFavorite": "Quitar de favoritos",
+        "share": "Compartir",
+        "rename": "Renombrar",
+        "delete": "Eliminar",
+        "cancel": "Cancelar"
+    },
+    "filter": {
+        "title": "Filtrar por tipo",
+        "all": "Todos",
+        "cancel": "Cancelar"
+    },
+    "rename": {
+        "title": "Renombrar Archivo",
+        "save": "Guardar",
+        "cancel": "Cancelar"
+    },
+    "confirm": {
+        "confirm": "Confirmar",
+        "cancel": "Cancelar"
+    },
+    "delete": {
+        "title": "Eliminar archivo",
+        "message": "¿Estás seguro de que deseas eliminar \"{{name}}\"?",
+        "confirm": "Eliminar",
+        "cancel": "Cancelar",
+        "undoMessage": "Archivo eliminado",
+        "undo": "Deshacer"
+    },
+    "credits": {
+        "credits": "Créditos",
+        "developedBy": "Desarrollado con 💚 por Gessén Darién.",
+        "privacyTitle": "Privacidad y Código fuente",
+        "privacyText": "Esta app no envía ninguna información a servidores externos y todos los datos permanecen en tu dispositivo por lo que tu privacidad está protegida, además puedes ver su ",
+        "sourceCode": "código fuente.",
+        "proTitle": "Versión Pro",
+        "proText": "Esta es una app gratuita pero puedes eliminar la publicidad y apoyar el proyecto comprando la versión PRO sin anuncios.",
+        "proButton": "Obtener Versión PRO"
+    },
+    "viewer": {
+        "document": "Documento",
+        "loading": "Cargando documento...",
+        "converting": "Convirtiendo documento...",
+        "conversionError": "Error al convertir: {{message}}",
+        "retry": "Reintentar",
+        "savedToDownloads": "Guardado en Descargas ✓",
+        "couldNotSave": "No se pudo guardar",
+        "couldNotShare": "No se pudo compartir",
+        "shareTitle": "Compartir Archivo",
+        "saveAs": "Guardar como"
+    },
+    "errors": {
+        "shareError": "No se pudo compartir el archivo."
+    }
+}

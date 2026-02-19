@@ -4,8 +4,8 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { PdfViewerScreen } from './src/screens/PdfViewerScreen';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { StatusBar } from 'react-native';
-import { theme } from './src/theme';
+import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
+import './src/i18n'; // Initialize i18n
 
 export type RootStackParamList = {
   Home: undefined;
@@ -19,8 +19,9 @@ import { handleIncomingIntent, resolveContentUriName } from './src/utils/FileOpe
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Linking } from 'react-native';
 
-function App(): React.JSX.Element {
+function AppContent(): React.JSX.Element {
   const navigationRef = useRef<any>(null);
+  const { colors } = useTheme();
 
   useEffect(() => {
     // Smart handler: resolves the real filename via native ContentUriHelper
@@ -67,20 +68,32 @@ function App(): React.JSX.Element {
   }, []);
 
   return (
+    <SafeAreaProvider>
+      <NavigationContainer ref={navigationRef}>
+        <Stack.Navigator screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: colors.backgroundLight },
+          headerStyle: { backgroundColor: colors.backgroundLight },
+          headerTintColor: colors.primary,
+        }}>
+          <Stack.Screen name="Home" component={HomeScreen} />
+          <Stack.Screen
+            name="PdfViewer"
+            component={PdfViewerScreen}
+            options={({ route }) => ({ title: route.params.name, headerShown: true, headerTintColor: colors.primary })}
+          />
+        </Stack.Navigator>
+      </NavigationContainer>
+    </SafeAreaProvider>
+  );
+}
+
+function App(): React.JSX.Element {
+  return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <StatusBar barStyle="dark-content" backgroundColor={theme.colors.backgroundLight} />
-        <NavigationContainer ref={navigationRef}>
-          <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.colors.backgroundLight } }}>
-            <Stack.Screen name="Home" component={HomeScreen} />
-            <Stack.Screen
-              name="PdfViewer"
-              component={PdfViewerScreen}
-              options={({ route }) => ({ title: route.params.name, headerShown: true, headerTintColor: theme.colors.primary })}
-            />
-          </Stack.Navigator>
-        </NavigationContainer>
-      </SafeAreaProvider>
+      <ThemeProvider>
+        <AppContent />
+      </ThemeProvider>
     </GestureHandlerRootView>
   );
 }

@@ -3,6 +3,8 @@ import { View, Text, Modal, TouchableOpacity, StyleSheet, Dimensions } from 'rea
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { theme } from '../theme';
+import { useTheme } from '../theme/ThemeContext';
+import { t } from '../i18n';
 
 interface Props {
     visible: boolean;
@@ -15,8 +17,8 @@ interface Props {
 }
 
 export const FilterModal = ({ visible, currentFilter, onClose, onSelect, showDoc = true, showODF = true, showAll = true }: Props) => {
+    const { colors, isDarkMode } = useTheme();
 
-    // Helper for rendering an option
     const renderOption = (
         value: 'all' | 'pdf' | 'doc' | 'odf',
         label: string,
@@ -29,18 +31,18 @@ export const FilterModal = ({ visible, currentFilter, onClose, onSelect, showDoc
 
         return (
             <TouchableOpacity
-                style={[styles.option, isSelected && styles.optionSelected]}
+                style={[styles.option, isSelected && { backgroundColor: isDarkMode ? '#2a2a2a' : '#f8fafc' }]}
                 onPress={disabled ? undefined : () => onSelect(value)}
                 disabled={disabled}
             >
-                <View style={[styles.optionIconContainer, { backgroundColor: isSelected ? iconColor + '20' : '#f1f5f9' }]}>
-                    <IconComponent name={iconName} size={24} color={isSelected ? iconColor : theme.colors.textSecondary} />
+                <View style={[styles.optionIconContainer, { backgroundColor: isSelected ? iconColor + '20' : (isDarkMode ? '#2a2a2a' : '#f1f5f9') }]}>
+                    <IconComponent name={iconName} size={24} color={isSelected ? iconColor : colors.textSecondary} />
                 </View>
-                <Text style={[styles.optionText, isSelected && { color: theme.colors.text, fontWeight: '600' }, disabled && { opacity: 0.5 }]}>
+                <Text style={[styles.optionText, { color: colors.textSecondary }, isSelected && { color: colors.text, fontWeight: '600' }, disabled && { opacity: 0.5 }]}>
                     {label}
                 </Text>
                 {isSelected && (
-                    <Icon name="check" size={20} color={theme.colors.primary} style={styles.checkIcon} />
+                    <Icon name="check" size={20} color={colors.primary} style={styles.checkIcon} />
                 )}
             </TouchableOpacity>
         );
@@ -54,16 +56,16 @@ export const FilterModal = ({ visible, currentFilter, onClose, onSelect, showDoc
             onRequestClose={onClose}
         >
             <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose}>
-                <TouchableOpacity activeOpacity={1} style={styles.content}>
-                    <Text style={styles.title}>Filtrar por tipo</Text>
+                <TouchableOpacity activeOpacity={1} style={[styles.content, { backgroundColor: colors.surfaceLight }]}>
+                    <Text style={[styles.title, { color: colors.text }]}>{t('filter.title')}</Text>
 
-                    {showAll && renderOption('all', 'Todos', 'dashboard', theme.colors.primary)}
+                    {showAll && renderOption('all', t('filter.all'), 'dashboard', colors.primary)}
                     {renderOption('pdf', 'PDF', 'file-pdf-box', '#ef4444', MaterialCommunityIcons, !showAll && !showDoc && !showODF)}
                     {showDoc && renderOption('doc', 'Word', 'file-word-box', '#3b82f6', MaterialCommunityIcons)}
                     {showODF && renderOption('odf', 'ODF', 'text-box', '#f59e0b', MaterialCommunityIcons)}
 
                     <TouchableOpacity style={styles.buttonClose} onPress={onClose}>
-                        <Text style={styles.buttonCloseText}>Cancelar</Text>
+                        <Text style={[styles.buttonCloseText, { color: colors.textSecondary }]}>{t('filter.cancel')}</Text>
                     </TouchableOpacity>
                 </TouchableOpacity>
             </TouchableOpacity>
@@ -82,7 +84,6 @@ const styles = StyleSheet.create({
     content: {
         width: '100%',
         maxWidth: 320,
-        backgroundColor: '#fff',
         borderRadius: 20,
         padding: 20,
         elevation: 5,
@@ -94,7 +95,6 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: theme.colors.text,
         marginBottom: 16,
         textAlign: 'center',
     },
@@ -106,9 +106,6 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         marginBottom: 8,
     },
-    optionSelected: {
-        backgroundColor: '#f8fafc',
-    },
     optionIconContainer: {
         width: 36,
         height: 36,
@@ -119,7 +116,6 @@ const styles = StyleSheet.create({
     },
     optionText: {
         fontSize: 16,
-        color: theme.colors.textSecondary,
         flex: 1,
     },
     checkIcon: {
@@ -131,7 +127,6 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
     },
     buttonCloseText: {
-        color: theme.colors.textSecondary,
         fontSize: 16,
         fontWeight: '500',
     }

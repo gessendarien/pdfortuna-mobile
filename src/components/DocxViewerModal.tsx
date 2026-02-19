@@ -4,7 +4,9 @@ import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { WebView } from 'react-native-webview';
 import RNFS from 'react-native-fs';
 import { theme } from '../theme';
+import { useTheme } from '../theme/ThemeContext';
 import { LocalFile } from '../services/FileService';
+import { t } from '../i18n';
 import mammoth from 'mammoth';
 import { Buffer } from 'buffer';
 import 'text-encoding';
@@ -29,6 +31,7 @@ interface Props {
 }
 
 export const DocxViewerModal = ({ visible, file, onClose }: Props) => {
+    const { colors, isDarkMode } = useTheme();
     const [htmlContent, setHtmlContent] = useState<string>('');
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
@@ -53,7 +56,6 @@ export const DocxViewerModal = ({ visible, file, onClose }: Props) => {
             const fileData = await RNFS.readFile(file.path, 'base64');
             const buffer = Buffer.from(fileData, 'base64');
 
-            // Convert Buffer to ArrayBuffer specifically for mammoth in browser/RN env
             const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
 
             console.log('Converting docx... Size:', buffer.length);
@@ -66,7 +68,11 @@ export const DocxViewerModal = ({ visible, file, onClose }: Props) => {
                 console.log('Mammoth messages:', messages);
             }
 
-            // Wrap in basic HTML structure with some styling
+            const bodyBg = isDarkMode ? '#121212' : '#fff';
+            const bodyColor = isDarkMode ? '#e2e8f0' : '#333';
+            const headingColor = isDarkMode ? '#f1f5f9' : '#1e293b';
+            const borderColor = isDarkMode ? '#444' : '#ddd';
+
             const styledHtml = `
                 <html>
                     <head>
@@ -76,13 +82,14 @@ export const DocxViewerModal = ({ visible, file, onClose }: Props) => {
                                 font-family: -apple-system, Roboto, sans-serif; 
                                 padding: 20px; 
                                 line-height: 1.6;
-                                color: #333;
+                                color: ${bodyColor};
+                                background-color: ${bodyBg};
                             }
                             img { max-width: 100%; height: auto; }
                             table { border-collapse: collapse; width: 100%; margin: 10px 0; }
-                            td, th { border: 1px solid #ddd; padding: 8px; }
+                            td, th { border: 1px solid ${borderColor}; padding: 8px; }
                             p { margin-bottom: 12px; }
-                            h1, h2, h3 { color: #1e293b; margin-top: 24px; }
+                            h1, h2, h3 { color: ${headingColor}; margin-top: 24px; }
                         </style>
                     </head>
                     <body>
@@ -95,9 +102,8 @@ export const DocxViewerModal = ({ visible, file, onClose }: Props) => {
             setLoading(false);
         } catch (err: any) {
             console.error('Error converting docx:', err);
-            // Show more specific error if possible
             const msg = err.message || err.toString();
-            setError(`Error al convertir: ${msg}`);
+            setError(t('viewer.conversionError', { message: msg }));
             setLoading(false);
         }
     };
@@ -111,31 +117,31 @@ export const DocxViewerModal = ({ visible, file, onClose }: Props) => {
             onRequestClose={onClose}
             presentationStyle="fullScreen"
         >
-            <View style={styles.container}>
+            <View style={[styles.container, { backgroundColor: colors.surfaceLight }]}>
                 {/* Header */}
-                <View style={styles.header}>
+                <View style={[styles.header, { borderBottomColor: colors.border, backgroundColor: colors.surfaceLight }]}>
                     <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                        <MaterialIcon name="close" size={24} color={theme.colors.text} />
+                        <MaterialIcon name="close" size={24} color={colors.text} />
                     </TouchableOpacity>
-                    <Text style={styles.title} numberOfLines={1}>
-                        {file?.name || 'Documento'}
+                    <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
+                        {file?.name || t('viewer.document')}
                     </Text>
                     <View style={{ width: 40 }} />
                 </View>
 
                 {/* Content */}
-                <View style={styles.content}>
+                <View style={[styles.content, { backgroundColor: colors.backgroundLight }]}>
                     {loading ? (
                         <View style={styles.centered}>
-                            <ActivityIndicator size="large" color={theme.colors.primary} />
-                            <Text style={styles.loadingText}>Convirtiendo documento...</Text>
+                            <ActivityIndicator size="large" color={colors.primary} />
+                            <Text style={[styles.loadingText, { color: colors.textSecondary }]}>{t('viewer.converting')}</Text>
                         </View>
                     ) : error ? (
                         <View style={styles.centered}>
-                            <MaterialIcon name="error-outline" size={48} color={theme.colors.error || '#ef4444'} />
-                            <Text style={styles.errorText}>{error}</Text>
-                            <TouchableOpacity style={styles.retryButton} onPress={loadDocx}>
-                                <Text style={styles.retryText}>Reintentar</Text>
+                            <MaterialIcon name="error-outline" size={48} color={colors.error} />
+                            <Text style={[styles.errorText, { color: colors.textSecondary }]}>{error}</Text>
+                            <TouchableOpacity style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={loadDocx}>
+                                <Text style={styles.retryText}>{t('viewer.retry')}</Text>
                             </TouchableOpacity>
                         </View>
                     ) : (
@@ -143,7 +149,7 @@ export const DocxViewerModal = ({ visible, file, onClose }: Props) => {
                             originWhitelist={['*']}
                             source={{ html: htmlContent }}
                             style={styles.webview}
-                            scalesPageToFit={false} // Important for responsive text
+                            scalesPageToFit={false}
                         />
                     )}
                 </View>
@@ -155,17 +161,14 @@ export const DocxViewerModal = ({ visible, file, onClose }: Props) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingTop: 16, // Safe area filler approx if no SafeAreaView wrapper
+        paddingTop: 16,
         paddingBottom: 12,
         paddingHorizontal: 16,
         borderBottomWidth: 1,
-        borderBottomColor: '#e2e8f0',
-        backgroundColor: '#fff',
         height: 80,
     },
     closeButton: {
@@ -176,12 +179,10 @@ const styles = StyleSheet.create({
         flex: 1,
         fontSize: 18,
         fontWeight: '600',
-        color: theme.colors.text,
         textAlign: 'center',
     },
     content: {
         flex: 1,
-        backgroundColor: '#f8fafc',
     },
     webview: {
         flex: 1,
@@ -196,19 +197,16 @@ const styles = StyleSheet.create({
     loadingText: {
         marginTop: 16,
         fontSize: 16,
-        color: theme.colors.textSecondary,
     },
     errorText: {
         marginTop: 16,
         fontSize: 16,
-        color: theme.colors.textSecondary,
         textAlign: 'center',
         marginBottom: 24,
     },
     retryButton: {
         paddingVertical: 10,
         paddingHorizontal: 20,
-        backgroundColor: theme.colors.primary,
         borderRadius: 8,
     },
     retryText: {

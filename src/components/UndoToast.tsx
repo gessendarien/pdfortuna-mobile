@@ -1,6 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
 import { theme } from '../theme';
+import { useTheme } from '../theme/ThemeContext';
+import { t } from '../i18n';
 
 interface UndoToastProps {
     visible: boolean;
@@ -9,6 +11,7 @@ interface UndoToastProps {
 }
 
 export const UndoToast: React.FC<UndoToastProps> = ({ visible, message, onUndo }) => {
+    const { colors, isDarkMode } = useTheme();
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
     const [show, setShow] = React.useState(visible);
@@ -35,10 +38,10 @@ export const UndoToast: React.FC<UndoToastProps> = ({ visible, message, onUndo }
     if (!show) return null;
 
     return (
-        <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+        <Animated.View style={[styles.container, { opacity: fadeAnim, backgroundColor: isDarkMode ? '#2a2a2a' : '#333' }]}>
             <Text style={styles.text}>{message}</Text>
             <TouchableOpacity onPress={onUndo} style={styles.button}>
-                <Text style={styles.buttonText}>Deshacer</Text>
+                <Text style={[styles.buttonText, { color: colors.primary }]}>{t('delete.undo')}</Text>
             </TouchableOpacity>
         </Animated.View>
     );
@@ -50,7 +53,6 @@ const styles = StyleSheet.create({
         bottom: 24,
         left: 20,
         right: 20,
-        backgroundColor: '#333',
         borderRadius: 8,
         flexDirection: 'row',
         alignItems: 'center',
@@ -73,7 +75,6 @@ const styles = StyleSheet.create({
         paddingVertical: 4,
     },
     buttonText: {
-        color: theme.colors.primary, // Using primary color for action
         fontWeight: 'bold',
         fontSize: 14,
         textTransform: 'uppercase',

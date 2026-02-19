@@ -18,6 +18,7 @@ class MainApplication : Application(), ReactApplication {
            add(PermissionPackage())
            add(FileOpenerPackage())
            add(ContentUriHelperPackage())
+           add(PdfMetaPackage())
         },
     )
   }

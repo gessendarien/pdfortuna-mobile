@@ -1,17 +1,26 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, Modal, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, Modal, TextInput, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { theme } from '../theme';
+import { useTheme } from '../theme/ThemeContext';
+import { t } from '../i18n';
 
 interface Props {
     visible: boolean;
     currentName: string;
     onClose: () => void;
     onRename: (newName: string) => void;
+    title?: string;
+    saveLabel?: string;
 }
 
-export const RenameModal = ({ visible, currentName, onClose, onRename }: Props) => {
+export const RenameModal = ({ visible, currentName, onClose, onRename, title, saveLabel }: Props) => {
+    const { colors } = useTheme();
     const [name, setName] = useState(currentName);
     const [extension, setExtension] = useState('.pdf');
+    const inputRef = useRef<TextInput>(null);
+
+    const resolvedTitle = title || t('rename.title');
+    const resolvedSaveLabel = saveLabel || t('rename.save');
 
     useEffect(() => {
         if (visible) {
@@ -23,6 +32,10 @@ export const RenameModal = ({ visible, currentName, onClose, onRename }: Props) 
                 setName(currentName);
                 setExtension('');
             }
+            const timer = setTimeout(() => {
+                inputRef.current?.focus();
+            }, Platform.OS === 'android' ? 300 : 100);
+            return () => clearTimeout(timer);
         }
     }, [visible, currentName]);
 
@@ -35,29 +48,30 @@ export const RenameModal = ({ visible, currentName, onClose, onRename }: Props) 
     return (
         <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
             <View style={styles.overlay}>
-                <View style={styles.content}>
-                    <Text style={styles.title}>Renombrar Archivo</Text>
-                    <View style={styles.inputContainer}>
+                <View style={[styles.content, { backgroundColor: colors.surfaceLight }]}>
+                    <Text style={[styles.title, { color: colors.text }]}>{resolvedTitle}</Text>
+                    <View style={[styles.inputContainer, { borderColor: colors.border }]}>
                         <TextInput
-                            style={styles.input}
+                            ref={inputRef}
+                            style={[styles.input, { color: colors.text }]}
                             value={name}
                             onChangeText={setName}
-                            autoFocus
                             selectTextOnFocus
+                            placeholderTextColor={colors.textSecondary}
                         />
-                        <Text style={styles.extension}>{extension}</Text>
+                        <Text style={[styles.extension, { color: colors.textSecondary }]}>{extension}</Text>
                     </View>
                     <View style={styles.actions}>
                         <TouchableOpacity onPress={onClose} style={styles.buttonCancel}>
-                            <Text style={styles.textCancel}>Cancelar</Text>
+                            <Text style={[styles.textCancel, { color: colors.textSecondary }]}>{t('rename.cancel')}</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity onPress={handleSave} style={styles.buttonSave}>
-                            <Text style={styles.textSave}>Guardar</Text>
+                        <TouchableOpacity onPress={handleSave} style={[styles.buttonSave, { backgroundColor: colors.primary }]}>
+                            <Text style={styles.textSave}>{resolvedSaveLabel}</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
             </View>
-        </Modal>
+        </Modal >
     );
 };
 
@@ -71,7 +85,6 @@ const styles = StyleSheet.create({
     },
     content: {
         width: '100%',
-        backgroundColor: '#fff',
         borderRadius: 12,
         padding: 20,
         elevation: 5,
@@ -80,13 +93,11 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: 'bold',
         marginBottom: 16,
-        color: theme.colors.text,
     },
     inputContainer: {
         flexDirection: 'row',
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: theme.colors.border,
         borderRadius: 8,
         paddingHorizontal: 12,
         marginBottom: 20,
@@ -95,11 +106,9 @@ const styles = StyleSheet.create({
         flex: 1,
         paddingVertical: 12,
         fontSize: 16,
-        color: theme.colors.text,
     },
     extension: {
         fontSize: 16,
-        color: theme.colors.textSecondary,
         marginLeft: 4,
     },
     actions: {
@@ -112,13 +121,11 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
     },
     buttonSave: {
-        backgroundColor: theme.colors.primary,
         paddingVertical: 10,
         paddingHorizontal: 20,
         borderRadius: 8,
     },
     textCancel: {
-        color: theme.colors.textSecondary,
         fontWeight: '600',
     },
     textSave: {

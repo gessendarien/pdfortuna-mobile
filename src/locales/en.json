@@ -1,0 +1,90 @@
+{
+    "appName": "PDFortuna",
+    "permission": {
+        "title": "Access Permission",
+        "text": "PDFortuna needs access to your device files to find your documents.\nThis app does not send any information to external servers and all data stays on your device, so your privacy is protected.\nTo continue, grant the necessary permissions.",
+        "button": "Allow access"
+    },
+    "home": {
+        "scanning": "Scanning files...",
+        "noDocuments": "No documents found",
+        "noFavorites": "No favorites yet",
+        "noRecent": "No recent documents",
+        "searchPlaceholder": "Search documents..."
+    },
+    "tabs": {
+        "all": "All",
+        "recent": "Recent",
+        "favorites": "Favorites"
+    },
+    "settings": {
+        "title": "Settings",
+        "gridView": "Grid startup view",
+        "gridViewDesc": "Show files in grid mode by default",
+        "previews": "Show preview",
+        "previewsDesc": "Show thumbnails of the first page in PDFs",
+        "showWord": "Show Word documents",
+        "showWordDesc": "Include .doc and .docx files in the list",
+        "openWordInApp": "Open Word in App",
+        "openWordInAppDesc": "Use the built-in quick viewer instead of opening an external app",
+        "showODF": "Show ODF documents",
+        "showODFDesc": "Include .odt and .odf files in the list",
+        "darkMode": "Dark mode",
+        "darkModeDesc": "Change the app appearance"
+    },
+    "fileOptions": {
+        "addFavorite": "Add to favorites",
+        "removeFavorite": "Remove from favorites",
+        "share": "Share",
+        "rename": "Rename",
+        "delete": "Delete",
+        "cancel": "Cancel"
+    },
+    "filter": {
+        "title": "Filter by type",
+        "all": "All",
+        "cancel": "Cancel"
+    },
+    "rename": {
+        "title": "Rename File",
+        "save": "Save",
+        "cancel": "Cancel"
+    },
+    "confirm": {
+        "confirm": "Confirm",
+        "cancel": "Cancel"
+    },
+    "delete": {
+        "title": "Delete file",
+        "message": "Are you sure you want to delete \"{{name}}\"?",
+        "confirm": "Delete",
+        "cancel": "Cancel",
+        "undoMessage": "File deleted",
+        "undo": "Undo"
+    },
+    "credits": {
+        "credits": "Credits",
+        "developedBy": "Developed with 💚 by Gessén Darién.",
+        "privacyTitle": "Privacy and Source code",
+        "privacyText": "This app does not send any information to external servers and all data stays on your device, so your privacy is protected. You can also view its ",
+        "sourceCode": "source code.",
+        "proTitle": "Pro Version",
+        "proText": "This is a free app, but you can remove ads and support the project by purchasing the PRO version without ads.",
+        "proButton": "Get PRO Version"
+    },
+    "viewer": {
+        "document": "Document",
+        "loading": "Loading document...",
+        "converting": "Converting document...",
+        "conversionError": "Conversion error: {{message}}",
+        "retry": "Retry",
+        "savedToDownloads": "Saved to Downloads ✓",
+        "couldNotSave": "Could not save",
+        "couldNotShare": "Could not share",
+        "shareTitle": "Share File",
+        "saveAs": "Save as"
+    },
+    "errors": {
+        "shareError": "Could not share the file."
+    }
+}

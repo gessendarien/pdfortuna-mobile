@@ -1,7 +1,9 @@
 import React from 'react';
-import { View, Text, Modal, TouchableOpacity, StyleSheet, Switch } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, StyleSheet, Switch, Linking } from 'react-native';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { theme } from '../theme';
+import { useTheme } from '../theme/ThemeContext';
+import { t } from '../i18n';
 
 interface Props {
     visible: boolean;
@@ -12,8 +14,8 @@ interface Props {
     onToggleShowWord: (value: boolean) => void;
     openWordInApp: boolean;
     onToggleOpenWordInApp: (value: boolean) => void;
-    currentViewMode: boolean;
-    onToggleViewMode: (value: boolean) => void;
+    startupViewMode: boolean;
+    onToggleStartupViewMode: (value: boolean) => void;
     showODF: boolean;
     onToggleShowODF: (value: boolean) => void;
 }
@@ -27,21 +29,22 @@ export const SettingsModal = ({
     onToggleShowWord,
     openWordInApp,
     onToggleOpenWordInApp,
-    currentViewMode,
-    onToggleViewMode,
+    startupViewMode,
+    onToggleStartupViewMode,
     showODF,
     onToggleShowODF
 }: Props) => {
+    const { colors, isDarkMode, toggleDarkMode } = useTheme();
 
     const renderSwitch = (label: string, value: boolean, onValueChange: (val: boolean) => void, description?: string) => (
         <View style={styles.optionRow}>
             <View style={styles.textContainer}>
-                <Text style={styles.optionLabel}>{label}</Text>
-                {description && <Text style={styles.optionDescription}>{description}</Text>}
+                <Text style={[styles.optionLabel, { color: colors.text }]}>{label}</Text>
+                {description && <Text style={[styles.optionDescription, { color: colors.textSecondary }]}>{description}</Text>}
             </View>
             <Switch
-                trackColor={{ false: "#e2e8f0", true: "#a5b4fc" }}
-                thumbColor={value ? theme.colors.primary : "#f4f3f4"}
+                trackColor={{ false: colors.border, true: "#a5b4fc" }}
+                thumbColor={value ? colors.primary : "#f4f3f4"}
                 ios_backgroundColor="#3e3e3e"
                 onValueChange={onValueChange}
                 value={value}
@@ -57,49 +60,72 @@ export const SettingsModal = ({
             onRequestClose={onClose}
         >
             <TouchableOpacity style={styles.centeredView} activeOpacity={1} onPress={onClose}>
-                <View style={styles.modalView} onStartShouldSetResponder={() => true}>
+                <View style={[styles.modalView, { backgroundColor: colors.surfaceLight }]} onStartShouldSetResponder={() => true}>
                     <View style={styles.header}>
-                        <Text style={styles.modalTitle}>Configuración</Text>
+                        <Text style={[styles.modalTitle, { color: colors.text }]}>{t('settings.title')}</Text>
                         <TouchableOpacity onPress={onClose}>
-                            <MaterialIcon name="close" size={24} color={theme.colors.text} />
+                            <MaterialIcon name="close" size={24} color={colors.text} />
                         </TouchableOpacity>
                     </View>
 
                     <View style={styles.content}>
                         {renderSwitch(
-                            "Vista de inicio en cuadrícula",
-                            currentViewMode,
-                            onToggleViewMode,
-                            "Muestra los archivos en modo cuadrícula por defecto"
+                            t('settings.gridView'),
+                            startupViewMode,
+                            onToggleStartupViewMode,
+                            t('settings.gridViewDesc')
                         )}
 
                         {renderSwitch(
-                            "Mostrar vista previa",
+                            t('settings.previews'),
                             showPreviews,
                             onTogglePreviews,
-                            "Muestra miniaturas de la primera página en PDFs (puede consumir más batería)"
+                            t('settings.previewsDesc')
                         )}
 
                         {renderSwitch(
-                            "Mostrar documentos Word",
+                            t('settings.showWord'),
                             showWord,
                             onToggleShowWord,
-                            "Incluye archivos .doc y .docx en la lista"
+                            t('settings.showWordDesc')
                         )}
 
                         {showWord && renderSwitch(
-                            "Abrir Word en la App",
+                            t('settings.openWordInApp'),
                             openWordInApp,
                             onToggleOpenWordInApp,
-                            "Usa el visor rápido integrado en lugar de abrir una app externa"
+                            t('settings.openWordInAppDesc')
                         )}
 
                         {renderSwitch(
-                            "Mostrar documentos ODF",
+                            t('settings.showODF'),
                             showODF,
                             onToggleShowODF,
-                            "Incluye archivos .odt y .odf en la lista"
+                            t('settings.showODFDesc')
                         )}
+
+                        {renderSwitch(
+                            t('settings.darkMode'),
+                            isDarkMode,
+                            toggleDarkMode,
+                            t('settings.darkModeDesc')
+                        )}
+
+                        {/* Remove Ads Option */}
+                        <TouchableOpacity
+                            style={styles.optionRow}
+                            onPress={() => Linking.openURL("https://play.google.com/store/apps/details?id=com.gess.pdfortunapro")}
+                        >
+                            <View style={styles.textContainer}>
+                                <Text style={[styles.optionLabel, { color: colors.text }]}>
+                                    {t('settings.removeAds')}
+                                </Text>
+                                <Text style={[styles.optionDescription, { color: colors.textSecondary }]}>
+                                    {t('settings.removeAdsDesc')}
+                                </Text>
+                            </View>
+                            <MaterialIcon name="star" size={24} color={colors.primary} />
+                        </TouchableOpacity>
                     </View>
                 </View>
             </TouchableOpacity>
@@ -114,7 +140,6 @@ const styles = StyleSheet.create({
         backgroundColor: "rgba(0,0,0,0.5)"
     },
     modalView: {
-        backgroundColor: "white",
         borderTopLeftRadius: 20,
         borderTopRightRadius: 20,
         padding: 24,
@@ -137,7 +162,6 @@ const styles = StyleSheet.create({
     modalTitle: {
         fontSize: 20,
         fontWeight: "bold",
-        color: theme.colors.text,
     },
     content: {
         paddingBottom: 24,
@@ -154,12 +178,10 @@ const styles = StyleSheet.create({
     },
     optionLabel: {
         fontSize: 16,
-        color: theme.colors.text,
         fontWeight: '500',
         marginBottom: 4,
     },
     optionDescription: {
         fontSize: 12,
-        color: theme.colors.textSecondary,
     }
 });

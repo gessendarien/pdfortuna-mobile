@@ -81,6 +81,9 @@ export const handleIncomingIntent = async () => {
                 // Final safety check
                 if (!fileName || fileName.trim().length === 0) fileName = 'Documento_Externo.pdf';
 
+                // Remove trailing dots to prevent "name..pdf"
+                fileName = fileName.replace(/\.+$/, '');
+
                 // Ensure PDF extension if missing
                 if (!fileName.toLowerCase().endsWith('.pdf') && !fileName.toLowerCase().endsWith('.docx') && !fileName.toLowerCase().endsWith('.doc')) {
                     fileName += '.pdf';
@@ -101,7 +104,10 @@ export const handleIncomingIntent = async () => {
  * Used by App.tsx when Linking captures the URL directly.
  */
 export const resolveContentUriName = async (uri: string, originalUri?: string): Promise<string> => {
-    const name = await resolveNameFromUri(uri, originalUri);
+    let name = await resolveNameFromUri(uri, originalUri);
+
+    // Remove trailing dots to prevent "name..pdf"
+    name = name.replace(/\.+$/, '');
 
     // Ensure PDF extension
     if (name !== 'Documento Externo' && !name.toLowerCase().endsWith('.pdf') && !name.toLowerCase().endsWith('.docx') && !name.toLowerCase().endsWith('.doc')) {

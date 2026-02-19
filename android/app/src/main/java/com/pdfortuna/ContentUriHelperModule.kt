@@ -70,6 +70,11 @@ class ContentUriHelperModule(reactContext: ReactApplicationContext) : ReactConte
         }
     }
 
+    /** Remove trailing dots from a filename to prevent issues like "name..pdf" */
+    private fun cleanTrailingDots(name: String): String {
+        return name.trimEnd('.')
+    }
+
     private fun resolveNameFromContentUri(uri: Uri): String? {
         val resolver = reactApplicationContext.contentResolver
 
@@ -82,7 +87,7 @@ class ContentUriHelperModule(reactContext: ReactApplicationContext) : ReactConte
                     if (displayIdx != -1) {
                         val displayName = it.getString(displayIdx)
                         if (isGoodName(displayName)) {
-                            return displayName
+                            return cleanTrailingDots(displayName!!)
                         }
                     }
 
@@ -93,7 +98,7 @@ class ContentUriHelperModule(reactContext: ReactApplicationContext) : ReactConte
                         if (dataPath != null && dataPath.contains("/")) {
                             val extracted = dataPath.substringAfterLast('/')
                             if (isGoodName(extracted)) {
-                                return extracted
+                                return cleanTrailingDots(extracted)
                             }
                         }
                     }
@@ -103,7 +108,7 @@ class ContentUriHelperModule(reactContext: ReactApplicationContext) : ReactConte
                     if (titleIdx != -1) {
                         val title = it.getString(titleIdx)
                         if (isGoodName(title)) {
-                            return title
+                            return cleanTrailingDots(title!!)
                         }
                     }
                 }
@@ -117,15 +122,17 @@ class ContentUriHelperModule(reactContext: ReactApplicationContext) : ReactConte
             val mimeType = resolver.getType(uri)
             val segment = uri.lastPathSegment
             if (segment != null && segment.isNotBlank()) {
+                val cleanSegment = cleanTrailingDots(segment)
                 // If segment doesn't have extension but we know MIME type, add it
-                if (mimeType == "application/pdf" && !segment.lowercase().endsWith(".pdf")) {
-                    return "$segment.pdf"
+                if (mimeType == "application/pdf" && !cleanSegment.lowercase().endsWith(".pdf")) {
+                    return "$cleanSegment.pdf"
                 }
-                return segment
+                return cleanSegment
             }
         } catch (_: Exception) {}
 
-        return uri.lastPathSegment
+        val last = uri.lastPathSegment
+        return if (last != null) cleanTrailingDots(last) else last
     }
 
     /** Check if a name looks like a real filename (not a UUID or empty) */

@@ -1,17 +1,22 @@
-import React, { useLayoutEffect, useState, useRef, useCallback } from 'react';
-import { View, StyleSheet, Dimensions, TouchableOpacity, Animated, Text } from 'react-native';
+import React, { useLayoutEffect, useState, useRef, useCallback, useEffect } from 'react';
+import { View, StyleSheet, Dimensions, TouchableOpacity, Animated, Text, ActivityIndicator, AppState, AppStateStatus } from 'react-native';
 import Pdf from 'react-native-pdf';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import RNFS from 'react-native-fs';
 import Share from 'react-native-share';
 import { theme } from '../theme';
+import { useTheme } from '../theme/ThemeContext';
+import { StorageService } from '../services/StorageService';
+import { t } from '../i18n';
 import { MarqueeText } from '../components/MarqueeText';
+import { RenameModal } from '../components/RenameModal';
 
 export const PdfViewerScreen = () => {
     const navigation = useNavigation();
     const route = useRoute<any>();
     const { uri, name, isExternal } = route.params;
+    const { colors } = useTheme();
 
     const isContentUri = uri.startsWith('content://');
     const showSaveButton = isExternal || isContentUri;
@@ -22,7 +27,46 @@ export const PdfViewerScreen = () => {
     const [toastType, setToastType] = useState<'success' | 'error'>('success');
     const toastAnim = useRef(new Animated.Value(-80)).current;
     const toastTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const [isSharing, setIsSharing] = useState(false);
+    const isSharingRef = useRef(false); // Use Ref for synchronous locking
+    const isSavingRef = useRef(false);  // Use Ref for synchronous locking (Save)
+    const [saveModalVisible, setSaveModalVisible] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadProgress, setLoadProgress] = useState(0);
+    const loadingOpacity = useRef(new Animated.Value(1)).current;
+
+    // Resume reading state
+    const [initialPage, setInitialPage] = useState<number | null>(null);
+    const currentPageRef = useRef<number>(1);
+
+    // Load saved page
+    useEffect(() => {
+        let isMounted = true;
+        const loadPage = async () => {
+            const page = await StorageService.getPage(uri);
+            if (isMounted) {
+                setInitialPage(page || 1);
+                currentPageRef.current = page || 1;
+            }
+        };
+        loadPage();
+        return () => { isMounted = false; };
+    }, [uri]);
+
+    // Save page on unmount or background
+    useEffect(() => {
+        const handleAppStateChange = (nextAppState: AppStateStatus) => {
+            if (nextAppState.match(/inactive|background/)) {
+                StorageService.savePage(uri, currentPageRef.current);
+            }
+        };
+
+        const subscription = AppState.addEventListener('change', handleAppStateChange);
+
+        return () => {
+            subscription.remove();
+            StorageService.savePage(uri, currentPageRef.current);
+        };
+    }, [uri]);
 
     const showToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
         if (toastTimeout.current) clearTimeout(toastTimeout.current);
@@ -47,13 +91,27 @@ export const PdfViewerScreen = () => {
         }, 2500);
     }, [toastAnim]);
 
-    const handleSave = async () => {
+    const handleSave = () => {
+        if (isSavingRef.current) return;
+        // For external documents, show rename modal so user can choose a name
+        if (showSaveButton) {
+            setSaveModalVisible(true);
+            return;
+        }
+        // For local files, save directly
+        performSave(name || 'documento.pdf');
+    };
+
+    const performSave = async (chosenName: string) => {
+        if (isSavingRef.current) return;
+        isSavingRef.current = true;
+
         try {
-            let safeName = name || 'documento.pdf';
+            let safeName = chosenName;
             if (!safeName.toLowerCase().endsWith('.pdf')) {
                 safeName += '.pdf';
             }
-            safeName = safeName.replace(/[^a-zA-Z0-9._\- ]/g, '_');
+            safeName = safeName.replace(/[^a-zA-Z0-9._\- áéíóúñÁÉÍÓÚÑ]/g, '_');
 
             const destPath = `${RNFS.DownloadDirectoryPath}/${safeName}`;
             const exists = await RNFS.exists(destPath);
@@ -76,26 +134,28 @@ export const PdfViewerScreen = () => {
                 await RNFS.scanFile(finalDestPath);
             } catch (scanErr) { console.log('Scan error', scanErr); }
 
-            showToast('Guardado en Descargas ✓', 'success');
+            showToast(t('viewer.savedToDownloads'), 'success');
         } catch (error) {
             console.log("Error saving file:", error);
             try {
-                let safeName = name || 'documento.pdf';
+                let safeName = chosenName;
                 if (!safeName.toLowerCase().endsWith('.pdf')) safeName += '.pdf';
-                safeName = safeName.replace(/[^a-zA-Z0-9._\- ]/g, '_');
+                safeName = safeName.replace(/[^a-zA-Z0-9._\- áéíóúñÁÉÍÓÚÑ]/g, '_');
                 const destPath = `${RNFS.DownloadDirectoryPath}/${safeName}`;
                 await RNFS.copyFile(uri, destPath);
                 await RNFS.scanFile(destPath);
-                showToast('Guardado en Descargas ✓', 'success');
+                showToast(t('viewer.savedToDownloads'), 'success');
             } catch (e) {
-                showToast('No se pudo guardar', 'error');
+                showToast(t('viewer.couldNotSave'), 'error');
             }
+        } finally {
+            isSavingRef.current = false;
         }
     };
 
     const handleShare = async () => {
-        if (isSharing) return;
-        setIsSharing(true);
+        if (isSharingRef.current) return;
+        isSharingRef.current = true;
 
         let tempPath = '';
         try {
@@ -123,7 +183,7 @@ export const PdfViewerScreen = () => {
                 url: `file://${tempPath}`,
                 type: 'application/pdf',
                 filename: safeName,
-                title: 'Compartir Archivo',
+                title: t('viewer.shareTitle'),
                 failOnCancel: false,
             });
         } catch (error: any) {
@@ -134,17 +194,17 @@ export const PdfViewerScreen = () => {
                     const base64Data = await RNFS.readFile(uri, 'base64');
                     await Share.open({
                         url: `data:application/pdf;base64,${base64Data}`,
-                        title: 'Compartir Archivo',
+                        title: t('viewer.shareTitle'),
                         type: 'application/pdf',
                         failOnCancel: false,
                         filename: name || 'documento.pdf',
                     });
                 } catch (err2) {
-                    showToast('No se pudo compartir', 'error');
+                    showToast(t('viewer.couldNotShare'), 'error');
                 }
             }
         } finally {
-            setIsSharing(false);
+            isSharingRef.current = false;
             if (tempPath) {
                 try {
                     if (await RNFS.exists(tempPath)) await RNFS.unlink(tempPath);
@@ -153,51 +213,80 @@ export const PdfViewerScreen = () => {
         }
     };
 
-    const displayName = name || 'Documento';
+    const displayName = name || t('viewer.document');
 
     useLayoutEffect(() => {
         navigation.setOptions({
+            headerStyle: { backgroundColor: colors.surfaceLight },
             headerTitle: () => (
                 <View style={styles.headerTitleContainer}>
-                    <MarqueeText text={displayName} style={styles.headerTitleText} />
+                    <MarqueeText text={displayName} style={[styles.headerTitleText, { color: colors.text }]} />
                 </View>
             ),
             headerRight: () => (
                 <View style={styles.headerButtons}>
                     <TouchableOpacity onPress={handleShare} style={styles.headerBtn}>
-                        <MaterialIcon name="share" size={22} color={theme.colors.primary} />
+                        <MaterialIcon name="share" size={22} color={colors.primary} />
                     </TouchableOpacity>
                     {showSaveButton && (
                         <TouchableOpacity onPress={handleSave} style={styles.headerBtn}>
-                            <MaterialIcon name="save-alt" size={22} color={theme.colors.primary} />
+                            <MaterialIcon name="save-alt" size={22} color={colors.primary} />
                         </TouchableOpacity>
                     )}
                 </View>
             ),
         });
-    }, [navigation, showSaveButton, displayName]);
+    }, [navigation, showSaveButton, displayName, colors]);
 
     const source = { uri, cache: true };
 
     return (
-        <View style={styles.container}>
-            <Pdf
-                source={source}
-                onLoadComplete={(numberOfPages) => {
-                    console.log(`Number of pages: ${numberOfPages}`);
-                }}
-                onPageChanged={(page) => {
-                    console.log(`Current page: ${page}`);
-                }}
-                onError={(error) => {
-                    console.log(error);
-                }}
-                onPressLink={(linkUri) => {
-                    console.log(`Link pressed: ${linkUri}`);
-                }}
-                style={styles.pdf}
-                trustAllCerts={false}
-            />
+        <View style={[styles.container, { backgroundColor: colors.backgroundLight }]}>
+            {initialPage !== null && (
+                <Pdf
+                    source={source}
+                    page={initialPage}
+                    onLoadProgress={(percent) => {
+                        setLoadProgress(percent);
+                    }}
+                    onLoadComplete={(numberOfPages) => {
+                        console.log(`Number of pages: ${numberOfPages}`);
+                        setLoadProgress(1);
+                        // Fade out loading overlay
+                        Animated.timing(loadingOpacity, {
+                            toValue: 0,
+                            duration: 300,
+                            useNativeDriver: true,
+                        }).start(() => setIsLoading(false));
+                    }}
+                    onPageChanged={(page) => {
+                        currentPageRef.current = page;
+                        console.log(`Current page: ${page}`);
+                    }}
+                    onError={(error) => {
+                        console.log(error);
+                        setIsLoading(false);
+                    }}
+                    onPressLink={(linkUri) => {
+                        console.log(`Link pressed: ${linkUri}`);
+                    }}
+                    style={[styles.pdf, { backgroundColor: colors.backgroundLight }]}
+                    trustAllCerts={false}
+                    enablePaging={false}
+                    enableAntialiasing={true}
+                    enableAnnotationRendering={true}
+                />
+            )}
+
+            {/* Loading Overlay */}
+            {isLoading && (
+                <Animated.View style={[styles.loadingOverlay, { opacity: loadingOpacity, backgroundColor: colors.backgroundLight }]}>
+                    <Text style={[styles.loadingText, { color: colors.textSecondary }]}>{t('viewer.loading')}</Text>
+                    <View style={[styles.progressBarContainer, { backgroundColor: colors.border }]}>
+                        <View style={[styles.progressBarFill, { width: `${Math.max(loadProgress * 100, 5)}%`, backgroundColor: colors.primary }]} />
+                    </View>
+                </Animated.View>
+            )}
 
             {/* Floating Toast */}
             {toastVisible && (
@@ -205,7 +294,7 @@ export const PdfViewerScreen = () => {
                     style={[
                         styles.toast,
                         {
-                            backgroundColor: toastType === 'success' ? theme.colors.success : theme.colors.error,
+                            backgroundColor: toastType === 'success' ? colors.success : colors.error,
                             transform: [{ translateY: toastAnim }],
                         },
                     ]}
@@ -219,6 +308,15 @@ export const PdfViewerScreen = () => {
                     <Text style={styles.toastText}>{toastMessage}</Text>
                 </Animated.View>
             )}
+
+            <RenameModal
+                visible={saveModalVisible}
+                currentName={displayName}
+                onClose={() => setSaveModalVisible(false)}
+                onRename={(newName) => performSave(newName)}
+                title={t('viewer.saveAs')}
+                saveLabel={t('rename.save')}
+            />
         </View>
     );
 };
@@ -228,13 +326,11 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'flex-start',
         alignItems: 'center',
-        backgroundColor: theme.colors.backgroundLight,
     },
     pdf: {
         flex: 1,
         width: Dimensions.get('window').width,
         height: Dimensions.get('window').height,
-        backgroundColor: theme.colors.backgroundLight,
     },
     headerTitleContainer: {
         maxWidth: Dimensions.get('window').width * 0.65,
@@ -242,7 +338,6 @@ const styles = StyleSheet.create({
     headerTitleText: {
         fontSize: 17,
         fontWeight: '600',
-        color: theme.colors.text,
     },
     headerButtons: {
         flexDirection: 'row',
@@ -273,5 +368,27 @@ const styles = StyleSheet.create({
         fontSize: 15,
         fontWeight: '600',
         flex: 1,
+    },
+    loadingOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 10,
+    },
+    loadingText: {
+        marginTop: 16,
+        fontSize: 15,
+        fontWeight: '500',
+    },
+    progressBarContainer: {
+        marginTop: 12,
+        width: '60%',
+        height: 4,
+        borderRadius: 2,
+        overflow: 'hidden',
+    },
+    progressBarFill: {
+        height: '100%',
+        borderRadius: 2,
     },
 });
