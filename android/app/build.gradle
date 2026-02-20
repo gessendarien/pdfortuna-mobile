@@ -100,9 +100,9 @@ android {
                 keyPassword MYAPP_UPLOAD_KEY_PASSWORD
             } else {
                 storeFile file('pdfortuna.keystore')
-                storePassword 'pdfortuna123'
+                storePassword 'pdfortuna-cassca-2026'
                 keyAlias 'pdfortunakey'
-                keyPassword 'pdfortuna123'
+                keyPassword 'pdfortuna-cassca-2026'
             }
         }
     }
