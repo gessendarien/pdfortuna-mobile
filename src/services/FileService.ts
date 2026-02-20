@@ -90,11 +90,13 @@ export const checkManagePermission = async (): Promise<boolean> => {
     return true;
 };
 
-// Internal recursive helper
+// Internal recursive helper (parallelized)
 const scanDirRecursive = async (path: string): Promise<LocalFile[]> => {
     const files: LocalFile[] = [];
     try {
         const result = await RNFS.readDir(path);
+        const subDirPromises: Promise<LocalFile[]>[] = [];
+
         for (const item of result) {
             if (item.isFile()) {
                 const ext = item.name.split('.').pop()?.toLowerCase();
@@ -128,10 +130,15 @@ const scanDirRecursive = async (path: string): Promise<LocalFile[]> => {
             } else if (item.isDirectory()) {
                 // Ignore hidden folders and Android/data to save time/permissions
                 if (!item.name.startsWith('.') && item.name !== 'Android') {
-                    const subFiles = await scanDirRecursive(item.path);
-                    files.push(...subFiles);
+                    subDirPromises.push(scanDirRecursive(item.path));
                 }
             }
+        }
+
+        // Scan all subdirectories in parallel
+        const subResults = await Promise.all(subDirPromises);
+        for (const subFiles of subResults) {
+            files.push(...subFiles);
         }
     } catch (e) {
         // console.warn('Error reading ' + path);
@@ -147,14 +154,17 @@ export const scanDocuments = async (): Promise<LocalFile[]> => {
     ];
 
     const uniqueFolders = [...new Set(folders)];
-    let allFiles: LocalFile[] = [];
 
-    for (const folder of uniqueFolders) {
+    // Scan all root folders in parallel
+    const scanPromises = uniqueFolders.map(async (folder) => {
         if (await RNFS.exists(folder)) {
-            const f = await scanDirRecursive(folder);
-            allFiles = [...allFiles, ...f];
+            return scanDirRecursive(folder);
         }
-    }
+        return [] as LocalFile[];
+    });
+
+    const results = await Promise.all(scanPromises);
+    const allFiles = results.flat();
 
     // Deduplicate by path
     const distinctFiles = Array.from(new Map(allFiles.map(item => [item.path, item])).values());
