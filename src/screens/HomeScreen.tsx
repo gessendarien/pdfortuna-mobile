@@ -1,12 +1,9 @@
 
-import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { View, Text, FlatList, TextInput, TouchableOpacity, ActivityIndicator, StatusBar, StyleSheet, AppState, LayoutAnimation, Platform, UIManager, Alert } from 'react-native';
+import React, { useEffect, useState, useMemo } from 'react';
+import { View, Text, FlatList, TextInput, TouchableOpacity, ActivityIndicator, StatusBar, StyleSheet, Platform, UIManager } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import Share from 'react-native-share';
-import RNFS from 'react-native-fs';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { LocalFile, scanDocuments, requestFilePermissions, checkManagePermission, checkFilePermissions, deleteFile, renameFile, openFileInExternalApp } from '../services/FileService';
-import { StorageService } from '../services/StorageService';
+import { LocalFile, openFileInExternalApp } from '../services/FileService';
 import { theme } from '../theme';
 import { useTheme } from '../theme/ThemeContext';
 import { t } from '../i18n';
@@ -23,8 +20,12 @@ import { UndoToast } from '../components/UndoToast';
 import { CreditsModal } from '../components/CreditsModal';
 import { BannerAdItem } from '../components/BannerAdItem';
 import { AdConfig } from '../config/AdConfig';
-
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { useSettings } from '../hooks/useSettings';
+import { useFileManager } from '../hooks/useFileManager';
+import { useFileActions } from '../hooks/useFileActions';
+import { useDocumentViewers } from '../hooks/useDocumentViewers';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
     UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -34,184 +35,45 @@ export const HomeScreen = () => {
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<any>();
     const { colors } = useTheme();
-    const [files, setFiles] = useState<LocalFile[]>([]);
-    const [permissionGranted, setPermissionGranted] = useState<boolean>(false);
-    const [isCheckingPermissions, setIsCheckingPermissions] = useState<boolean>(true);
-    const [loading, setLoading] = useState<boolean>(true);
-    const [refreshing, setRefreshing] = useState<boolean>(false);
-    const [searchQuery, setSearchQuery] = useState<string>('');
-    const [favorites, setFavorites] = useState<string[]>([]);
-    const [activeTab, setActiveTab] = useState<'all' | 'recent' | 'favorites'>('all');
 
-    // View Mode
-    const [isGridView, setIsGridView] = useState(false);
-    const [startupViewMode, setStartupViewMode] = useState(false);
+    // Custom hooks
+    const settings = useSettings();
+    const fileManager = useFileManager();
+    const fileActions = useFileActions({
+        files: fileManager.files,
+        setFiles: fileManager.setFiles,
+        favorites: fileManager.favorites,
+        loadFavorites: fileManager.loadFavorites,
+        scanFiles: fileManager.scanFiles,
+    });
+    const viewers = useDocumentViewers();
+
+    // UI-only state
+    const [searchQuery, setSearchQuery] = useState<string>('');
+    const [activeTab, setActiveTab] = useState<'all' | 'recent' | 'favorites'>('all');
+    const [filterType, setFilterType] = useState<'all' | 'pdf' | 'doc' | 'odf'>('all');
+    const [filterModalVisible, setFilterModalVisible] = useState(false);
     const [optionsFile, setOptionsFile] = useState<LocalFile | null>(null);
     const [optionsModalVisible, setOptionsModalVisible] = useState(false);
 
-    // Docx Viewer
-    const [docxFile, setDocxFile] = useState<LocalFile | null>(null);
-    const [docxViewerVisible, setDocxViewerVisible] = useState(false);
-
-    // Odt Viewer
-    const [odtFile, setOdtFile] = useState<LocalFile | null>(null);
-    const [odtViewerVisible, setOdtViewerVisible] = useState(false);
-
-    // Settings
-    const [settingsVisible, setSettingsVisible] = useState(false);
-    const [creditsVisible, setCreditsVisible] = useState(false);
-    const [isSettingsLoaded, setIsSettingsLoaded] = useState(false);
-
-    // Default settings: All FALSE (disabled) for new installations
-    const [showPreviews, setShowPreviews] = useState(false);
-    const [showWord, setShowWord] = useState(false);
-    const [openWordInApp, setOpenWordInApp] = useState(false);
-    const [showODF, setShowODF] = useState(false);
-
-    // Filter State
-    const [filterType, setFilterType] = useState<'all' | 'pdf' | 'doc' | 'odf'>('all');
-    const [filterModalVisible, setFilterModalVisible] = useState(false);
-
-    // Rename/Delete state
-    const [renameModalVisible, setRenameModalVisible] = useState(false);
-    const [fileToRename, setFileToRename] = useState<LocalFile | null>(null);
-    const [confirmDeleteFile, setConfirmDeleteFile] = useState<LocalFile | null>(null);
-    const [confirmDeleteVisible, setConfirmDeleteVisible] = useState(false);
-
-    // Undo Delete State
-    const [pendingDeleteFile, setPendingDeleteFile] = useState<LocalFile | null>(null);
-    const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
-    const [restoringFileId, setRestoringFileId] = useState<string | null>(null);
-
-    // Share State - Prevent multiple share dialogs
-    const isSharingRef = useRef<boolean>(false);
-
-    const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const animationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-    // Load persisted settings
-    useEffect(() => {
-        const load = async () => {
-            const prefs = await StorageService.loadSettings();
-            if (prefs) {
-                if (prefs.showPreviews !== undefined) setShowPreviews(!!prefs.showPreviews);
-                if (prefs.showWord !== undefined) setShowWord(!!prefs.showWord);
-                if (prefs.openWordInApp !== undefined) setOpenWordInApp(!!prefs.openWordInApp);
-                if (prefs.showODF !== undefined) setShowODF(!!prefs.showODF);
-
-                // Load startup view mode
-                let startup = false;
-                if (prefs.startupViewMode !== undefined) {
-                    startup = !!prefs.startupViewMode;
-                } else if (prefs.isGridView !== undefined) {
-                    // Migration: used old setting
-                    startup = !!prefs.isGridView;
-                }
-                setStartupViewMode(startup);
-                setIsGridView(startup); // Set current view to startup preference
-            }
-            setIsSettingsLoaded(true);
-        };
-        load();
-    }, []);
-
-    // Save settings
-    useEffect(() => {
-        if (!isSettingsLoaded) return;
-        StorageService.saveSettings({
-            showPreviews,
-            showWord,
-            openWordInApp,
-            showODF,
-            startupViewMode // Save the preferred startup mode, not the current view
-        });
-    }, [isSettingsLoaded, showPreviews, showWord, openWordInApp, showODF, startupViewMode]);
-
-    useEffect(() => {
-        checkPermission();
-        loadFavorites();
-
-        // Add AppState listener to re-check permissions when app comes to foreground
-        const subscription = AppState.addEventListener('change', nextAppState => {
-            if (nextAppState === 'active') {
-                checkPermission();
-            }
-        });
-
-        return () => {
-            subscription.remove();
-            if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current);
-            if (animationTimerRef.current) clearTimeout(animationTimerRef.current);
-        };
-    }, []);
-
     // Auto-reset filter to 'all' when Word or ODF get re-enabled from settings
     useEffect(() => {
-        if ((showWord || showODF) && filterType === 'pdf') {
+        if ((settings.showWord || settings.showODF) && filterType === 'pdf') {
             setFilterType('all');
         }
-    }, [showWord, showODF]);
+    }, [settings.showWord, settings.showODF]);
 
-
-    const checkPermission = async () => {
-        setLoading(true);
-        // First check if manage permission logic applies (for Android 11+)
-        const isManaged = await checkManagePermission();
-        if (isManaged) {
-            setPermissionGranted(true);
-            setIsCheckingPermissions(false);
-            scanFiles();
-            return;
-        }
-
-        // Use checkFilePermissions to see if we have access WITHOUT requesting
-        const hasAccess = await checkFilePermissions();
-        if (hasAccess) {
-            setPermissionGranted(true);
-            scanFiles();
-        } else {
-            setPermissionGranted(false);
-            setLoading(false);
-        }
-        setIsCheckingPermissions(false);
-    };
-
-    const loadFavorites = async () => {
-        const favs = await StorageService.getFavorites();
-        setFavorites(favs);
-    };
-
-    const scanFiles = async () => {
-        setLoading(true);
-        const scanned = await scanDocuments();
-        setFiles(scanned);
-        setLoading(false);
-    };
-
-    const handleRefresh = async () => {
-        setRefreshing(true);
-        const scanned = await scanDocuments();
-        setFiles(scanned);
-        setRefreshing(false);
-    };
-
-    const handleGrantPermission = async () => {
-        const granted = await requestFilePermissions();
-        if (granted) {
-            setPermissionGranted(true);
-            scanFiles();
-        }
-        // If not granted (returned false), it might be because we redirected to settings.
-        // The AppState listener will handle the check on return.
-    };
+    // Cleanup timers on unmount
+    useEffect(() => {
+        return () => fileActions.cleanup();
+    }, []);
 
     const handleFilePress = (file: LocalFile) => {
         if (file.type === 'pdf') {
             navigation.navigate('PdfViewer', { uri: file.path, name: file.name });
         } else if (file.type === 'docx') {
-            if (openWordInApp) {
-                setDocxFile(file);
-                setDocxViewerVisible(true);
+            if (settings.openWordInApp) {
+                viewers.openDocxViewer(file);
             } else {
                 openFileInExternalApp(file.path, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
             }
@@ -219,9 +81,8 @@ export const HomeScreen = () => {
             let mime = '*/*';
             if (file.type === 'doc') mime = 'application/msword';
             else if (file.type === 'odf') {
-                if (showODF) {
-                    setOdtFile(file);
-                    setOdtViewerVisible(true);
+                if (settings.showODF) {
+                    viewers.openOdtViewer(file);
                     return;
                 } else {
                     mime = 'application/vnd.oasis.opendocument.text';
@@ -232,148 +93,11 @@ export const HomeScreen = () => {
         }
     };
 
-
-    const handleShare = async (file: LocalFile) => {
-        if (isSharingRef.current) {
-            console.log('Share already in progress, ignoring...');
-            return;
-        }
-
-        isSharingRef.current = true;
-        let destPath = '';
-        try {
-            destPath = `${RNFS.CachesDirectoryPath}/${file.name}`;
-
-            if (await RNFS.exists(destPath)) {
-                await RNFS.unlink(destPath);
-            }
-
-            await RNFS.copyFile(file.path, destPath);
-            const cleanUrl = `file://${destPath}`;
-
-            await Share.open({
-                url: cleanUrl,
-                title: t('viewer.shareTitle'),
-                failOnCancel: false,
-            });
-        } catch (error: any) {
-            console.log('Copy/Share failed, trying Base64:', error);
-
-            if (error && error.message === 'User did not share') return;
-
-            try {
-                const base64Data = await RNFS.readFile(file.path, 'base64');
-                let mimeType = 'application/pdf';
-                if (file.type === 'doc') mimeType = 'application/msword';
-                else if (file.type === 'docx') mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-                else if (file.type === 'odf') mimeType = 'application/vnd.oasis.opendocument.text';
-
-                const dataUrl = `data:${mimeType};base64,${base64Data}`;
-
-                await Share.open({
-                    url: dataUrl,
-                    title: t('viewer.shareTitle'),
-                    type: mimeType,
-                    failOnCancel: false,
-                    filename: file.name,
-                });
-            } catch (err2) {
-                console.log('Base64 share failed:', err2);
-                Alert.alert('Error', t('errors.shareError'));
-            }
-        } finally {
-            isSharingRef.current = false;
-
-            if (destPath) {
-                try {
-                    if (await RNFS.exists(destPath)) {
-                        await RNFS.unlink(destPath);
-                    }
-                } catch (e) {
-                    // ignore
-                }
-            }
-        }
-    };
-
-    const handleFavorite = async (file: LocalFile) => {
-        await StorageService.toggleFavorite(file.path);
-        loadFavorites(); // refresh
-    };
-
-    const handleDelete = (file: LocalFile) => {
-        setConfirmDeleteFile(file);
-        setConfirmDeleteVisible(true);
-    };
-
-    const performDelete = (file: LocalFile) => {
-        if (pendingDeleteFile) {
-            commitDeleteNow(pendingDeleteFile);
-        }
-
-        setDeletingFileId(file.path);
-
-        if (animationTimerRef.current) clearTimeout(animationTimerRef.current);
-        animationTimerRef.current = setTimeout(() => {
-            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-            setFiles(prev => prev.filter(f => f.path !== file.path));
-            setDeletingFileId(null);
-            setPendingDeleteFile(file);
-
-            if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current);
-            deleteTimerRef.current = setTimeout(() => {
-                commitDeleteNow(file);
-            }, 3000);
-        }, 300);
-    };
-
-    const commitDeleteNow = async (file: LocalFile) => {
-        if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current);
-        setPendingDeleteFile(null);
-        const success = await deleteFile(file.path);
-        if (!success) {
-            scanFiles();
-        }
-    };
-
-    const handleUndoDelete = () => {
-        if (!pendingDeleteFile) return;
-        if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current);
-        const fileToRestore = pendingDeleteFile;
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        setFiles(prev => [...prev, fileToRestore]);
-        setRestoringFileId(fileToRestore.path);
-        setPendingDeleteFile(null);
-        setTimeout(() => {
-            setRestoringFileId(null);
-        }, 400);
-    };
-
-    const onRenameFile = async (newName: string) => {
-        if (!fileToRename) return;
-
-        // Check if currently a favorite before renaming
-        const wasFavorite = favorites.includes(fileToRename.path);
-        const oldPath = fileToRename.path; // capture old path
-
-        const success = await renameFile(fileToRename.path, newName);
-        if (success) {
-            if (wasFavorite) {
-                // Calculate new path based on how renameFile does it (same folder)
-                const lastSlash = oldPath.lastIndexOf('/');
-                const newPath = oldPath.substring(0, lastSlash + 1) + newName;
-                await StorageService.replaceFavoritePath(oldPath, newPath);
-                loadFavorites(); // Refresh favorites list
-            }
-            scanFiles();
-        }
-    };
-
     const filteredFiles = useMemo(() => {
-        let result = [...files];
+        let result = [...fileManager.files];
 
         if (activeTab === 'favorites') {
-            result = result.filter(f => favorites.includes(f.path));
+            result = result.filter(f => fileManager.favorites.includes(f.path));
             result.sort((a, b) => a.name.localeCompare(b.name));
         } else if (activeTab === 'recent') {
             result.sort((a, b) => b.date.getTime() - a.date.getTime());
@@ -392,10 +116,10 @@ export const HomeScreen = () => {
             }
         }
 
-        if (!showWord) {
+        if (!settings.showWord) {
             result = result.filter(f => f.type !== 'doc' && f.type !== 'docx');
         }
-        if (!showODF) {
+        if (!settings.showODF) {
             result = result.filter(f => f.type !== 'odf');
         }
 
@@ -404,10 +128,10 @@ export const HomeScreen = () => {
         }
 
         return result;
-    }, [files, searchQuery, favorites, activeTab, filterType, showWord, showODF]);
+    }, [fileManager.files, searchQuery, fileManager.favorites, activeTab, filterType, settings.showWord, settings.showODF]);
 
     const displayList = useMemo(() => {
-        if (!isGridView) {
+        if (!settings.isGridView) {
             const list: any[] = [];
             filteredFiles.forEach((file, index) => {
                 list.push(file);
@@ -450,10 +174,10 @@ export const HomeScreen = () => {
 
             return list;
         }
-    }, [filteredFiles, isGridView]);
+    }, [filteredFiles, settings.isGridView]);
 
     // Only show permission request if we are done checking and definitely don't have permissions
-    if (!isCheckingPermissions && !permissionGranted) {
+    if (!fileManager.isCheckingPermissions && !fileManager.permissionGranted) {
         return (
             <View style={[styles.permissionContainer, { backgroundColor: colors.backgroundLight }]}>
                 <Icon name="folder-open" size={64} color={colors.primary} />
@@ -461,7 +185,7 @@ export const HomeScreen = () => {
                 <Text style={[styles.permissionText, { color: colors.textSecondary }]}>
                     {t('permission.text')}
                 </Text>
-                <TouchableOpacity style={[styles.permissionButton, { backgroundColor: colors.primary }]} onPress={handleGrantPermission}>
+                <TouchableOpacity style={[styles.permissionButton, { backgroundColor: colors.primary }]} onPress={fileManager.handleGrantPermission}>
                     <Text style={styles.permissionButtonText}>{t('permission.button')}</Text>
                 </TouchableOpacity>
             </View>
@@ -472,10 +196,10 @@ export const HomeScreen = () => {
         <View style={[styles.container, { backgroundColor: colors.backgroundLight, paddingTop: insets.top }]}>
             {/* Header */}
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => setCreditsVisible(true)}>
+                <TouchableOpacity onPress={() => viewers.setCreditsVisible(true)}>
                     <Text style={[styles.headerTitle, { color: colors.text }]}>PDFortuna</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => setSettingsVisible(true)}>
+                <TouchableOpacity onPress={() => viewers.setSettingsVisible(true)}>
                     <Icon name="settings" size={24} color={colors.textSecondary} />
                 </TouchableOpacity>
             </View>
@@ -511,13 +235,13 @@ export const HomeScreen = () => {
                     <Text style={[styles.tabText, { color: colors.textSecondary }, activeTab === 'favorites' && styles.activeTabText]}>{t('tabs.favorites')}</Text>
                 </TouchableOpacity>
                 <View style={{ flex: 1 }} />
-                <TouchableOpacity onPress={() => setIsGridView(!isGridView)} style={{ padding: 6 }}>
-                    <Icon name={isGridView ? "view-list" : "grid-view"} size={24} color={colors.textSecondary} />
+                <TouchableOpacity onPress={() => settings.setIsGridView(!settings.isGridView)} style={{ padding: 6 }}>
+                    <Icon name={settings.isGridView ? "view-list" : "grid-view"} size={24} color={colors.textSecondary} />
                 </TouchableOpacity>
             </View>
 
             {/* Content */}
-            {(loading || isCheckingPermissions) ? (
+            {(fileManager.loading || fileManager.isCheckingPermissions) ? (
                 <View style={styles.center}>
                     <ActivityIndicator size="large" color={colors.primary} />
                     <Text style={{ marginTop: 10, color: colors.textSecondary }}>{t('home.scanning')}</Text>
@@ -533,22 +257,22 @@ export const HomeScreen = () => {
                 </View>
             ) : (
                 <FlatList
-                    refreshing={refreshing}
-                    onRefresh={handleRefresh}
-                    key={isGridView ? 'grid' : 'list'}
+                    refreshing={fileManager.refreshing}
+                    onRefresh={fileManager.handleRefresh}
+                    key={settings.isGridView ? 'grid' : 'list'}
                     data={displayList}
                     keyExtractor={(item) => item.path || item.id}
                     numColumns={1}
-                    initialNumToRender={isGridView ? 4 : 8}
-                    maxToRenderPerBatch={isGridView ? 2 : 10}
-                    windowSize={isGridView ? 3 : 11}
+                    initialNumToRender={settings.isGridView ? 4 : 8}
+                    maxToRenderPerBatch={settings.isGridView ? 2 : 10}
+                    windowSize={settings.isGridView ? 3 : 11}
                     removeClippedSubviews={true}
                     renderItem={({ item }) => {
                         if (item.type === 'ad') {
                             return <BannerAdItem unitId={AdConfig.bannerId} />;
                         }
 
-                        if (isGridView) {
+                        if (settings.isGridView) {
                             if (item.type === 'row') {
                                 return (
                                     <View style={{ flexDirection: 'row', paddingHorizontal: 16, justifyContent: 'space-between' }}>
@@ -561,10 +285,10 @@ export const HomeScreen = () => {
                                                         setOptionsFile(file);
                                                         setOptionsModalVisible(true);
                                                     }}
-                                                    isFavorite={favorites.includes(file.path)}
-                                                    showPreview={showPreviews}
-                                                    isDeleting={deletingFileId === file.path}
-                                                    isRestoring={restoringFileId === file.path}
+                                                    isFavorite={fileManager.favorites.includes(file.path)}
+                                                    showPreview={settings.showPreviews}
+                                                    isDeleting={fileActions.deletingFileId === file.path}
+                                                    isRestoring={fileActions.restoringFileId === file.path}
                                                 />
                                             </View>
                                         ))}
@@ -580,17 +304,17 @@ export const HomeScreen = () => {
                             <PdfItem
                                 file={item}
                                 onPress={() => handleFilePress(item)}
-                                onShare={() => handleShare(item)}
-                                onFavorite={() => handleFavorite(item)}
-                                isFavorite={favorites.includes(item.path)}
+                                onShare={() => fileActions.handleShare(item)}
+                                onFavorite={() => fileActions.handleFavorite(item)}
+                                isFavorite={fileManager.favorites.includes(item.path)}
                                 onRename={() => {
-                                    setFileToRename(item);
-                                    setRenameModalVisible(true);
+                                    fileActions.setFileToRename(item);
+                                    fileActions.setRenameModalVisible(true);
                                 }}
-                                onDelete={() => handleDelete(item)}
-                                isDeleting={deletingFileId === item.path}
-                                isRestoring={restoringFileId === item.path}
-                                showPreview={showPreviews}
+                                onDelete={() => fileActions.handleDelete(item)}
+                                isDeleting={fileActions.deletingFileId === item.path}
+                                isRestoring={fileActions.restoringFileId === item.path}
+                                showPreview={settings.showPreviews}
                                 onLongPress={() => {
                                     setOptionsFile(item);
                                     setOptionsModalVisible(true);
@@ -602,31 +326,31 @@ export const HomeScreen = () => {
                 />
             )}
 
-            {fileToRename && (
+            {fileActions.fileToRename && (
                 <RenameModal
-                    visible={renameModalVisible}
-                    currentName={fileToRename.name}
+                    visible={fileActions.renameModalVisible}
+                    currentName={fileActions.fileToRename.name}
                     onClose={() => {
-                        setRenameModalVisible(false);
-                        setFileToRename(null);
+                        fileActions.setRenameModalVisible(false);
+                        fileActions.setFileToRename(null);
                     }}
-                    onRename={onRenameFile}
+                    onRename={fileActions.onRenameFile}
                 />
             )}
 
             <UndoToast
-                visible={!!pendingDeleteFile}
+                visible={!!fileActions.pendingDeleteFile}
                 message={t('delete.undoMessage')}
-                onUndo={handleUndoDelete}
+                onUndo={fileActions.handleUndoDelete}
             />
 
             <FilterModal
                 visible={filterModalVisible}
                 currentFilter={filterType}
                 onClose={() => setFilterModalVisible(false)}
-                showDoc={showWord}
-                showODF={showODF}
-                showAll={showWord || showODF}
+                showDoc={settings.showWord}
+                showODF={settings.showODF}
+                showAll={settings.showWord || settings.showODF}
                 onSelect={(filter) => {
                     setFilterType(filter);
                     setFilterModalVisible(false);
@@ -636,75 +360,69 @@ export const HomeScreen = () => {
             <FileOptionsModal
                 visible={optionsModalVisible}
                 file={optionsFile}
-                isFavorite={optionsFile ? favorites.includes(optionsFile.path) : false}
+                isFavorite={optionsFile ? fileManager.favorites.includes(optionsFile.path) : false}
                 onClose={() => {
                     setOptionsModalVisible(false);
                     setOptionsFile(null);
                 }}
                 onRename={() => {
                     if (optionsFile) {
-                        setFileToRename(optionsFile);
-                        setRenameModalVisible(true);
+                        fileActions.setFileToRename(optionsFile);
+                        fileActions.setRenameModalVisible(true);
                     }
                 }}
                 onDelete={() => {
-                    if (optionsFile) handleDelete(optionsFile);
+                    if (optionsFile) fileActions.handleDelete(optionsFile);
                 }}
                 onShare={() => {
-                    if (optionsFile) handleShare(optionsFile);
+                    if (optionsFile) fileActions.handleShare(optionsFile);
                 }}
                 onFavorite={() => {
-                    if (optionsFile) handleFavorite(optionsFile);
+                    if (optionsFile) fileActions.handleFavorite(optionsFile);
                 }}
             />
 
             <DocxViewerModal
-                visible={docxViewerVisible}
-                file={docxFile}
-                onClose={() => {
-                    setDocxViewerVisible(false);
-                    setDocxFile(null);
-                }}
+                visible={viewers.docxViewerVisible}
+                file={viewers.docxFile}
+                onClose={viewers.closeDocxViewer}
             />
 
             <OdtViewerModal
-                visible={odtViewerVisible}
-                file={odtFile}
-                onClose={() => {
-                    setOdtViewerVisible(false);
-                    setOdtFile(null);
-                }}
+                visible={viewers.odtViewerVisible}
+                file={viewers.odtFile}
+                onClose={viewers.closeOdtViewer}
             />
 
             <SettingsModal
-                visible={settingsVisible}
-                onClose={() => setSettingsVisible(false)}
-                showPreviews={showPreviews}
-                onTogglePreviews={setShowPreviews}
-                showWord={showWord}
-                onToggleShowWord={setShowWord}
-                openWordInApp={openWordInApp}
-                onToggleOpenWordInApp={setOpenWordInApp}
-                startupViewMode={startupViewMode}
-                onToggleStartupViewMode={setStartupViewMode}
-                showODF={showODF}
-                onToggleShowODF={setShowODF}
+                visible={viewers.settingsVisible}
+                onClose={() => viewers.setSettingsVisible(false)}
+                showPreviews={settings.showPreviews}
+                onTogglePreviews={settings.setShowPreviews}
+                showWord={settings.showWord}
+                onToggleShowWord={settings.setShowWord}
+                openWordInApp={settings.openWordInApp}
+                onToggleOpenWordInApp={settings.setOpenWordInApp}
+                startupViewMode={settings.startupViewMode}
+                onToggleStartupViewMode={settings.setStartupViewMode}
+                showODF={settings.showODF}
+                onToggleShowODF={settings.setShowODF}
             />
 
             <CreditsModal
-                visible={creditsVisible}
-                onClose={() => setCreditsVisible(false)}
+                visible={viewers.creditsVisible}
+                onClose={() => viewers.setCreditsVisible(false)}
             />
 
             <ConfirmModal
-                visible={confirmDeleteVisible}
+                visible={fileActions.confirmDeleteVisible}
                 title={t('delete.title')}
-                message={t('delete.message', { name: confirmDeleteFile?.name || '' })}
+                message={t('delete.message', { name: fileActions.confirmDeleteFile?.name || '' })}
                 onConfirm={() => {
-                    if (confirmDeleteFile) performDelete(confirmDeleteFile);
-                    setConfirmDeleteVisible(false);
+                    if (fileActions.confirmDeleteFile) fileActions.performDelete(fileActions.confirmDeleteFile);
+                    fileActions.setConfirmDeleteVisible(false);
                 }}
-                onCancel={() => setConfirmDeleteVisible(false)}
+                onCancel={() => fileActions.setConfirmDeleteVisible(false)}
                 confirmText={t('delete.confirm')}
                 cancelText={t('delete.cancel')}
                 confirmColor={colors.error}
