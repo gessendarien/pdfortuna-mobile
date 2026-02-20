@@ -106,9 +106,10 @@ Gemfile.lock
 !.yarn/versions
 
 # ===========================
-# Bundle
+# Bundle/Outputs
 # ===========================
 .bundle/
+outputs/
 
 # ===========================
 # Environment Variables
