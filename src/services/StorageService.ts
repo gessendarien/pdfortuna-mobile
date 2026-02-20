@@ -4,6 +4,15 @@ const FAVORITES_KEY = 'favorites_pdf_paths';
 const PERMISSION_SHOWN_KEY = 'permission_dialog_shown';
 const PAGE_HISTORY_KEY = 'document_page_history';
 
+export interface AppSettings {
+    showPreviews: boolean;
+    showWord: boolean;
+    openWordInApp: boolean;
+    showODF: boolean;
+    startupViewMode: boolean;
+    isGridView?: boolean; // Legacy, used for migration
+}
+
 export const StorageService = {
     async getFavorites(): Promise<string[]> {
         try {
@@ -82,7 +91,7 @@ export const StorageService = {
     },
 
     // User Settings Persistence
-    async saveSettings(settings: any) {
+    async saveSettings(settings: AppSettings) {
         try {
             await AsyncStorage.setItem('user_settings', JSON.stringify(settings));
         } catch (e) {
@@ -90,11 +99,11 @@ export const StorageService = {
         }
     },
 
-    async loadSettings() {
+    async loadSettings(): Promise<AppSettings> {
         try {
             const json = await AsyncStorage.getItem('user_settings');
             if (json) {
-                return JSON.parse(json);
+                return JSON.parse(json) as AppSettings;
             }
         } catch (e) {
             console.log('Error loading settings', e);
@@ -102,11 +111,11 @@ export const StorageService = {
         // Default settings (First time load) -> All False by default
         return {
             showPreviews: false,
-            showWord: false,     // Default disabled
-            openWordInApp: false, // Default disabled
-            showODF: false,      // Default disabled
+            showWord: false,
+            openWordInApp: false,
+            showODF: false,
             startupViewMode: false,
-            isGridView: false // Legacy, can be ignored or used for migration
+            isGridView: false,
         };
     }
 };
