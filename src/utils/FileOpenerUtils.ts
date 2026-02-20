@@ -85,7 +85,8 @@ export const handleIncomingIntent = async () => {
                 fileName = fileName.replace(/\.+$/, '');
 
                 // Ensure PDF extension if missing
-                if (!fileName.toLowerCase().endsWith('.pdf') && !fileName.toLowerCase().endsWith('.docx') && !fileName.toLowerCase().endsWith('.doc')) {
+                const lower = fileName.toLowerCase();
+                if (!lower.endsWith('.pdf') && !lower.endsWith('.docx') && !lower.endsWith('.doc') && !lower.endsWith('.odt') && !lower.endsWith('.odf')) {
                     fileName += '.pdf';
                 }
 
@@ -110,7 +111,8 @@ export const resolveContentUriName = async (uri: string, originalUri?: string): 
     name = name.replace(/\.+$/, '');
 
     // Ensure PDF extension
-    if (name !== 'Documento Externo' && !name.toLowerCase().endsWith('.pdf') && !name.toLowerCase().endsWith('.docx') && !name.toLowerCase().endsWith('.doc')) {
+    const lower = name.toLowerCase();
+    if (name !== 'Documento Externo' && !lower.endsWith('.pdf') && !lower.endsWith('.docx') && !lower.endsWith('.doc') && !lower.endsWith('.odt') && !lower.endsWith('.odf')) {
         return name + '.pdf';
     }
 
