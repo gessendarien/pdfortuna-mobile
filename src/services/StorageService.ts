@@ -58,12 +58,17 @@ export const StorageService = {
     async savePage(path: string, page: number) {
         try {
             const history = await this.getPageHistory();
+            // Implement LRU caching via object insertion order
+            delete history[path];
             history[path] = page;
-            // Optional: Limit size to latest 500 entries to save resources
+
             const entries = Object.entries(history);
             if (entries.length > 500) {
-                // Simple truncation strategy: keep the last 500 keys (assuming insertion order is roughly preserved or irrelevant for now)
-                // A true LRU would require storing timestamps. For now, simple object store is efficient enough.
+                // Keep the last 500 keys
+                const keysToRemove = entries.slice(0, entries.length - 500);
+                for (const [key] of keysToRemove) {
+                    delete history[key];
+                }
             }
             await AsyncStorage.setItem(PAGE_HISTORY_KEY, JSON.stringify(history));
         } catch (e) {

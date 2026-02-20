@@ -9,6 +9,7 @@ import { LocalFile } from '../services/FileService';
 import { t } from '../i18n';
 import mammoth from 'mammoth';
 import { Buffer } from 'buffer';
+import Share from 'react-native-share';
 import 'text-encoding';
 
 // Polyfill Buffer
@@ -35,6 +36,7 @@ export const DocxViewerModal = ({ visible, file, onClose }: Props) => {
     const [htmlContent, setHtmlContent] = useState<string>('');
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
+    const isSharingRef = React.useRef(false);
 
     useEffect(() => {
         if (visible && file && (file.type === 'docx')) {
@@ -108,6 +110,60 @@ export const DocxViewerModal = ({ visible, file, onClose }: Props) => {
         }
     };
 
+    const handleShare = async () => {
+        if (!file || isSharingRef.current) return;
+        isSharingRef.current = true;
+
+        let tempPath = '';
+        try {
+            let safeName = (file.name || 'documento.docx').replace(/[^a-zA-Z0-9._\- ]/g, '_');
+            // Ensure .docx extension
+            if (!safeName.toLowerCase().endsWith('.docx')) {
+                safeName += '.docx';
+            }
+            tempPath = `${RNFS.CachesDirectoryPath}/${safeName}`;
+
+            // Copy to cache for sharing
+            if (await RNFS.exists(tempPath)) {
+                await RNFS.unlink(tempPath);
+            }
+
+            await RNFS.copyFile(file.path, tempPath);
+
+            await Share.open({
+                url: `file://${tempPath}`,
+                type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                filename: safeName,
+                title: t('viewer.shareTitle'),
+                failOnCancel: false,
+            });
+        } catch (error: any) {
+            if (error?.message !== 'User did not share') {
+                console.log('Share error:', error);
+                // Fallback: try base64 share
+                try {
+                    const base64Data = await RNFS.readFile(file.path, 'base64');
+                    await Share.open({
+                        url: `data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,${base64Data}`,
+                        title: t('viewer.shareTitle'),
+                        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                        failOnCancel: false,
+                        filename: file.name || 'documento.docx',
+                    });
+                } catch (err2) {
+                    console.error('Share fallback error:', err2);
+                }
+            }
+        } finally {
+            isSharingRef.current = false;
+            if (tempPath) {
+                try {
+                    if (await RNFS.exists(tempPath)) await RNFS.unlink(tempPath);
+                } catch (_) { }
+            }
+        }
+    };
+
     if (!visible) return null;
 
     return (
@@ -120,13 +176,17 @@ export const DocxViewerModal = ({ visible, file, onClose }: Props) => {
             <View style={[styles.container, { backgroundColor: colors.surfaceLight }]}>
                 {/* Header */}
                 <View style={[styles.header, { borderBottomColor: colors.border, backgroundColor: colors.surfaceLight }]}>
-                    <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                        <MaterialIcon name="close" size={24} color={colors.text} />
+                    <TouchableOpacity onPress={onClose} style={styles.headerBtn}>
+                        <MaterialIcon name="arrow-back" size={24} color={colors.text} />
                     </TouchableOpacity>
-                    <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
-                        {file?.name || t('viewer.document')}
-                    </Text>
-                    <View style={{ width: 40 }} />
+                    <View style={styles.headerTitleContainer}>
+                        <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
+                            {file?.name || t('viewer.document')}
+                        </Text>
+                    </View>
+                    <TouchableOpacity onPress={handleShare} style={styles.headerBtn}>
+                        <MaterialIcon name="share" size={22} color={colors.primary} />
+                    </TouchableOpacity>
                 </View>
 
                 {/* Content */}
@@ -165,21 +225,26 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingTop: 16,
-        paddingBottom: 12,
         paddingHorizontal: 16,
         borderBottomWidth: 1,
-        height: 80,
+        height: 56, // Standard native header height
+        gap: 4,
     },
-    closeButton: {
-        padding: 8,
-        marginRight: 8,
+    headerBtn: {
+        padding: 6,
+    },
+    headerTitleContainer: {
+        flex: 1,
+        alignItems: 'center', // Center title like native (approx) or left align? PDF Viewer title is marquee.
+        // But PdfViewerScreen.tsx had maxWidth but was in headerTitle which is centered by default on iOS, left on Android.
+        // Let's stick to simple flex 1 for now, but maybe match PDF viewer style:
+        marginLeft: 16,
+        marginRight: 16,
     },
     title: {
-        flex: 1,
-        fontSize: 18,
+        fontSize: 17,
         fontWeight: '600',
-        textAlign: 'center',
+        textAlign: 'left', // Or center if we want to mimic iOS default
     },
     content: {
         flex: 1,

@@ -27,7 +27,7 @@
         "showWordDesc": "Include .doc and .docx files in the list",
         "openWordInApp": "Open Word in App",
         "openWordInAppDesc": "Use the built-in quick viewer instead of opening an external app",
-        "showODF": "Show ODF documents",
+        "showODF": "Show and open ODF documents",
         "showODFDesc": "Include .odt and .odf files in the list",
         "darkMode": "Dark mode",
         "darkModeDesc": "Change the app appearance"

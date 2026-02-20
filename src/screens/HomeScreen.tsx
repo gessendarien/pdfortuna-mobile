@@ -16,6 +16,7 @@ import { RenameModal } from '../components/RenameModal';
 import { FilterModal } from '../components/FilterModal';
 import { FileOptionsModal } from '../components/FileOptionsModal';
 import { DocxViewerModal } from '../components/DocxViewerModal';
+import { OdtViewerModal } from '../components/OdtViewerModal';
 import { SettingsModal } from '../components/SettingsModal';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { UndoToast } from '../components/UndoToast';
@@ -51,6 +52,10 @@ export const HomeScreen = () => {
     // Docx Viewer
     const [docxFile, setDocxFile] = useState<LocalFile | null>(null);
     const [docxViewerVisible, setDocxViewerVisible] = useState(false);
+
+    // Odt Viewer
+    const [odtFile, setOdtFile] = useState<LocalFile | null>(null);
+    const [odtViewerVisible, setOdtViewerVisible] = useState(false);
 
     // Settings
     const [settingsVisible, setSettingsVisible] = useState(false);
@@ -213,11 +218,20 @@ export const HomeScreen = () => {
         } else {
             let mime = '*/*';
             if (file.type === 'doc') mime = 'application/msword';
-            else if (file.type === 'odf') mime = 'application/vnd.oasis.opendocument.text';
+            else if (file.type === 'odf') {
+                if (showODF) {
+                    setOdtFile(file);
+                    setOdtViewerVisible(true);
+                    return;
+                } else {
+                    mime = 'application/vnd.oasis.opendocument.text';
+                }
+            }
 
             openFileInExternalApp(file.path, mime);
         }
     };
+
 
     const handleShare = async (file: LocalFile) => {
         if (isSharingRef.current) {
@@ -650,6 +664,15 @@ export const HomeScreen = () => {
                 onClose={() => {
                     setDocxViewerVisible(false);
                     setDocxFile(null);
+                }}
+            />
+
+            <OdtViewerModal
+                visible={odtViewerVisible}
+                file={odtFile}
+                onClose={() => {
+                    setOdtViewerVisible(false);
+                    setOdtFile(null);
                 }}
             />
 

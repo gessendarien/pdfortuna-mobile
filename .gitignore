@@ -122,3 +122,4 @@ Gemfile.lock
 # ===========================
 wireframe/
 connect.sh
+src/config/AdConfig.ts

@@ -27,7 +27,7 @@
         "showWordDesc": "Incluye archivos .doc y .docx en la lista",
         "openWordInApp": "Abrir Word en la App",
         "openWordInAppDesc": "Usa el visor rápido integrado en lugar de abrir una app externa",
-        "showODF": "Mostrar documentos ODF",
+        "showODF": "Mostrar y abrir documentos ODF",
         "showODFDesc": "Incluye archivos .odt y .odf en la lista",
         "removeAds": "Eliminar anuncios",
         "removeAdsDesc": "Obtén la versión PRO sin anuncios",
