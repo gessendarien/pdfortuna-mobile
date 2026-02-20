@@ -231,7 +231,7 @@ export const clearShareCache = async () => {
 
         const result = await RNFS.readDir(path);
         for (const item of result) {
-            if (item.isFile()) {
+            if (item.isFile() && !item.name.startsWith('thumb_')) {
                 await RNFS.unlink(item.path);
             }
         }
