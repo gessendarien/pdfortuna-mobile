@@ -13,7 +13,7 @@
     <img src="https://img.shields.io/badge/platform-Android-3ddc84?style=for-the-badge&logo=android&logoColor=white" alt="Platform Android" />
   </a>
   <a href="https://github.com/gessendarien/pdfortuna-mobile/releases">
-    <img src="https://img.shields.io/badge/version-0.0.1-blue?style=for-the-badge" alt="Version" />
+    <img src="https://img.shields.io/badge/version-0.0.2-blue?style=for-the-badge" alt="Version" />
   </a>
   <a href="https://github.com/gessendarien/pdfortuna-mobile/blob/main/LICENSE">
     <img src="https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg?style=for-the-badge" alt="License CC BY-NC 4.0" />

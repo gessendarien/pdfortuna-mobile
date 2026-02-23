@@ -36,7 +36,7 @@ export const CreditsModal = ({ visible, onClose }: Props) => {
                     <View style={styles.content}>
                         <View style={styles.logoContainer}>
                             <Text style={[styles.appName, { color: colors.primary }]}>PDFortuna</Text>
-                            <Text style={[styles.version, { color: colors.textSecondary }]}>v0.0.1</Text>
+                            <Text style={[styles.version, { color: colors.textSecondary }]}>v0.0.2</Text>
                         </View>
 
                         <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('credits.credits')}</Text>
