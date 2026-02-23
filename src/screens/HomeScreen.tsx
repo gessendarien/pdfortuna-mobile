@@ -19,6 +19,8 @@ import { ConfirmModal } from '../components/ConfirmModal';
 import { UndoToast } from '../components/UndoToast';
 import { CreditsModal } from '../components/CreditsModal';
 import { BannerAdItem } from '../components/BannerAdItem';
+import { PrivacyConsentModal } from '../components/PrivacyConsentModal';
+import { StorageService } from '../services/StorageService';
 import { AdConfig } from '../config/AdConfig';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -55,6 +57,19 @@ export const HomeScreen = () => {
     const [filterModalVisible, setFilterModalVisible] = useState(false);
     const [optionsFile, setOptionsFile] = useState<LocalFile | null>(null);
     const [optionsModalVisible, setOptionsModalVisible] = useState(false);
+    const [privacyAccepted, setPrivacyAccepted] = useState<boolean | null>(null);
+
+    // Check if privacy policy has been accepted
+    useEffect(() => {
+        StorageService.hasPrivacyBeenAccepted().then(accepted => {
+            setPrivacyAccepted(accepted);
+        });
+    }, []);
+
+    const handlePrivacyAccept = async () => {
+        await StorageService.setPrivacyAccepted();
+        setPrivacyAccepted(true);
+    };
 
     // Auto-reset filter to 'all' when Word or ODF get re-enabled from settings
     useEffect(() => {
@@ -175,6 +190,27 @@ export const HomeScreen = () => {
             return list;
         }
     }, [filteredFiles, settings.isGridView]);
+
+    // Show privacy consent modal before anything else (first launch)
+    if (privacyAccepted === null) {
+        // Still loading consent status
+        return (
+            <View style={[styles.permissionContainer, { backgroundColor: colors.backgroundLight }]}>
+                <ActivityIndicator size="large" color={colors.primary} />
+            </View>
+        );
+    }
+
+    if (!privacyAccepted) {
+        return (
+            <View style={[styles.permissionContainer, { backgroundColor: colors.backgroundLight }]}>
+                <PrivacyConsentModal
+                    visible={true}
+                    onAccept={handlePrivacyAccept}
+                />
+            </View>
+        );
+    }
 
     // Only show permission request if we are done checking and definitely don't have permissions
     if (!fileManager.isCheckingPermissions && !fileManager.permissionGranted) {

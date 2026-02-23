@@ -155,262 +155,249 @@
                 </div>
             </section>
 
-            <!-- SECCIÓN PDFORTUNA PRO (AHORA ANTES QUE DESCARGAS) -->
-            <section class="py-20 px-6 md:px-20 bg-white dark:bg-background-dark/50">
-                <div class="max-w-4xl mx-auto text-center">
+            <!-- SECCIÓN VERSIONES: FREE + PRO lado a lado -->
+            <section class="py-20 px-6 md:px-20 bg-white dark:bg-background-dark/50" id="downloads">
+                <div class="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
+
+                    <!-- CARD FREE -->
                     <div
-                        class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-100 text-amber-700 font-bold text-xs uppercase tracking-widest mb-8">
-                        <span class="material-symbols-outlined text-sm">star</span> <span
-                            data-i18n="premium_badge">Premium Experience</span>
-                    </div>
-                    <h2 class="text-4xl font-black mb-4" data-i18n="pro_title">PDFortuna Pro</h2>
-                    <p class="text-lg text-slate-600 dark:text-slate-400 mb-10 max-w-xl mx-auto"
-                        data-i18n="pro_description">
-                        Support the project, same experience, no ads. Get the official version from the store.
-                    </p>
-                    <div class="flex flex-col items-center gap-6">
-                        <h1 class="text-2xl font-black mb-4" data-i18n="comign_soon">Coming Soon</h1>
-                        <button
-                            class="group flex items-center gap-4 px-8 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-bold text-lg hover:scale-105 transition-all shadow-2xl">
-                            <svg class="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M8 5v14l11-7z" />
-                            </svg>
-                            <div class="text-left">
-                                <div class="text-xs opacity-70 font-normal uppercase tracking-wider"
-                                    data-i18n="get_it_on">Get it on</div>
-                                <div class="leading-tight">Google Play</div>
-                            </div>
-                        </button>
-
-                    </div>
-                </div>
-            </section>
-
-            <!-- SECCIÓN DE DESCARGAS CON SELECTOR DE PLATAFORMA -->
-            <section class="py-24 px-6 md:px-20 bg-primary/5" id="downloads">
-                <div class="max-w-4xl mx-auto">
-                    <div class="text-center mb-12">
-                        <h2 class="text-3xl font-bold mb-4" data-i18n="download_title">Download PDFortuna</h2>
-                        <p class="text-slate-500" data-i18n="download_subtitle">Choose your platform and get the latest
-                            version</p>
-                    </div>
-
-                    <!-- SELECTOR DE PLATAFORMA MEJORADO -->
-                    <div class="flex justify-center mb-10">
-                        <div class="bg-white dark:bg-slate-800 p-1 rounded-2xl shadow-lg inline-flex">
-                            <!-- Android (seleccionado por defecto) -->
-                            <div onclick="selectPlatform('android')"
-                                class="platform-option inline-flex items-center gap-2 px-6 py-3 rounded-xl cursor-pointer selected"
-                                id="platform-android-option">
-                                <span class="material-symbols-outlined text-primary">android</span>
-                                <span class="font-bold">Android</span>
-                            </div>
-
-                            <!-- iOS (Coming Soon - deshabilitado) -->
-                            <div class="platform-option inline-flex items-center gap-2 px-6 py-3 rounded-xl opacity-50"
-                                id="platform-ios-option">
-                                <span class="font-bold">iOS</span>
-                                <span class="text-xs bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded-full"
-                                    data-i18n="coming_soon">Coming Soon</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- CONTENIDO QUE CAMBIA SEGÚN PLATAFORMA (solo Android visible) -->
-                    <div id="android-content" class="block">
-                        <div class="flex justify-center">
-                            <div class="w-full max-w-md">
-                                <!-- APK Card - Centrada -->
-                                <div
-                                    class="p-8 rounded-3xl border border-primary/10 bg-white dark:bg-slate-800/30 hover:border-primary/40 transition-all flex flex-col items-center text-center">
-                                    <div
-                                        class="size-16 bg-primary/10 rounded-2xl flex items-center justify-center text-primary mb-6">
-                                        <span class="material-symbols-outlined text-4xl">sdk</span>
-                                    </div>
-                                    <h3 class="text-xl font-bold mb-2" data-i18n="apk_title">Android Package (APK)</h3>
-                                    <p class="text-sm text-slate-500 mb-8" data-i18n="apk_desc">For most Android
-                                        devices.</p>
-                                    <div class="w-full mt-auto">
-                                        <div
-                                            class="flex justify-between text-xs font-bold mb-4 text-slate-400 uppercase tracking-widest">
-                                            <span class="text-slate-500" data-i18n="version">v0.0.2</span>
-                                        </div>
-                                        <a href="https://github.com/gessendarien/pdfortuna-mobile/raw/refs/heads/main/APK/PDFortuna-latest.apk"
-                                            target="_blank"
-                                            class="w-full py-4 bg-primary hover:bg-primary/90 text-white rounded-xl font-bold shadow-xl shadow-primary/20 transition-all flex items-center justify-center gap-2">
-                                            <span class="material-symbols-outlined">download</span>
-                                            <span data-i18n="download_apk">Download APK</span>
-                                        </a>
-                                    </div>
-                                </div>
-                                <!-- ENLACE A CÓDIGO FUENTE CORREGIDO CON TRADUCCIÓN -->
-                                <div class="mt-4 text-center text-sm text-slate-500">
-                                    <span data-i18n="view_source">View</span> <a
-                                        href="https://github.com/gessendarien/pdfortuna-mobile" target="_blank"
-                                        class="text-primary hover:underline" data-i18n="source_code">Source</a>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- iOS Coming Soon Message (oculto por defecto) -->
-                    <div id="ios-content" class="hidden text-center py-16">
+                        class="p-8 rounded-3xl border border-emerald-200 dark:border-emerald-800/50 bg-white dark:bg-slate-800/30 flex flex-col items-center text-center">
                         <div
-                            class="size-24 bg-slate-200 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-6">
-                            <span class="material-symbols-outlined text-5xl text-slate-500">apple</span>
+                            class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-100 text-emerald-700 font-bold text-xs uppercase tracking-widest mb-6">
+                            <span class="material-symbols-outlined text-sm">download</span>
+                            <span data-i18n="free_badge">Free</span>
                         </div>
-                        <h3 class="text-2xl font-bold mb-2" data-i18n="ios_soon_title">iOS Version <span
-                                data-i18n="coming_soon">Coming Soon</span></h3>
-                        <p class="text-slate-500 max-w-md mx-auto" data-i18n="ios_soon_desc">
-                            We're working hard to bring PDFortuna to iOS. Leave your email to get notified when it's
-                            ready.
+                        <h2 class="text-3xl font-black mb-3" data-i18n="free_title">PDFortuna</h2>
+                        <p class="text-slate-600 dark:text-slate-400 mb-8" data-i18n="free_description">
+                            The full experience, completely free. Includes ads to support the project.
                         </p>
-                        <div class="mt-8 flex max-w-md mx-auto gap-2">
-                            <input type="email" placeholder="your@email.com"
-                                class="flex-1 px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800">
-                            <button class="px-6 py-3 bg-primary text-white rounded-xl font-bold">Notify</button>
+                        <div class="flex flex-col gap-4 w-full mt-auto">
+                            <!-- Botón Descargar APK -->
+                            <a href="https://github.com/gessendarien/pdfortuna-mobile/raw/refs/heads/main/APK/PDFortuna-latest.apk"
+                                target="_blank"
+                                class="group flex items-center justify-center gap-3 w-full px-6 py-4 bg-primary text-white rounded-2xl font-bold text-base hover:scale-105 transition-all shadow-xl shadow-primary/20">
+                                <span class="material-symbols-outlined text-2xl">download</span>
+                                <div class="text-left">
+                                    <div class="text-xs opacity-80 font-normal uppercase tracking-wider"
+                                        data-i18n="free_download_label">Download now</div>
+                                    <div class="leading-tight" data-i18n="download_apk">Download APK</div>
+                                </div>
+                            </a>
+                            <!-- Botón Google Play -->
+                            <div class="mt-2 text-center">
+                                <h3 class="text-sm font-bold text-slate-400 mb-2" data-i18n="coming_soon">Coming Soon
+                                </h3>
+                                <button
+                                    class="group flex items-center justify-center gap-3 w-full px-6 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-bold text-base opacity-60 cursor-not-allowed transition-all shadow-xl">
+                                    <svg class="w-7 h-7" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M8 5v14l11-7z" />
+                                    </svg>
+                                    <div class="text-left">
+                                        <div class="text-xs opacity-70 font-normal uppercase tracking-wider"
+                                            data-i18n="get_it_on">Get it on</div>
+                                        <div class="leading-tight">Google Play</div>
+                                    </div>
+                                </button>
+                            </div>
+                            <!-- Enlace código fuente -->
+                            <div class="text-center text-sm text-slate-500 mt-2">
+                                <span data-i18n="view_source">View</span> <a
+                                    href="https://github.com/gessendarien/pdfortuna-mobile" target="_blank"
+                                    class="text-primary hover:underline" data-i18n="source_code">Source</a>
+                            </div>
                         </div>
                     </div>
+
+                    <!-- CARD PRO -->
+                    <div
+                        class="p-8 rounded-3xl border border-amber-200 dark:border-amber-800/50 bg-slate-50 dark:bg-slate-900/50 flex flex-col items-center text-center">
+                        <div
+                            class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-100 text-amber-700 font-bold text-xs uppercase tracking-widest mb-6">
+                            <span class="material-symbols-outlined text-sm">star</span>
+                            <span data-i18n="premium_badge">Premium Experience</span>
+                        </div>
+                        <h2 class="text-3xl font-black mb-3" data-i18n="pro_title">PDFortuna Pro</h2>
+                        <p class="text-slate-600 dark:text-slate-400 mb-8" data-i18n="pro_description">
+                            Support the project, same experience, no ads. Get the official version from the store.
+                        </p>
+                        <div class="flex flex-col gap-4 w-full mt-auto">
+                            <h3 class="text-xl font-black text-slate-400" data-i18n="coming_soon">Coming Soon</h3>
+                            <!-- Botón Google Play (Coming Soon) -->
+                            <button
+                                class="group flex items-center justify-center gap-3 w-full px-6 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-bold text-base hover:scale-105 transition-all shadow-xl opacity-60 cursor-not-allowed">
+                                <svg class="w-7 h-7" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M8 5v14l11-7z" />
+                                </svg>
+                                <div class="text-left">
+                                    <div class="text-xs opacity-70 font-normal uppercase tracking-wider"
+                                        data-i18n="get_it_on">Get it on</div>
+                                    <div class="leading-tight">Google Play</div>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+
                 </div>
             </section>
 
-            <!-- SECCIÓN DE POLÍTICA DE PRIVACIDAD (CON TEXTO COMPLETO - SIN RADIOS) -->
-            <section class="py-24 px-6 md:px-20 bg-white dark:bg-background-dark border-t border-primary/10"
+            <section class="py-12 px-6 md:px-20 bg-white dark:bg-background-dark border-t border-primary/10"
                 id="policy">
                 <div class="max-w-4xl mx-auto">
-                    <div class="mb-8">
-                        <h2 class="text-3xl font-bold mb-6" data-i18n="privacy_title">Privacy Policy</h2>
+                    <!-- ACORDEÓN DE POLÍTICA -->
+                    <details
+                        class="group bg-slate-50 dark:bg-slate-800/30 rounded-3xl border border-slate-200 dark:border-slate-800 transition-all duration-300 open:shadow-lg"
+                        id="privacy-accordion">
+                        <summary
+                            class="flex justify-between items-center cursor-pointer p-8 list-none outline-none select-none">
+                            <h2 class="text-2xl md:text-3xl font-bold m-0" data-i18n="privacy_title">Privacy Policy</h2>
+                            <span
+                                class="material-symbols-outlined text-3xl text-primary transition-transform duration-300 group-open:rotate-180">expand_more</span>
+                        </summary>
 
-                        <!-- TABS DE IDIOMA PARA POLÍTICA - SIN RADIOS -->
-                        <div class="flex flex-wrap border-b border-slate-200 dark:border-slate-800 gap-2 mb-6">
-                            <button onclick="showPrivacyTab('es')"
-                                class="privacy-tab-btn px-6 py-3 cursor-pointer text-sm font-bold border-b-2 border-transparent transition-all active"
-                                id="tab-es-btn">Español</button>
-                            <button onclick="showPrivacyTab('en')"
-                                class="privacy-tab-btn px-6 py-3 cursor-pointer text-sm font-bold border-b-2 border-transparent transition-all"
-                                id="tab-en-btn">English</button>
-                            <button onclick="showPrivacyTab('zh')"
-                                class="privacy-tab-btn px-6 py-3 cursor-pointer text-sm font-bold border-b-2 border-transparent transition-all"
-                                id="tab-zh-btn">中文 (简体)</button>
-                        </div>
+                        <div class="px-8 pb-8 pt-2 border-t border-slate-200/50 dark:border-slate-800/50 mt-2">
+                            <!-- TABS DE IDIOMA PARA POLÍTICA - SIN RADIOS -->
+                            <div class="flex flex-wrap border-b border-slate-200 dark:border-slate-800 gap-2 mb-6">
+                                <button onclick="showPrivacyTab('es')"
+                                    class="privacy-tab-btn px-6 py-3 cursor-pointer text-sm font-bold border-b-2 border-transparent transition-all active"
+                                    id="tab-es-btn">Español</button>
+                                <button onclick="showPrivacyTab('en')"
+                                    class="privacy-tab-btn px-6 py-3 cursor-pointer text-sm font-bold border-b-2 border-transparent transition-all"
+                                    id="tab-en-btn">English</button>
+                                <button onclick="showPrivacyTab('zh')"
+                                    class="privacy-tab-btn px-6 py-3 cursor-pointer text-sm font-bold border-b-2 border-transparent transition-all"
+                                    id="tab-zh-btn">中文 (简体)</button>
+                            </div>
 
-                        <!-- CONTENIDO EN INGLÉS -->
-                        <div class="privacy-content active" id="content-en">
-                            <div
-                                class="h-96 overflow-y-auto p-8 rounded-2xl bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 text-sm leading-relaxed border border-slate-200 dark:border-slate-700">
-                                <h4 class="font-bold text-slate-900 dark:text-white text-lg mb-4">📄 Privacy Policy -
-                                    English</h4>
-                                <p class="mb-2"><strong>App name:</strong> PDFortuna<br>
-                                    <strong>Developer name:</strong> Cassca Studios<br>
-                                    <strong>Last updated:</strong> February 22, 2026
-                                </p>
+                            <!-- CONTENIDO EN INGLÉS -->
+                            <div class="privacy-content active" id="content-en">
+                                <div
+                                    class="h-96 overflow-y-auto p-8 rounded-2xl bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 text-sm leading-relaxed border border-slate-200 dark:border-slate-700">
+                                    <h4 class="font-bold text-slate-900 dark:text-white text-lg mb-4">📄 Privacy Policy
+                                        -
+                                        English</h4>
+                                    <p class="mb-2"><strong>App name:</strong> PDFortuna<br>
+                                        <strong>Developer name:</strong> Cassca Studios<br>
+                                        <strong>Last updated:</strong> February 22, 2026
+                                    </p>
 
-                                <p class="mt-4"><strong>1. Information We DO NOT Collect</strong><br>
-                                    This application <strong>does not collect, store, or share any personal user
-                                        information</strong>. This includes, but is not limited to: name, email address,
-                                    location, device identifiers (such as IMEI), usage data, contacts, photos, or any
-                                    personal files.</p>
+                                    <p class="mt-4"><strong>1. Information We DO NOT Collect</strong><br>
+                                        This application <strong>does not collect, store, or share any personal user
+                                            information</strong>. This includes, but is not limited to: name, email
+                                        address,
+                                        location, device identifiers (such as IMEI), usage data, contacts, photos, or
+                                        any
+                                        personal files.</p>
 
-                                <p class="mt-3"><strong>2. Permissions</strong><br>
-                                    We request access to device storage solely for the user to select and open their own
-                                    documents in the following formats: PDF, DOC, DOCX, ODF, and ODT. These files
-                                    <strong>remain on your device</strong> and are not accessible to us or any third
-                                    party.
-                                </p>
+                                    <p class="mt-3"><strong>2. Permissions</strong><br>
+                                        We request access to device storage solely for the user to select and open their
+                                        own
+                                        documents in the following formats: PDF, DOC, DOCX, ODF, and ODT. These files
+                                        <strong>remain on your device</strong> and are not accessible to us or any third
+                                        party.
+                                    </p>
 
-                                <p class="mt-3"><strong>3. Offline Functionality</strong><br>
-                                    The application works completely offline. No network connection is established.</p>
+                                    <p class="mt-3"><strong>3. Offline Functionality</strong><br>
+                                        The application works completely offline. No network connection is established.
+                                    </p>
 
-                                <p class="mt-3"><strong>4. Third-Party Services and AI</strong><br>
-                                    We do not use generative artificial intelligence services or analytics libraries.
-                                    The application <strong>contains advertisements</strong> provided by standard
-                                    advertising networks.</p>
+                                    <p class="mt-3"><strong>4. Third-Party Services and AI</strong><br>
+                                        We do not use generative artificial intelligence services or analytics
+                                        libraries.
+                                        The application <strong>contains advertisements</strong> provided by standard
+                                        advertising networks.</p>
 
-                                <p class="mt-3"><strong>5. Security</strong><br>
-                                    By not transferring or storing user data on external servers, the risks associated
-                                    with online information leakage are eliminated.</p>
+                                    <p class="mt-3"><strong>5. Security</strong><br>
+                                        By not transferring or storing user data on external servers, the risks
+                                        associated
+                                        with online information leakage are eliminated.</p>
 
-                                <p class="mt-3"><strong>6. Changes to This Policy</strong><br>
-                                    Any changes will be notified on this same page. Continued use of the application
-                                    after such changes constitutes acceptance of the new policy.</p>
+                                    <p class="mt-3"><strong>6. Changes to This Policy</strong><br>
+                                        Any changes will be notified on this same page. Continued use of the application
+                                        after such changes constitutes acceptance of the new policy.</p>
+                                </div>
+                            </div>
+
+                            <!-- CONTENIDO EN ESPAÑOL -->
+                            <div class="privacy-content" id="content-es">
+                                <div
+                                    class="h-96 overflow-y-auto p-8 rounded-2xl bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 text-sm leading-relaxed border border-slate-200 dark:border-slate-700">
+                                    <h4 class="font-bold text-slate-900 dark:text-white text-lg mb-4">📄 Política de
+                                        Privacidad - Español</h4>
+                                    <p class="mb-2"><strong>Nombre de la app:</strong> PDFortuna<br>
+                                        <strong>Nombre del desarrollador:</strong> Cassca Studios<br>
+                                        <strong>Última actualización:</strong> 22 de febrero de 2026
+                                    </p>
+
+                                    <p class="mt-4"><strong>1. Información que NO recopilamos</strong><br>
+                                        Esta aplicación <strong>no recopila, almacena ni comparte ningún tipo de
+                                            información
+                                            personal</strong>. Esto incluye, de forma no exhaustiva: nombre, correo
+                                        electrónico, ubicación, identificadores del dispositivo (como IMEI), datos de
+                                        uso,
+                                        contactos, fotos, o cualquier archivo personal.</p>
+
+                                    <p class="mt-3"><strong>2. Permisos</strong><br>
+                                        Solicitamos acceso al almacenamiento del dispositivo única y exclusivamente para
+                                        que
+                                        el usuario pueda seleccionar y abrir sus propios documentos en los siguientes
+                                        formatos: PDF, DOC, DOCX, ODF y ODT. Estos archivos <strong>permanecen en tu
+                                            dispositivo</strong> y no son accesibles para nosotros ni para terceros.</p>
+
+                                    <p class="mt-3"><strong>3. Funcionamiento</strong><br>
+                                        La aplicación funciona completamente sin conexión a internet. No se establece
+                                        ninguna conexión de red.</p>
+
+                                    <p class="mt-3"><strong>4. Servicios de Terceros e IA</strong><br>
+                                        No utilizamos servicios de inteligencia artificial generativa, librerías de
+                                        análisis
+                                        (analytics). La aplicación <strong>contiene anuncios</strong> proporcionados por
+                                        redes publicitarias estándar.</p>
+
+                                    <p class="mt-3"><strong>5. Seguridad</strong><br>
+                                        Al no transferir ni almacenar datos de usuario en servidores externos, se
+                                        eliminan
+                                        los riesgos asociados a la filtración de información en línea.</p>
+
+                                    <p class="mt-3"><strong>6. Cambios en esta política</strong><br>
+                                        Cualquier cambio será notificado en esta misma página. El uso continuado de la
+                                        aplicación después de dichos cambios constituye la aceptación de la nueva
+                                        política.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- CONTENIDO EN CHINO -->
+                            <div class="privacy-content" id="content-zh">
+                                <div
+                                    class="h-96 overflow-y-auto p-8 rounded-2xl bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 text-sm leading-relaxed border border-slate-200 dark:border-slate-700">
+                                    <h4 class="font-bold text-slate-900 dark:text-white text-lg mb-4">📄 隐私政策 - 中文</h4>
+                                    <p class="mb-2"><strong>应用名称：</strong> PDFortuna<br>
+                                        <strong>开发者名称：</strong> Cassca Studios<br>
+                                        <strong>最后更新：</strong> 2026年2月22日
+                                    </p>
+
+                                    <p class="mt-4"><strong>1. 我们不收集的信息</strong><br>
+                                        本应用<strong>不收集、存储或分享任何个人用户信息</strong>。这包括但不限于：姓名、电子邮件、位置、设备标识符（如IMEI）、使用数据、联系人、照片或任何个人文件。
+                                    </p>
+
+                                    <p class="mt-3"><strong>2. 权限</strong><br>
+                                        我们请求访问设备存储权限的唯一目的是让用户能够选择和打开他们自己的文档，支持的格式包括：PDF, DOC, DOCX, ODF 和
+                                        ODT。这些文件<strong>仅保留在您的设备上</strong>，我们或任何第三方都无法访问。</p>
+
+                                    <p class="mt-3"><strong>3. 离线运行</strong><br>
+                                        本应用完全在本地运行，无需互联网连接，不会建立任何网络连接。</p>
+
+                                    <p class="mt-3"><strong>4. 第三方服务与人工智能</strong><br>
+                                        我们不使用生成式人工智能服务或分析库。本应用<strong>包含广告</strong>，由标准广告网络提供。</p>
+
+                                    <p class="mt-3"><strong>5. 安全</strong><br>
+                                        由于我们不将用户数据传输或存储到外部服务器，因此消除了与在线信息泄露相关的风险。</p>
+
+                                    <p class="mt-3"><strong>6. 政策变更</strong><br>
+                                        任何政策变更都将在此页面上公布。在此类变更后继续使用本应用即表示您接受更新后的政策。</p>
+                                </div>
                             </div>
                         </div>
-
-                        <!-- CONTENIDO EN ESPAÑOL -->
-                        <div class="privacy-content" id="content-es">
-                            <div
-                                class="h-96 overflow-y-auto p-8 rounded-2xl bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 text-sm leading-relaxed border border-slate-200 dark:border-slate-700">
-                                <h4 class="font-bold text-slate-900 dark:text-white text-lg mb-4">📄 Política de
-                                    Privacidad - Español</h4>
-                                <p class="mb-2"><strong>Nombre de la app:</strong> PDFortuna<br>
-                                    <strong>Nombre del desarrollador:</strong> Cassca Studios<br>
-                                    <strong>Última actualización:</strong> 22 de febrero de 2026
-                                </p>
-
-                                <p class="mt-4"><strong>1. Información que NO recopilamos</strong><br>
-                                    Esta aplicación <strong>no recopila, almacena ni comparte ningún tipo de información
-                                        personal</strong>. Esto incluye, de forma no exhaustiva: nombre, correo
-                                    electrónico, ubicación, identificadores del dispositivo (como IMEI), datos de uso,
-                                    contactos, fotos, o cualquier archivo personal.</p>
-
-                                <p class="mt-3"><strong>2. Permisos</strong><br>
-                                    Solicitamos acceso al almacenamiento del dispositivo única y exclusivamente para que
-                                    el usuario pueda seleccionar y abrir sus propios documentos en los siguientes
-                                    formatos: PDF, DOC, DOCX, ODF y ODT. Estos archivos <strong>permanecen en tu
-                                        dispositivo</strong> y no son accesibles para nosotros ni para terceros.</p>
-
-                                <p class="mt-3"><strong>3. Funcionamiento</strong><br>
-                                    La aplicación funciona completamente sin conexión a internet. No se establece
-                                    ninguna conexión de red.</p>
-
-                                <p class="mt-3"><strong>4. Servicios de Terceros e IA</strong><br>
-                                    No utilizamos servicios de inteligencia artificial generativa, librerías de análisis
-                                    (analytics). La aplicación <strong>contiene anuncios</strong> proporcionados por
-                                    redes publicitarias estándar.</p>
-
-                                <p class="mt-3"><strong>5. Seguridad</strong><br>
-                                    Al no transferir ni almacenar datos de usuario en servidores externos, se eliminan
-                                    los riesgos asociados a la filtración de información en línea.</p>
-
-                                <p class="mt-3"><strong>6. Cambios en esta política</strong><br>
-                                    Cualquier cambio será notificado en esta misma página. El uso continuado de la
-                                    aplicación después de dichos cambios constituye la aceptación de la nueva política.
-                                </p>
-                            </div>
-                        </div>
-
-                        <!-- CONTENIDO EN CHINO -->
-                        <div class="privacy-content" id="content-zh">
-                            <div
-                                class="h-96 overflow-y-auto p-8 rounded-2xl bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 text-sm leading-relaxed border border-slate-200 dark:border-slate-700">
-                                <h4 class="font-bold text-slate-900 dark:text-white text-lg mb-4">📄 隐私政策 - 中文</h4>
-                                <p class="mb-2"><strong>应用名称：</strong> PDFortuna<br>
-                                    <strong>开发者名称：</strong> Cassca Studios<br>
-                                    <strong>最后更新：</strong> 2026年2月22日
-                                </p>
-
-                                <p class="mt-4"><strong>1. 我们不收集的信息</strong><br>
-                                    本应用<strong>不收集、存储或分享任何个人用户信息</strong>。这包括但不限于：姓名、电子邮件、位置、设备标识符（如IMEI）、使用数据、联系人、照片或任何个人文件。
-                                </p>
-
-                                <p class="mt-3"><strong>2. 权限</strong><br>
-                                    我们请求访问设备存储权限的唯一目的是让用户能够选择和打开他们自己的文档，支持的格式包括：PDF, DOC, DOCX, ODF 和
-                                    ODT。这些文件<strong>仅保留在您的设备上</strong>，我们或任何第三方都无法访问。</p>
-
-                                <p class="mt-3"><strong>3. 离线运行</strong><br>
-                                    本应用完全在本地运行，无需互联网连接，不会建立任何网络连接。</p>
-
-                                <p class="mt-3"><strong>4. 第三方服务与人工智能</strong><br>
-                                    我们不使用生成式人工智能服务或分析库。本应用<strong>包含广告</strong>，由标准广告网络提供。</p>
-
-                                <p class="mt-3"><strong>5. 安全</strong><br>
-                                    由于我们不将用户数据传输或存储到外部服务器，因此消除了与在线信息泄露相关的风险。</p>
-
-                                <p class="mt-3"><strong>6. 政策变更</strong><br>
-                                    任何政策变更都将在此页面上公布。在此类变更后继续使用本应用即表示您接受更新后的政策。</p>
-                            </div>
-                        </div>
-                    </div>
                 </div>
     </div>
     </section>
@@ -469,7 +456,12 @@
                 'coming_soon': 'Próximamente',
                 'comign_soon': 'Próximamente',
                 'view_source': 'Ver',
-                'source_code': 'Código Fuente'
+                'source_code': 'Código Fuente',
+                'free_badge': 'Gratuita',
+                'free_title': 'PDFortuna',
+                'free_description': 'La experiencia completa, totalmente gratuita.<br>Incluye anuncios.',
+                'free_download_label': 'Disponible v0.0.2',
+                'free_download_subtitle': 'Gratis con anuncios'
             },
             en: {
                 'app_name': 'PDFortuna',
@@ -492,7 +484,12 @@
                 'coming_soon': 'Coming Soon',
                 'comign_soon': 'Coming Soon',
                 'view_source': 'View',
-                'source_code': 'Source Code'
+                'source_code': 'Source Code',
+                'free_badge': 'Free',
+                'free_title': 'PDFortuna',
+                'free_description': 'The full experience, completely free.<br>Includes ads.',
+                'free_download_label': 'Available v0.0.2',
+                'free_download_subtitle': 'Free with ads'
             },
             zh: {
                 'app_name': 'PDFortuna',
@@ -515,7 +512,12 @@
                 'coming_soon': '即将推出',
                 'comign_soon': '即将推出',
                 'view_source': '查看',
-                'source_code': '源代码'
+                'source_code': '源代码',
+                'free_badge': '免费',
+                'free_title': 'PDFortuna',
+                'free_description': '完整体验，完全免费。<br>包含广告。',
+                'free_download_label': '可用 v0.0.2',
+                'free_download_subtitle': '免费含广告'
             }
         };
 
@@ -572,8 +574,12 @@
             changeLanguage('es');
             showPrivacyTab('es'); // Mostrar inglés por defecto en política
 
-            // Si hay #policy en URL, hacer scroll
+            // Si hay #policy en URL, abrir acordeón y hacer scroll
             if (window.location.hash === '#policy') {
+                const accordion = document.getElementById('privacy-accordion');
+                if (accordion) {
+                    accordion.open = true;
+                }
                 setTimeout(() => {
                     document.getElementById('policy').scrollIntoView({ behavior: 'smooth' });
                 }, 300);

@@ -88,5 +88,13 @@
     },
     "errors": {
         "shareError": "No se pudo compartir el archivo."
+    },
+    "privacy": {
+        "title": "Política de Privacidad",
+        "message": "Antes de comenzar a usar la app, lee nuestra Política de Privacidad para entender cómo manejamos tus datos.",
+        "requiredMessage": "Es necesario aceptar nuestra Política de Privacidad para continuar con el uso de la app. Lee nuestra Política de Privacidad para entender cómo manejamos tus datos.",
+        "accept": "Aceptar",
+        "decline": "Rechazar",
+        "linkText": "Política de Privacidad"
     }
 }

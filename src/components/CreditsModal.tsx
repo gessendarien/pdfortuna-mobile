@@ -12,7 +12,7 @@ interface Props {
 
 export const CreditsModal = ({ visible, onClose }: Props) => {
     const { colors } = useTheme();
-    const githubUrl = 'https://github.com/gessendarien/pdfortuna-mobile';
+    const githubUrl = 'https://gessendarien.github.io/pdfortuna-mobile/';
 
     const handleLink = () => {
         Linking.openURL(githubUrl).catch(err => console.error("Couldn't load page", err));

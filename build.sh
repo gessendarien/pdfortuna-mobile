@@ -3,9 +3,13 @@
 # Exit on error
 set -e
 
+VERSION=$(node -p "require('./package.json').version")
+
 echo "====================================="
 echo "   PDFortuna Production Builder"
 echo "====================================="
+echo ""
+echo "Version to build: v$VERSION"
 echo ""
 echo "1. Create AAB (For Google Play Store)"
 echo "2. Create APK (For local testing)"
@@ -22,8 +26,8 @@ case $option in
         
         echo "Moving AAB to root 'outputs' folder..."
         mkdir -p ../outputs
-        cp app/build/outputs/bundle/release/app-release.aab ../outputs/PDFortuna-release.aab
-        echo "✅ DONE! Your AAB is ready at: outputs/PDFortuna-release.aab"
+        cp app/build/outputs/bundle/release/app-release.aab ../outputs/PDFortuna-$VERSION.aab
+        echo "✅ DONE! Your AAB is ready at: outputs/PDFortuna-$VERSION.aab"
         ;;
     2)
         echo "Building APK..."
@@ -33,8 +37,8 @@ case $option in
         
         echo "Moving APK to root 'outputs' folder..."
         mkdir -p ../outputs
-        cp app/build/outputs/apk/release/app-release.apk ../outputs/PDFortuna-release.apk
-        echo "✅ DONE! Your APK is ready at: outputs/PDFortuna-release.apk"
+        cp app/build/outputs/apk/release/app-release.apk ../outputs/PDFortuna-$VERSION.apk
+        echo "✅ DONE! Your APK is ready at: outputs/PDFortuna-$VERSION.apk"
         ;;
     3)
         echo "Exiting..."

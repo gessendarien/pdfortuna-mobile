@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const FAVORITES_KEY = 'favorites_pdf_paths';
 const PERMISSION_SHOWN_KEY = 'permission_dialog_shown';
 const PAGE_HISTORY_KEY = 'document_page_history';
+const PRIVACY_ACCEPTED_KEY = 'privacy_policy_accepted';
 
 export interface AppSettings {
     showPreviews: boolean;
@@ -117,5 +118,14 @@ export const StorageService = {
             startupViewMode: false,
             isGridView: false,
         };
-    }
+    },
+
+    async setPrivacyAccepted() {
+        await AsyncStorage.setItem(PRIVACY_ACCEPTED_KEY, 'true');
+    },
+
+    async hasPrivacyBeenAccepted(): Promise<boolean> {
+        const val = await AsyncStorage.getItem(PRIVACY_ACCEPTED_KEY);
+        return val === 'true';
+    },
 };
