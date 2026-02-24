@@ -29,6 +29,8 @@
         "openWordInAppDesc": "Use the built-in quick viewer instead of opening an external app",
         "showODF": "Show and open ODF documents",
         "showODFDesc": "Include .odt and .odf files in the list",
+        "removeAds": "Remove ads",
+        "removeAdsDesc": "Get the PRO version without ads",
         "darkMode": "Dark mode",
         "darkModeDesc": "Change the app appearance"
     },

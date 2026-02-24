@@ -248,30 +248,32 @@
                         class="group bg-slate-50 dark:bg-slate-800/30 rounded-3xl border border-slate-200 dark:border-slate-800 transition-all duration-300 open:shadow-lg"
                         id="privacy-accordion">
                         <summary
-                            class="flex justify-between items-center cursor-pointer p-8 list-none outline-none select-none">
-                            <h2 class="text-2xl md:text-3xl font-bold m-0" data-i18n="privacy_title">Privacy Policy</h2>
+                            class="flex justify-between items-center cursor-pointer p-5 md:p-8 list-none outline-none select-none">
+                            <h2 class="text-xl md:text-3xl font-bold m-0" data-i18n="privacy_title">Privacy Policy</h2>
                             <span
-                                class="material-symbols-outlined text-3xl text-primary transition-transform duration-300 group-open:rotate-180">expand_more</span>
+                                class="material-symbols-outlined text-2xl md:text-3xl text-primary transition-transform duration-300 group-open:rotate-180">expand_more</span>
                         </summary>
 
-                        <div class="px-8 pb-8 pt-2 border-t border-slate-200/50 dark:border-slate-800/50 mt-2">
+                        <div
+                            class="px-4 md:px-8 pb-5 md:pb-8 pt-2 border-t border-slate-200/50 dark:border-slate-800/50 mt-2">
                             <!-- TABS DE IDIOMA PARA POLÍTICA - SIN RADIOS -->
-                            <div class="flex flex-wrap border-b border-slate-200 dark:border-slate-800 gap-2 mb-6">
+                            <div
+                                class="flex flex-wrap border-b border-slate-200 dark:border-slate-800 gap-1 md:gap-2 mb-4 md:mb-6">
                                 <button onclick="showPrivacyTab('es')"
-                                    class="privacy-tab-btn px-6 py-3 cursor-pointer text-sm font-bold border-b-2 border-transparent transition-all active"
+                                    class="privacy-tab-btn px-4 md:px-6 py-2 md:py-3 cursor-pointer text-sm font-bold border-b-2 border-transparent transition-all active"
                                     id="tab-es-btn">Español</button>
                                 <button onclick="showPrivacyTab('en')"
-                                    class="privacy-tab-btn px-6 py-3 cursor-pointer text-sm font-bold border-b-2 border-transparent transition-all"
+                                    class="privacy-tab-btn px-4 md:px-6 py-2 md:py-3 cursor-pointer text-sm font-bold border-b-2 border-transparent transition-all"
                                     id="tab-en-btn">English</button>
                                 <button onclick="showPrivacyTab('zh')"
-                                    class="privacy-tab-btn px-6 py-3 cursor-pointer text-sm font-bold border-b-2 border-transparent transition-all"
+                                    class="privacy-tab-btn px-4 md:px-6 py-2 md:py-3 cursor-pointer text-sm font-bold border-b-2 border-transparent transition-all"
                                     id="tab-zh-btn">中文 (简体)</button>
                             </div>
 
                             <!-- CONTENIDO EN INGLÉS -->
                             <div class="privacy-content active" id="content-en">
                                 <div
-                                    class="h-96 overflow-y-auto p-8 rounded-2xl bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 text-sm leading-relaxed border border-slate-200 dark:border-slate-700">
+                                    class="h-[60vh] md:h-96 overflow-y-auto p-4 md:p-8 rounded-2xl bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 text-sm leading-relaxed border border-slate-200 dark:border-slate-700">
                                     <h4 class="font-bold text-slate-900 dark:text-white text-lg mb-4">📄 Privacy Policy
                                         -
                                         English</h4>
@@ -320,7 +322,7 @@
                             <!-- CONTENIDO EN ESPAÑOL -->
                             <div class="privacy-content" id="content-es">
                                 <div
-                                    class="h-96 overflow-y-auto p-8 rounded-2xl bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 text-sm leading-relaxed border border-slate-200 dark:border-slate-700">
+                                    class="h-[60vh] md:h-96 overflow-y-auto p-4 md:p-8 rounded-2xl bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 text-sm leading-relaxed border border-slate-200 dark:border-slate-700">
                                     <h4 class="font-bold text-slate-900 dark:text-white text-lg mb-4">📄 Política de
                                         Privacidad - Español</h4>
                                     <p class="mb-2"><strong>Nombre de la app:</strong> PDFortuna<br>
@@ -369,7 +371,7 @@
                             <!-- CONTENIDO EN CHINO -->
                             <div class="privacy-content" id="content-zh">
                                 <div
-                                    class="h-96 overflow-y-auto p-8 rounded-2xl bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 text-sm leading-relaxed border border-slate-200 dark:border-slate-700">
+                                    class="h-[60vh] md:h-96 overflow-y-auto p-4 md:p-8 rounded-2xl bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 text-sm leading-relaxed border border-slate-200 dark:border-slate-700">
                                     <h4 class="font-bold text-slate-900 dark:text-white text-lg mb-4">📄 隐私政策 - 中文</h4>
                                     <p class="mb-2"><strong>应用名称：</strong> PDFortuna<br>
                                         <strong>开发者名称：</strong> Cassca Studios<br>
@@ -434,6 +436,7 @@
     <!-- JAVASCRIPT PARA FUNCIONALIDADES -->
     <script>
         // Sistema de traducción completo - RESPETANDO TUS VARIABLES ORIGINALES
+        const APP_VERSION = '0.0.2';
         const translations = {
             es: {
                 'app_name': 'PDFortuna',
@@ -447,7 +450,7 @@
                 'download_subtitle': 'Elige tu plataforma y obtén la última versión',
                 'apk_title': 'Paquete Android (APK)',
                 'apk_desc': 'Para la mayoría de dispositivos.',
-                'version': 'v0.0.2',
+                'version': APP_VERSION,
                 'download_apk': 'Descargar APK',
                 'ios_soon_title': 'Versión iOS Próximamente',
                 'ios_soon_desc': 'Estamos trabajando para traer PDFortuna a iOS. Deja tu email para recibir notificaciones.',
@@ -460,7 +463,7 @@
                 'free_badge': 'Gratuita',
                 'free_title': 'PDFortuna',
                 'free_description': 'La experiencia completa, totalmente gratuita.<br>Incluye anuncios.',
-                'free_download_label': 'Disponible v0.0.2',
+                'free_download_label': `Disponible ${APP_VERSION}`,
                 'free_download_subtitle': 'Gratis con anuncios'
             },
             en: {
@@ -475,7 +478,7 @@
                 'download_subtitle': 'Choose your platform and get the latest version',
                 'apk_title': 'Android Package (APK)',
                 'apk_desc': 'For most Android devices.',
-                'version': 'v0.0.2',
+                'version': APP_VERSION,
                 'download_apk': 'Download APK',
                 'ios_soon_title': 'iOS Version Coming Soon',
                 'ios_soon_desc': "We're working hard to bring PDFortuna to iOS. Leave your email to get notified.",
@@ -488,7 +491,7 @@
                 'free_badge': 'Free',
                 'free_title': 'PDFortuna',
                 'free_description': 'The full experience, completely free.<br>Includes ads.',
-                'free_download_label': 'Available v0.0.2',
+                'free_download_label': `Available ${APP_VERSION}`,
                 'free_download_subtitle': 'Free with ads'
             },
             zh: {
@@ -503,7 +506,7 @@
                 'download_subtitle': '选择您的平台并获取最新版本',
                 'apk_title': 'Android 安装包 (APK)',
                 'apk_desc': '适用于大多数Android设备。',
-                'version': 'v0.0.2',
+                'version': APP_VERSION,
                 'download_apk': '下载 APK',
                 'ios_soon_title': 'iOS版本即将推出',
                 'ios_soon_desc': '我们正在努力将PDFortuna带到iOS。留下您的电子邮件以获取通知。',
@@ -516,7 +519,7 @@
                 'free_badge': '免费',
                 'free_title': 'PDFortuna',
                 'free_description': '完整体验，完全免费。<br>包含广告。',
-                'free_download_label': '可用 v0.0.2',
+                'free_download_label': `可用 ${APP_VERSION}`,
                 'free_download_subtitle': '免费含广告'
             }
         };

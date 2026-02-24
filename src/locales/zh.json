@@ -1,0 +1,100 @@
+{
+    "appName": "PDFortuna",
+    "permission": {
+        "title": "访问权限",
+        "text": "PDFortuna 需要访问您的设备文件以查找文档。\n本应用不会向外部服务器发送任何信息，所有数据均保留在您的设备上，您的隐私受到保护。\n请授予必要的权限以继续使用。",
+        "button": "允许访问"
+    },
+    "home": {
+        "scanning": "正在扫描文件...",
+        "noDocuments": "未找到文档",
+        "noFavorites": "暂无收藏",
+        "noRecent": "暂无最近文档",
+        "searchPlaceholder": "搜索文档..."
+    },
+    "tabs": {
+        "all": "全部",
+        "recent": "最近",
+        "favorites": "收藏"
+    },
+    "settings": {
+        "title": "设置",
+        "gridView": "启动时使用网格视图",
+        "gridViewDesc": "默认以网格模式显示文件",
+        "previews": "显示预览",
+        "previewsDesc": "显示 PDF 首页缩略图",
+        "showWord": "显示 Word 文档",
+        "showWordDesc": "在列表中包含 .doc 和 .docx 文件",
+        "openWordInApp": "在应用内打开 Word",
+        "openWordInAppDesc": "使用内置快速查看器，而非打开外部应用",
+        "showODF": "显示并打开 ODF 文档",
+        "showODFDesc": "在列表中包含 .odt 和 .odf 文件",
+        "removeAds": "移除广告",
+        "removeAdsDesc": "获取无广告的 PRO 版本",
+        "darkMode": "深色模式",
+        "darkModeDesc": "更改应用外观"
+    },
+    "fileOptions": {
+        "addFavorite": "添加到收藏",
+        "removeFavorite": "取消收藏",
+        "share": "分享",
+        "rename": "重命名",
+        "delete": "删除",
+        "cancel": "取消"
+    },
+    "filter": {
+        "title": "按类型筛选",
+        "all": "全部",
+        "cancel": "取消"
+    },
+    "rename": {
+        "title": "重命名文件",
+        "save": "保存",
+        "cancel": "取消"
+    },
+    "confirm": {
+        "confirm": "确认",
+        "cancel": "取消"
+    },
+    "delete": {
+        "title": "删除文件",
+        "message": "确定要删除 \"{{name}}\" 吗？",
+        "confirm": "删除",
+        "cancel": "取消",
+        "undoMessage": "文件已删除",
+        "undo": "撤销"
+    },
+    "credits": {
+        "credits": "关于",
+        "developedBy": "由 Gessén Darién 用 💚 开发。",
+        "privacyTitle": "隐私与源代码",
+        "privacyText": "本应用不会向外部服务器发送任何信息，所有数据均保留在您的设备上，您的隐私受到保护。您也可以查看其",
+        "sourceCode": "源代码。",
+        "proTitle": "专业版",
+        "proText": "这是一款免费应用，但您可以通过购买无广告的 PRO 版本来移除广告并支持本项目。",
+        "proButton": "获取专业版"
+    },
+    "viewer": {
+        "document": "文档",
+        "loading": "正在加载文档...",
+        "converting": "正在转换文档...",
+        "conversionError": "转换错误：{{message}}",
+        "retry": "重试",
+        "savedToDownloads": "已保存到下载 ✓",
+        "couldNotSave": "无法保存",
+        "couldNotShare": "无法分享",
+        "shareTitle": "分享文件",
+        "saveAs": "另存为"
+    },
+    "errors": {
+        "shareError": "无法分享文件。"
+    },
+    "privacy": {
+        "title": "隐私政策",
+        "message": "在开始使用本应用之前，请阅读我们的隐私政策，了解我们如何处理您的数据。",
+        "requiredMessage": "您需要接受我们的隐私政策才能继续使用本应用。请阅读我们的隐私政策，了解我们如何处理您的数据。",
+        "accept": "接受",
+        "decline": "拒绝",
+        "linkText": "隐私政策"
+    }
+}
