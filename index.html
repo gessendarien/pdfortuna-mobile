@@ -79,6 +79,16 @@
             color: #4f9595;
             font-weight: 600;
         }
+
+        /* Ocultar scrollbar en carrusel de screenshots */
+        .screenshots-scroll {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .screenshots-scroll::-webkit-scrollbar {
+            display: none;
+        }
     </style>
 </head>
 
@@ -129,27 +139,20 @@
                         workflow.
                     </p>
 
-                    <!-- SCREENSHOTS GRID - sin efectos hover, todas a la misma altura -->
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-6xl mx-auto mt-20">
-                        <div
-                            class="aspect-[9/19] rounded-3xl overflow-hidden border-4 border-slate-900 dark:border-slate-800 shadow-2xl">
-                            <img class="w-full h-full object-cover" alt="PDFortuna screenshot 1"
-                                src="screenshots/1.png">
+                    <!-- SCREENSHOTS - scroll horizontal en mobile, grid en desktop -->
+                    <div
+                        class="flex md:grid md:grid-cols-4 gap-4 max-w-6xl mx-auto mt-20 overflow-x-auto md:overflow-visible snap-x snap-mandatory pb-4 md:pb-0 -mx-6 px-6 md:mx-auto md:px-0 screenshots-scroll">
+                        <div class="flex-shrink-0 w-[65%] md:w-auto snap-center">
+                            <img class="w-full h-auto rounded-2xl" alt="PDFortuna screenshot 1" src="screenshots/1.png">
                         </div>
-                        <div
-                            class="aspect-[9/19] rounded-3xl overflow-hidden border-4 border-slate-900 dark:border-slate-800 shadow-2xl">
-                            <img class="w-full h-full object-cover" alt="PDFortuna screenshot 2"
-                                src="screenshots/2.png">
+                        <div class="flex-shrink-0 w-[65%] md:w-auto snap-center">
+                            <img class="w-full h-auto rounded-2xl" alt="PDFortuna screenshot 2" src="screenshots/2.png">
                         </div>
-                        <div
-                            class="aspect-[9/19] rounded-3xl overflow-hidden border-4 border-slate-900 dark:border-slate-800 shadow-2xl">
-                            <img class="w-full h-full object-cover" alt="PDFortuna screenshot 3"
-                                src="screenshots/3.png">
+                        <div class="flex-shrink-0 w-[65%] md:w-auto snap-center">
+                            <img class="w-full h-auto rounded-2xl" alt="PDFortuna screenshot 3" src="screenshots/3.png">
                         </div>
-                        <div
-                            class="aspect-[9/19] rounded-3xl overflow-hidden border-4 border-slate-900 dark:border-slate-800 shadow-2xl">
-                            <img class="w-full h-full object-cover" alt="PDFortuna screenshot 4"
-                                src="screenshots/4.png">
+                        <div class="flex-shrink-0 w-[65%] md:w-auto snap-center">
+                            <img class="w-full h-auto rounded-2xl" alt="PDFortuna screenshot 4" src="screenshots/4.png">
                         </div>
                     </div>
                 </div>
@@ -175,7 +178,7 @@
                             <!-- Botón Descargar APK -->
                             <a href="https://github.com/gessendarien/pdfortuna-mobile/raw/refs/heads/main/APK/PDFortuna-latest.apk"
                                 target="_blank"
-                                class="group flex items-center justify-center gap-3 w-full px-6 py-4 bg-primary text-white rounded-2xl font-bold text-base hover:scale-105 transition-all shadow-xl shadow-primary/20">
+                                class="group flex items-center justify-center gap-3 w-full px-6 py-4 bg-primary text-white rounded-2xl font-bold text-base hover:scale-105 transition-all">
                                 <span class="material-symbols-outlined text-2xl">download</span>
                                 <div class="text-left">
                                     <div class="text-xs opacity-80 font-normal uppercase tracking-wider"
@@ -183,21 +186,57 @@
                                     <div class="leading-tight" data-i18n="download_apk">Download APK</div>
                                 </div>
                             </a>
-                            <!-- Botón Google Play -->
-                            <div class="mt-2 text-center">
-                                <h3 class="text-sm font-bold text-slate-400 mb-2" data-i18n="coming_soon">Coming Soon
-                                </h3>
-                                <button
-                                    class="group flex items-center justify-center gap-3 w-full px-6 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-bold text-base opacity-60 cursor-not-allowed transition-all shadow-xl">
-                                    <svg class="w-7 h-7" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M8 5v14l11-7z" />
-                                    </svg>
-                                    <div class="text-left">
-                                        <div class="text-xs opacity-70 font-normal uppercase tracking-wider"
-                                            data-i18n="get_it_on">Get it on</div>
-                                        <div class="leading-tight">Google Play</div>
-                                    </div>
-                                </button>
+                            <!-- Botón Google Play y otras tiendas -->
+                            <div class="mt-2 text-center w-full">
+                                <div class="flex flex-col gap-3 w-full">
+                                    <button
+                                        class="group flex items-center justify-center w-full px-6 py-4 bg-slate-100/50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 border border-[#01875f] md:border-slate-200 md:dark:border-slate-700 md:hover:border-[#01875f] rounded-2xl font-bold text-base opacity-80 cursor-default transition-all">
+                                        <div class="flex items-center justify-center gap-4 w-full max-w-[15rem]">
+                                            <svg class="w-7 h-7 shrink-0 md:group-hover:scale-110 transition-transform"
+                                                viewBox="0 0 512 512" fill="currentColor">
+                                                <path
+                                                    d="M325.3 234.3L104.6 13l280.8 161.2-60.1 60.1zM47 0C34 6.8 25.3 19.2 25.3 35.3v441.3c0 16.1 8.7 28.5 21.7 35.3l256.6-256L47 0zm425.2 225.6l-58.9-34.1-65.7 64.5 65.7 64.5 60.1-34.1c18-14.3 18-46.5-1.2-60.8zM104.6 499l280.8-161.2-60.1-60.1L104.6 499z" />
+                                            </svg>
+                                            <div class="text-left w-28">
+                                                <div class="text-[0.65rem] opacity-70 font-normal uppercase tracking-wider"
+                                                    data-i18n="coming_soon">Coming Soon</div>
+                                                <div class="leading-tight">Google Play</div>
+                                            </div>
+                                        </div>
+                                    </button>
+
+                                    <a href="https://appgallery.huawei.com/app/C116946327" target="_blank"
+                                        class="group flex items-center justify-center w-full px-6 py-4 bg-white dark:bg-slate-900 border border-[#C8102E] md:border-slate-200 md:dark:border-slate-700 md:hover:border-[#C8102E] md:dark:hover:border-[#C8102E] hover:shadow-md transition-all rounded-2xl">
+                                        <div class="flex items-center justify-center gap-4 w-full max-w-[15rem]">
+                                            <img src="https://cdn.simpleicons.org/huawei/C8102E" alt="Huawei"
+                                                class="w-7 h-7 shrink-0 md:group-hover:scale-110 transition-transform">
+                                            <div class="text-left w-28">
+                                                <div class="text-[0.65rem] opacity-70 font-normal uppercase tracking-wider text-slate-500 dark:text-slate-400"
+                                                    data-i18n="get_it_on">Get it on</div>
+                                                <div class="leading-tight font-bold text-slate-800 dark:text-slate-200">
+                                                    AppGallery</div>
+                                            </div>
+                                        </div>
+                                    </a>
+
+                                    <a href="https://www.amazon.com/gp/mas/dl/android?p=com.pdfortuna" target="_blank"
+                                        class="group flex items-center justify-center w-full px-6 py-4 bg-white dark:bg-slate-900 border border-[#FF9900] md:border-slate-200 md:dark:border-slate-700 md:hover:border-[#FF9900] md:dark:hover:border-[#FF9900] hover:shadow-md transition-all rounded-2xl">
+                                        <div class="flex items-center justify-center gap-4 w-full max-w-[15rem]">
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" fill="#FF9900"
+                                                class="w-7 h-7 shrink-0 md:group-hover:scale-110 transition-transform">
+                                                <path
+                                                    d="M257.2 162.7c-48.7 1.8-169.5 15.5-169.5 117.5 0 109.5 138.3 114 183.5 43.2 6.5 10.2 35.4 37.5 45.3 46.8l56.8-56S341 288.9 341 261.4V114.3C341 89 316.5 32 228.7 32 140.7 32 94 87 94 136.3l73.5 6.8c16.3-49.5 54.2-49.5 54.2-49.5 40.7-.1 35.5 29.8 35.5 69.1zm0 86.8c0 80-84.2 68-84.2 17.2 0-47.2 50.5-56.7 84.2-57.8v40.6zm136 163.5c-7.7 10-70 67-174.5 67S34.2 408.5 9.7 379c-6.8-7.7 1-11.3 5.5-8.3C88.5 415.2 203 488.5 387.7 401c7.5-3.7 13.3 2 5.5 12zm39.8 2.2c-6.5 15.8-16 26.8-21.2 31-5.5 4.5-9.5 2.7-6.5-3.8s19.3-46.5 12.7-55c-6.5-8.3-37-4.3-48-3.2-10.8 1-13 2-14-.3-2.3-5.7 21.7-15.5 37.5-17.5 15.7-1.8 41-.8 46 5.7 3.7 5.1 0 27.1-6.5 43.1z" />
+                                            </svg>
+                                            <div class="text-left w-32">
+                                                <div class="text-[0.65rem] opacity-70 font-normal uppercase tracking-wider text-slate-500 dark:text-slate-400"
+                                                    data-i18n="get_it_on">Get it on</div>
+                                                <div
+                                                    class="leading-tight font-bold text-slate-800 dark:text-slate-200 whitespace-nowrap">
+                                                    Amazon Appstore</div>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </div>
                             </div>
                             <!-- Enlace código fuente -->
                             <div class="text-center text-sm text-slate-500 mt-2">
@@ -220,18 +259,21 @@
                         <p class="text-slate-600 dark:text-slate-400 mb-8" data-i18n="pro_description">
                             Support the project, same experience, no ads. Get the official version from the store.
                         </p>
-                        <div class="flex flex-col gap-4 w-full mt-auto">
-                            <h3 class="text-xl font-black text-slate-400" data-i18n="coming_soon">Coming Soon</h3>
+                        <div class="flex flex-col gap-4 w-full my-auto">
                             <!-- Botón Google Play (Coming Soon) -->
                             <button
-                                class="group flex items-center justify-center gap-3 w-full px-6 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-bold text-base transition-all shadow-xl opacity-60 cursor-not-allowed">
-                                <svg class="w-7 h-7" viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M8 5v14l11-7z" />
-                                </svg>
-                                <div class="text-left">
-                                    <div class="text-xs opacity-70 font-normal uppercase tracking-wider"
-                                        data-i18n="get_it_on">Get it on</div>
-                                    <div class="leading-tight">Google Play</div>
+                                class="group flex items-center justify-center w-full px-6 py-4 bg-slate-100/50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 border border-[#01875f] md:border-slate-200 md:dark:border-slate-700 md:hover:border-[#01875f] rounded-2xl font-bold text-base opacity-80 cursor-default transition-all shadow-xl">
+                                <div class="flex items-center justify-center gap-4 w-full max-w-[15rem]">
+                                    <svg class="w-7 h-7 shrink-0 md:group-hover:scale-110 transition-transform"
+                                        viewBox="0 0 512 512" fill="currentColor">
+                                        <path
+                                            d="M325.3 234.3L104.6 13l280.8 161.2-60.1 60.1zM47 0C34 6.8 25.3 19.2 25.3 35.3v441.3c0 16.1 8.7 28.5 21.7 35.3l256.6-256L47 0zm425.2 225.6l-58.9-34.1-65.7 64.5 65.7 64.5 60.1-34.1c18-14.3 18-46.5-1.2-60.8zM104.6 499l280.8-161.2-60.1-60.1L104.6 499z" />
+                                    </svg>
+                                    <div class="text-left w-28">
+                                        <div class="text-[0.65rem] opacity-70 font-normal uppercase tracking-wider"
+                                            data-i18n="coming_soon">Coming Soon</div>
+                                        <div class="leading-tight">Google Play</div>
+                                    </div>
                                 </div>
                             </button>
                         </div>
@@ -239,60 +281,24 @@
 
                 </div>
 
-                <!-- MINI HERO ALTERNATIVE STORES -->
-                <div
-                    class="max-w-5xl mx-auto mt-12 bg-slate-50 dark:bg-slate-800/30 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm">
-                    <div class="text-center md:text-left flex-1">
-                        <h3 class="text-xl font-bold text-slate-800 dark:text-slate-200" data-i18n="alt_stores_title">
-                            También disponible en</h3>
-                    </div>
-                    <div class="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
-                        <a href="https://appgallery.huawei.com/app/C116946327" target="_blank"
-                            class="flex items-center justify-center w-full sm:w-auto px-6 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-[#C8102E] dark:hover:border-[#C8102E] hover:shadow-md transition-all rounded-2xl group">
-                            <div class="flex items-center justify-start gap-3 w-44 sm:w-auto">
-                                <img src="https://cdn.simpleicons.org/huawei/C8102E" alt="Huawei"
-                                    class="w-6 h-6 shrink-0 group-hover:scale-110 transition-transform">
-                                <div class="text-left">
-                                    <div class="text-base font-bold text-slate-800 dark:text-slate-200 leading-tight">
-                                        AppGallery</div>
-                                </div>
-                            </div>
-                        </a>
-                        <a href="https://www.amazon.com/gp/mas/dl/android?p=com.pdfortuna" target="_blank"
-                            class="flex items-center justify-center w-full sm:w-auto px-6 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-[#FF9900] dark:hover:border-[#FF9900] hover:shadow-md transition-all rounded-2xl group">
-                            <div class="flex items-center justify-start gap-3 w-44 sm:w-auto">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" fill="#FF9900"
-                                    class="w-6 h-6 shrink-0 group-hover:scale-110 transition-transform">
-                                    <path
-                                        d="M257.2 162.7c-48.7 1.8-169.5 15.5-169.5 117.5 0 109.5 138.3 114 183.5 43.2 6.5 10.2 35.4 37.5 45.3 46.8l56.8-56S341 288.9 341 261.4V114.3C341 89 316.5 32 228.7 32 140.7 32 94 87 94 136.3l73.5 6.8c16.3-49.5 54.2-49.5 54.2-49.5 40.7-.1 35.5 29.8 35.5 69.1zm0 86.8c0 80-84.2 68-84.2 17.2 0-47.2 50.5-56.7 84.2-57.8v40.6zm136 163.5c-7.7 10-70 67-174.5 67S34.2 408.5 9.7 379c-6.8-7.7 1-11.3 5.5-8.3C88.5 415.2 203 488.5 387.7 401c7.5-3.7 13.3 2 5.5 12zm39.8 2.2c-6.5 15.8-16 26.8-21.2 31-5.5 4.5-9.5 2.7-6.5-3.8s19.3-46.5 12.7-55c-6.5-8.3-37-4.3-48-3.2-10.8 1-13 2-14-.3-2.3-5.7 21.7-15.5 37.5-17.5 15.7-1.8 41-.8 46 5.7 3.7 5.1 0 27.1-6.5 43.1z" />
-                                </svg>
-                                <div class="text-left">
-                                    <div class="text-base font-bold text-slate-800 dark:text-slate-200 leading-tight">
-                                        Amazon Appstore</div>
-                                </div>
-                            </div>
-                        </a>
-                    </div>
-                </div>
+
             </section>
 
-            <section class="py-12 px-6 md:px-20 bg-white dark:bg-background-dark border-t border-primary/10"
-                id="policy">
-                <div class="max-w-4xl mx-auto">
-                    <!-- ACORDEÓN DE POLÍTICA -->
-                    <details
-                        class="group bg-slate-50 dark:bg-slate-800/30 rounded-3xl border border-slate-200 dark:border-slate-800 transition-all duration-300 open:shadow-lg"
-                        id="privacy-accordion">
-                        <summary
-                            class="flex justify-between items-center cursor-pointer p-5 md:p-8 list-none outline-none select-none">
-                            <h2 class="text-xl md:text-3xl font-bold m-0" data-i18n="privacy_title">Privacy Policy</h2>
-                            <span
-                                class="material-symbols-outlined text-2xl md:text-3xl text-primary transition-transform duration-300 group-open:rotate-180">expand_more</span>
-                        </summary>
-
+            <!-- POLÍTICA DE PRIVACIDAD COLAPSABLE -->
+            <div id="policy" class="max-w-7xl mx-auto px-6 md:px-20">
+                <div id="privacy-panel" class="overflow-hidden transition-all duration-500 ease-in-out"
+                    style="max-height: 0;">
+                    <div class="py-8">
                         <div
-                            class="px-4 md:px-8 pb-5 md:pb-8 pt-2 border-t border-slate-200/50 dark:border-slate-800/50 mt-2">
-                            <!-- TABS DE IDIOMA PARA POLÍTICA - SIN RADIOS -->
+                            class="max-w-4xl mx-auto bg-slate-50 dark:bg-slate-800/30 rounded-3xl border border-slate-200 dark:border-slate-800 p-5 md:p-8">
+                            <div class="flex justify-between items-center mb-4">
+                                <h2 class="text-xl md:text-2xl font-bold" data-i18n="privacy_title">Privacy Policy</h2>
+                                <button onclick="togglePrivacy()"
+                                    class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
+                                    <span class="material-symbols-outlined text-2xl">close</span>
+                                </button>
+                            </div>
+                            <!-- TABS DE IDIOMA PARA POLÍTICA -->
                             <div
                                 class="flex flex-wrap border-b border-slate-200 dark:border-slate-800 gap-1 md:gap-2 mb-4 md:mb-6">
                                 <button onclick="showPrivacyTab('es')"
@@ -309,164 +315,132 @@
                             <!-- CONTENIDO EN INGLÉS -->
                             <div class="privacy-content active" id="content-en">
                                 <div
-                                    class="h-[60vh] md:h-96 overflow-y-auto p-4 md:p-8 rounded-2xl bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 text-sm leading-relaxed border border-slate-200 dark:border-slate-700">
+                                    class="h-[60vh] md:h-96 overflow-y-auto p-4 md:p-8 rounded-2xl bg-white dark:bg-slate-900/50 text-slate-700 dark:text-slate-300 text-sm leading-relaxed border border-slate-200 dark:border-slate-700">
                                     <h4 class="font-bold text-slate-900 dark:text-white text-lg mb-4">📄 Privacy Policy
-                                        -
-                                        English</h4>
-                                    <p class="mb-2"><strong>App name:</strong> PDFortuna<br>
-                                        <strong>Developer name:</strong> Cassca Studios<br>
-                                        <strong>Last updated:</strong> February 22, 2026
-                                    </p>
-
-                                    <p class="mt-4"><strong>1. Information We DO NOT Collect</strong><br>
-                                        This application <strong>does not collect, store, or share any personal user
+                                        - English</h4>
+                                    <p class="mb-2"><strong>App name:</strong> PDFortuna<br><strong>Developer
+                                            name:</strong> Cassca Studios<br><strong>Last updated:</strong> February 22,
+                                        2026</p>
+                                    <p class="mt-4"><strong>1. Information We DO NOT Collect</strong><br>This
+                                        application <strong>does not collect, store, or share any personal user
                                             information</strong>. This includes, but is not limited to: name, email
-                                        address,
-                                        location, device identifiers (such as IMEI), usage data, contacts, photos, or
-                                        any
-                                        personal files.</p>
-
-                                    <p class="mt-3"><strong>2. Permissions</strong><br>
-                                        We request access to device storage solely for the user to select and open their
-                                        own
-                                        documents in the following formats: PDF, DOC, DOCX, ODF, and ODT. These files
-                                        <strong>remain on your device</strong> and are not accessible to us or any third
-                                        party.
-                                    </p>
-
-                                    <p class="mt-3"><strong>3. Offline Functionality</strong><br>
-                                        The application works completely offline. No network connection is established.
-                                    </p>
-
-                                    <p class="mt-3"><strong>4. Third-Party Services and AI</strong><br>
-                                        We do not use generative artificial intelligence services or analytics
-                                        libraries.
-                                        The application <strong>contains advertisements</strong> provided by standard
+                                        address, location, device identifiers (such as IMEI), usage data, contacts,
+                                        photos, or any personal files.</p>
+                                    <p class="mt-3"><strong>2. Permissions</strong><br>We request access to device
+                                        storage solely for the user to select and open their own documents in the
+                                        following formats: PDF, DOC, DOCX, ODF, and ODT. These files <strong>remain on
+                                            your device</strong> and are not accessible to us or any third party.</p>
+                                    <p class="mt-3"><strong>3. Offline Functionality</strong><br>The application works
+                                        completely offline. No network connection is established.</p>
+                                    <p class="mt-3"><strong>4. Third-Party Services and AI</strong><br>We do not use
+                                        generative artificial intelligence services or analytics libraries. The
+                                        application <strong>contains advertisements</strong> provided by standard
                                         advertising networks.</p>
-
-                                    <p class="mt-3"><strong>5. Security</strong><br>
-                                        By not transferring or storing user data on external servers, the risks
-                                        associated
-                                        with online information leakage are eliminated.</p>
-
-                                    <p class="mt-3"><strong>6. Changes to This Policy</strong><br>
-                                        Any changes will be notified on this same page. Continued use of the application
-                                        after such changes constitutes acceptance of the new policy.</p>
+                                    <p class="mt-3"><strong>5. Security</strong><br>By not transferring or storing user
+                                        data on external servers, the risks associated with online information leakage
+                                        are eliminated.</p>
+                                    <p class="mt-3"><strong>6. Changes to This Policy</strong><br>Any changes will be
+                                        notified on this same page. Continued use of the application after such changes
+                                        constitutes acceptance of the new policy.</p>
                                 </div>
                             </div>
 
                             <!-- CONTENIDO EN ESPAÑOL -->
                             <div class="privacy-content" id="content-es">
                                 <div
-                                    class="h-[60vh] md:h-96 overflow-y-auto p-4 md:p-8 rounded-2xl bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 text-sm leading-relaxed border border-slate-200 dark:border-slate-700">
+                                    class="h-[60vh] md:h-96 overflow-y-auto p-4 md:p-8 rounded-2xl bg-white dark:bg-slate-900/50 text-slate-700 dark:text-slate-300 text-sm leading-relaxed border border-slate-200 dark:border-slate-700">
                                     <h4 class="font-bold text-slate-900 dark:text-white text-lg mb-4">📄 Política de
                                         Privacidad - Español</h4>
-                                    <p class="mb-2"><strong>Nombre de la app:</strong> PDFortuna<br>
-                                        <strong>Nombre del desarrollador:</strong> Cassca Studios<br>
-                                        <strong>Última actualización:</strong> 22 de febrero de 2026
-                                    </p>
-
-                                    <p class="mt-4"><strong>1. Información que NO recopilamos</strong><br>
-                                        Esta aplicación <strong>no recopila, almacena ni comparte ningún tipo de
-                                            información
+                                    <p class="mb-2"><strong>Nombre de la app:</strong> PDFortuna<br><strong>Nombre del
+                                            desarrollador:</strong> Cassca Studios<br><strong>Última
+                                            actualización:</strong> 22 de febrero de 2026</p>
+                                    <p class="mt-4"><strong>1. Información que NO recopilamos</strong><br>Esta
+                                        aplicación <strong>no recopila, almacena ni comparte ningún tipo de información
                                             personal</strong>. Esto incluye, de forma no exhaustiva: nombre, correo
                                         electrónico, ubicación, identificadores del dispositivo (como IMEI), datos de
-                                        uso,
-                                        contactos, fotos, o cualquier archivo personal.</p>
-
-                                    <p class="mt-3"><strong>2. Permisos</strong><br>
-                                        Solicitamos acceso al almacenamiento del dispositivo única y exclusivamente para
-                                        que
-                                        el usuario pueda seleccionar y abrir sus propios documentos en los siguientes
-                                        formatos: PDF, DOC, DOCX, ODF y ODT. Estos archivos <strong>permanecen en tu
-                                            dispositivo</strong> y no son accesibles para nosotros ni para terceros.</p>
-
-                                    <p class="mt-3"><strong>3. Funcionamiento</strong><br>
-                                        La aplicación funciona completamente sin conexión a internet. No se establece
-                                        ninguna conexión de red.</p>
-
-                                    <p class="mt-3"><strong>4. Servicios de Terceros e IA</strong><br>
-                                        No utilizamos servicios de inteligencia artificial generativa, librerías de
-                                        análisis
+                                        uso, contactos, fotos, o cualquier archivo personal.</p>
+                                    <p class="mt-3"><strong>2. Permisos</strong><br>Solicitamos acceso al almacenamiento
+                                        del dispositivo única y exclusivamente para que el usuario pueda seleccionar y
+                                        abrir sus propios documentos en los siguientes formatos: PDF, DOC, DOCX, ODF y
+                                        ODT. Estos archivos <strong>permanecen en tu dispositivo</strong> y no son
+                                        accesibles para nosotros ni para terceros.</p>
+                                    <p class="mt-3"><strong>3. Funcionamiento</strong><br>La aplicación funciona
+                                        completamente sin conexión a internet. No se establece ninguna conexión de red.
+                                    </p>
+                                    <p class="mt-3"><strong>4. Servicios de Terceros e IA</strong><br>No utilizamos
+                                        servicios de inteligencia artificial generativa, librerías de análisis
                                         (analytics). La aplicación <strong>contiene anuncios</strong> proporcionados por
                                         redes publicitarias estándar.</p>
-
-                                    <p class="mt-3"><strong>5. Seguridad</strong><br>
-                                        Al no transferir ni almacenar datos de usuario en servidores externos, se
-                                        eliminan
-                                        los riesgos asociados a la filtración de información en línea.</p>
-
-                                    <p class="mt-3"><strong>6. Cambios en esta política</strong><br>
-                                        Cualquier cambio será notificado en esta misma página. El uso continuado de la
-                                        aplicación después de dichos cambios constituye la aceptación de la nueva
-                                        política.
-                                    </p>
+                                    <p class="mt-3"><strong>5. Seguridad</strong><br>Al no transferir ni almacenar datos
+                                        de usuario en servidores externos, se eliminan los riesgos asociados a la
+                                        filtración de información en línea.</p>
+                                    <p class="mt-3"><strong>6. Cambios en esta política</strong><br>Cualquier cambio
+                                        será notificado en esta misma página. El uso continuado de la aplicación después
+                                        de dichos cambios constituye la aceptación de la nueva política.</p>
                                 </div>
                             </div>
 
                             <!-- CONTENIDO EN CHINO -->
                             <div class="privacy-content" id="content-zh">
                                 <div
-                                    class="h-[60vh] md:h-96 overflow-y-auto p-4 md:p-8 rounded-2xl bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 text-sm leading-relaxed border border-slate-200 dark:border-slate-700">
+                                    class="h-[60vh] md:h-96 overflow-y-auto p-4 md:p-8 rounded-2xl bg-white dark:bg-slate-900/50 text-slate-700 dark:text-slate-300 text-sm leading-relaxed border border-slate-200 dark:border-slate-700">
                                     <h4 class="font-bold text-slate-900 dark:text-white text-lg mb-4">📄 隐私政策 - 中文</h4>
-                                    <p class="mb-2"><strong>应用名称：</strong> PDFortuna<br>
-                                        <strong>开发者名称：</strong> Cassca Studios<br>
-                                        <strong>最后更新：</strong> 2026年2月22日
+                                    <p class="mb-2"><strong>应用名称：</strong> PDFortuna<br><strong>开发者名称：</strong> Cassca
+                                        Studios<br><strong>最后更新：</strong> 2026年2月22日</p>
+                                    <p class="mt-4"><strong>1.
+                                            我们不收集的信息</strong><br>本应用<strong>不收集、存储或分享任何个人用户信息</strong>。这包括但不限于：姓名、电子邮件、位置、设备标识符（如IMEI）、使用数据、联系人、照片或任何个人文件。
                                     </p>
-
-                                    <p class="mt-4"><strong>1. 我们不收集的信息</strong><br>
-                                        本应用<strong>不收集、存储或分享任何个人用户信息</strong>。这包括但不限于：姓名、电子邮件、位置、设备标识符（如IMEI）、使用数据、联系人、照片或任何个人文件。
+                                    <p class="mt-3"><strong>2.
+                                            权限</strong><br>我们请求访问设备存储权限的唯一目的是让用户能够选择和打开他们自己的文档，支持的格式包括：PDF, DOC, DOCX,
+                                        ODF 和 ODT。这些文件<strong>仅保留在您的设备上</strong>，我们或任何第三方都无法访问。</p>
+                                    <p class="mt-3"><strong>3. 离线运行</strong><br>本应用完全在本地运行，无需互联网连接，不会建立任何网络连接。</p>
+                                    <p class="mt-3"><strong>4.
+                                            第三方服务与人工智能</strong><br>我们不使用生成式人工智能服务或分析库。本应用<strong>包含广告</strong>，由标准广告网络提供。
                                     </p>
-
-                                    <p class="mt-3"><strong>2. 权限</strong><br>
-                                        我们请求访问设备存储权限的唯一目的是让用户能够选择和打开他们自己的文档，支持的格式包括：PDF, DOC, DOCX, ODF 和
-                                        ODT。这些文件<strong>仅保留在您的设备上</strong>，我们或任何第三方都无法访问。</p>
-
-                                    <p class="mt-3"><strong>3. 离线运行</strong><br>
-                                        本应用完全在本地运行，无需互联网连接，不会建立任何网络连接。</p>
-
-                                    <p class="mt-3"><strong>4. 第三方服务与人工智能</strong><br>
-                                        我们不使用生成式人工智能服务或分析库。本应用<strong>包含广告</strong>，由标准广告网络提供。</p>
-
-                                    <p class="mt-3"><strong>5. 安全</strong><br>
-                                        由于我们不将用户数据传输或存储到外部服务器，因此消除了与在线信息泄露相关的风险。</p>
-
-                                    <p class="mt-3"><strong>6. 政策变更</strong><br>
-                                        任何政策变更都将在此页面上公布。在此类变更后继续使用本应用即表示您接受更新后的政策。</p>
+                                    <p class="mt-3"><strong>5. 安全</strong><br>由于我们不将用户数据传输或存储到外部服务器，因此消除了与在线信息泄露相关的风险。
+                                    </p>
+                                    <p class="mt-3"><strong>6.
+                                            政策变更</strong><br>任何政策变更都将在此页面上公布。在此类变更后继续使用本应用即表示您接受更新后的政策。</p>
                                 </div>
                             </div>
                         </div>
+                    </div>
                 </div>
-    </div>
-    </section>
-    </main>
+            </div>
+        </main>
 
-    <!-- FOOTER -->
-    <footer class="bg-slate-50 dark:bg-slate-900 border-t border-primary/10 py-16 px-6 md:px-20">
-        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-10">
-            <div class="flex flex-col items-center md:items-start gap-4">
-                <div class="flex items-center gap-3">
-                    <!-- ICONO EN FOOTER (consistente) -->
-                    <img src="icon.png" alt="PDFortuna icon" class="size-8 rounded">
-                    <h2 class="text-lg font-extrabold tracking-tight text-slate-900 dark:text-white">PDFortuna</h2>
-                </div>
-                <p class="text-sm text-slate-500" data-i18n="copyright">© 2026 Cassca Studios</p>
+        <!-- FOOTER -->
+        <footer class="bg-slate-50 dark:bg-slate-900 border-t border-primary/10 py-16 px-6 md:px-20">
+            <!-- Enlace discreto de Política de Privacidad -->
+            <div class="max-w-7xl mx-auto mb-8 text-center">
+                <a href="#policy" onclick="event.preventDefault(); togglePrivacy();"
+                    class="text-xs text-slate-400 hover:text-primary transition-colors cursor-pointer"
+                    data-i18n="privacy_title">Privacy Policy</a>
             </div>
-            <div class="flex items-center gap-4">
-                <div class="flex items-center gap-2 bg-slate-200 dark:bg-slate-800 rounded-lg p-1">
-                    <button onclick="changeLanguage('es')"
-                        class="lang-footer-btn px-3 py-1.5 rounded-md text-sm font-medium active bg-primary/20 text-primary"
-                        id="footer-lang-es">Español</button>
-                    <button onclick="changeLanguage('en')"
-                        class="lang-footer-btn px-3 py-1.5 rounded-md text-sm font-medium"
-                        id="footer-lang-en">English</button>
-                    <button onclick="changeLanguage('zh')"
-                        class="lang-footer-btn px-3 py-1.5 rounded-md text-sm font-medium"
-                        id="footer-lang-zh">中文</button>
+            <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-10">
+                <div class="flex flex-col items-center md:items-start gap-4">
+                    <div class="flex items-center gap-3">
+                        <!-- ICONO EN FOOTER (consistente) -->
+                        <img src="icon.png" alt="PDFortuna icon" class="size-8 rounded">
+                        <h2 class="text-lg font-extrabold tracking-tight text-slate-900 dark:text-white">PDFortuna</h2>
+                    </div>
+                    <p class="text-sm text-slate-500" data-i18n="copyright">© 2026 Cassca Studios</p>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-2 bg-slate-200 dark:bg-slate-800 rounded-lg p-1">
+                        <button onclick="changeLanguage('es')"
+                            class="lang-footer-btn px-3 py-1.5 rounded-md text-sm font-medium active bg-primary/20 text-primary"
+                            id="footer-lang-es">Español</button>
+                        <button onclick="changeLanguage('en')"
+                            class="lang-footer-btn px-3 py-1.5 rounded-md text-sm font-medium"
+                            id="footer-lang-en">English</button>
+                        <button onclick="changeLanguage('zh')"
+                            class="lang-footer-btn px-3 py-1.5 rounded-md text-sm font-medium"
+                            id="footer-lang-zh">中文</button>
+                    </div>
                 </div>
             </div>
-        </div>
-    </footer>
+        </footer>
     </div>
 
     <!-- JAVASCRIPT PARA FUNCIONALIDADES -->
@@ -598,32 +572,41 @@
 
         // Función para mostrar pestañas de privacidad
         function showPrivacyTab(lang) {
-            // Actualizar botones activos
             document.querySelectorAll('.privacy-tab-btn').forEach(btn => {
                 btn.classList.remove('active');
             });
             document.getElementById(`tab-${lang}-btn`).classList.add('active');
 
-            // Mostrar contenido correspondiente
             document.querySelectorAll('.privacy-content').forEach(content => {
                 content.classList.remove('active');
             });
             document.getElementById(`content-${lang}`).classList.add('active');
         }
 
+        // Función para expandir/colapsar política de privacidad con animación
+        function togglePrivacy() {
+            const panel = document.getElementById('privacy-panel');
+            if (panel.style.maxHeight === '0px' || panel.style.maxHeight === '0') {
+                // Expandir
+                panel.style.maxHeight = panel.scrollHeight + 'px';
+                setTimeout(() => {
+                    document.getElementById('policy').scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 520);
+            } else {
+                // Colapsar
+                panel.style.maxHeight = '0';
+            }
+        }
+
         // Inicializar: español por defecto
         window.onload = function () {
             changeLanguage('es');
-            showPrivacyTab('es'); // Mostrar inglés por defecto en política
+            showPrivacyTab('es');
 
-            // Si hay #policy en URL, abrir acordeón y hacer scroll
+            // Si hay #policy en URL, abrir panel y hacer scroll
             if (window.location.hash === '#policy') {
-                const accordion = document.getElementById('privacy-accordion');
-                if (accordion) {
-                    accordion.open = true;
-                }
                 setTimeout(() => {
-                    document.getElementById('policy').scrollIntoView({ behavior: 'smooth' });
+                    togglePrivacy();
                 }, 300);
             }
         };
