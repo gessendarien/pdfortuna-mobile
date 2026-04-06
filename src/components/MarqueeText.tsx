@@ -66,7 +66,7 @@ export const MarqueeText = ({ text, style }: MarqueeTextProps) => {
             horizontal
             showsHorizontalScrollIndicator={false}
             scrollEnabled={false}
-            style={{ flex: 1 }}
+            style={{ flexGrow: 1 }}
             onLayout={e => setContainerW(e.nativeEvent.layout.width)}
             onContentSizeChange={(w) => setContentW(w)}
         >

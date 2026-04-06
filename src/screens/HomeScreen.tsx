@@ -18,10 +18,8 @@ import { SettingsModal } from '../components/SettingsModal';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { UndoToast } from '../components/UndoToast';
 import { CreditsModal } from '../components/CreditsModal';
-import { BannerAdItem } from '../components/BannerAdItem';
 import { PrivacyConsentModal } from '../components/PrivacyConsentModal';
 import { StorageService } from '../services/StorageService';
-import { AdConfig } from '../config/AdConfig';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useSettings } from '../hooks/useSettings';
@@ -148,43 +146,25 @@ export const HomeScreen = () => {
     const displayList = useMemo(() => {
         if (!settings.isGridView) {
             const list: any[] = [];
-            filteredFiles.forEach((file, index) => {
+            filteredFiles.forEach((file) => {
                 list.push(file);
-                if ((index + 1) % 10 === 0) {
-                    list.push({ type: 'ad', id: `ad-${index}`, path: `ad-${index}` });
-                }
             });
-            const remainder = filteredFiles.length % 10;
-            if (remainder >= 4) {
-                list.push({ type: 'ad', id: `ad-last`, path: `ad-last` });
-            }
             return list;
         } else {
             const list: any[] = [];
             let currentPair: LocalFile[] = [];
-            let fileCount = 0;
 
             filteredFiles.forEach((file, index) => {
                 currentPair.push(file);
-                fileCount++;
 
                 if (currentPair.length === 2) {
                     list.push({ type: 'row', id: `row-${index}`, items: [...currentPair] });
                     currentPair = [];
                 }
-
-                if (fileCount > 0 && fileCount % 10 === 0) {
-                    list.push({ type: 'ad', id: `ad-g-${fileCount}` });
-                }
             });
 
             if (currentPair.length > 0) {
                 list.push({ type: 'row', id: `row-last`, items: [...currentPair] });
-            }
-
-            const remainder = filteredFiles.length % 10;
-            if (remainder >= 4) {
-                list.push({ type: 'ad', id: `ad-g-last` });
             }
 
             return list;
@@ -304,10 +284,6 @@ export const HomeScreen = () => {
                     windowSize={settings.isGridView ? 3 : 11}
                     removeClippedSubviews={true}
                     renderItem={({ item }) => {
-                        if (item.type === 'ad') {
-                            return <BannerAdItem unitId={AdConfig.bannerId} />;
-                        }
-
                         if (settings.isGridView) {
                             if (item.type === 'row') {
                                 return (

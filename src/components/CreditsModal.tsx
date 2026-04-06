@@ -52,6 +52,7 @@ export const CreditsModal = ({ visible, onClose }: Props) => {
                             </Text>
                         </Text>
 
+                        {/* 
                         <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('credits.proTitle')}</Text>
                         <Text style={[styles.text, { color: colors.textSecondary }]}>
                             {t('credits.proText')}
@@ -64,6 +65,7 @@ export const CreditsModal = ({ visible, onClose }: Props) => {
                             <MaterialIcon name="verified" size={24} color="#fff" style={{ marginRight: 8 }} />
                             <Text style={styles.githubButtonText}>{t('credits.proButton')}</Text>
                         </TouchableOpacity>
+                        */}
                     </View>
                 </View>
             </TouchableOpacity>

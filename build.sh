@@ -27,7 +27,7 @@ case $option in
         echo "Moving AAB to root 'outputs' folder..."
         mkdir -p ../outputs
         cp app/build/outputs/bundle/release/app-release.aab ../outputs/PDFortuna-$VERSION.aab
-        echo "✅ DONE! Your AAB is ready at: outputs/PDFortuna-$VERSION.aab"
+        echo "DONE! Your AAB is ready at: outputs/PDFortuna-$VERSION.aab"
         ;;
     2)
         echo "Building APK..."
@@ -38,7 +38,7 @@ case $option in
         echo "Moving APK to root 'outputs' folder..."
         mkdir -p ../outputs
         cp app/build/outputs/apk/release/app-release.apk ../outputs/PDFortuna-$VERSION.apk
-        echo "✅ DONE! Your APK is ready at: outputs/PDFortuna-$VERSION.apk"
+        echo "DONE! Your APK is ready at: outputs/PDFortuna-$VERSION.apk"
         ;;
     3)
         echo "Exiting..."

@@ -109,7 +109,6 @@ Gemfile.lock
 # Bundle/Outputs
 # ===========================
 .bundle/
-outputs/
 
 # ===========================
 # Environment Variables
@@ -121,6 +120,4 @@ outputs/
 # ===========================
 # Project-specific
 # ===========================
-wireframe/
-connect.sh
 src/config/AdConfig.ts

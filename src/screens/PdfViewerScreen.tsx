@@ -1,5 +1,5 @@
 import React, { useLayoutEffect, useState, useRef, useCallback, useEffect } from 'react';
-import { View, StyleSheet, Dimensions, TouchableOpacity, Animated, Text, ActivityIndicator, AppState, AppStateStatus } from 'react-native';
+import { View, StyleSheet, Dimensions, TouchableOpacity, Animated, Text, ActivityIndicator, AppState, AppStateStatus, LayoutAnimation, StatusBar } from 'react-native';
 import Pdf from 'react-native-pdf';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
@@ -11,12 +11,14 @@ import { StorageService } from '../services/StorageService';
 import { t } from '../i18n';
 import { MarqueeText } from '../components/MarqueeText';
 import { RenameModal } from '../components/RenameModal';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export const PdfViewerScreen = () => {
     const navigation = useNavigation();
     const route = useRoute<any>();
     const { uri, name, isExternal } = route.params;
     const { colors } = useTheme();
+    const insets = useSafeAreaInsets();
 
     const isContentUri = uri.startsWith('content://');
     const showSaveButton = isExternal || isContentUri;
@@ -37,6 +39,19 @@ export const PdfViewerScreen = () => {
     // Resume reading state
     const [initialPage, setInitialPage] = useState<number | null>(null);
     const currentPageRef = useRef<number>(1);
+    const [isHeaderVisible, setIsHeaderVisible] = useState(true);
+
+    const headerAnim = useRef(new Animated.Value(1)).current;
+
+    useEffect(() => {
+        Animated.timing(headerAnim, {
+            toValue: isHeaderVisible ? 1 : 0,
+            duration: 200,
+            useNativeDriver: false,
+        }).start();
+    }, [isHeaderVisible]);
+    const [currentPageState, setCurrentPageState] = useState<number>(1);
+    const [totalPages, setTotalPages] = useState<number>(0);
 
     // Load saved page
     useEffect(() => {
@@ -46,6 +61,7 @@ export const PdfViewerScreen = () => {
             if (isMounted) {
                 setInitialPage(page || 1);
                 currentPageRef.current = page || 1;
+                setCurrentPageState(page || 1);
             }
         };
         loadPage();
@@ -217,31 +233,58 @@ export const PdfViewerScreen = () => {
 
     useLayoutEffect(() => {
         navigation.setOptions({
-            headerStyle: { backgroundColor: colors.surfaceLight },
-            headerTitle: () => (
-                <View style={styles.headerTitleContainer}>
-                    <MarqueeText text={displayName} style={[styles.headerTitleText, { color: colors.text }]} />
-                </View>
-            ),
-            headerRight: () => (
-                <View style={styles.headerButtons}>
-                    <TouchableOpacity onPress={handleShare} style={styles.headerBtn}>
-                        <MaterialIcon name="share" size={22} color={colors.primary} />
-                    </TouchableOpacity>
-                    {showSaveButton && (
-                        <TouchableOpacity onPress={handleSave} style={styles.headerBtn}>
-                            <MaterialIcon name="save-alt" size={22} color={colors.primary} />
-                        </TouchableOpacity>
-                    )}
-                </View>
-            ),
+            headerShown: false,
         });
-    }, [navigation, showSaveButton, displayName, colors]);
+    }, [navigation]);
 
     const source = { uri, cache: true };
 
     return (
         <View style={[styles.container, { backgroundColor: colors.backgroundLight }]}>
+            <StatusBar hidden={!isHeaderVisible} showHideTransition="slide" />
+
+            {/* Custom Animated Header */}
+            <Animated.View style={{ 
+                height: headerAnim.interpolate({ inputRange: [0, 1], outputRange: [0, insets.top + 70] }), 
+                opacity: headerAnim,
+                overflow: 'hidden', 
+                width: '100%' 
+            }}>
+                <View style={[
+                    styles.customHeader, 
+                    { backgroundColor: colors.surfaceLight, paddingTop: insets.top + 12 }
+                ]}>
+                    <View style={{ width: 90, alignItems: 'flex-start' }}>
+                        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+                            <MaterialIcon name="arrow-back" size={24} color={colors.primary} />
+                        </TouchableOpacity>
+                    </View>
+
+                    <View style={[styles.headerTitleContainer, { flex: 1, paddingHorizontal: 0, justifyContent: 'center', alignItems: 'center' }]}>
+                        <View style={{ width: '100%', alignItems: 'center' }}>
+                            <MarqueeText text={displayName} style={[styles.headerTitleText, { color: colors.text, fontSize: 18, fontWeight: 'bold', textAlign: 'center', width: '100%' }]} />
+                            {totalPages > 0 && (
+                                <Text style={[styles.pageIndicatorText, { color: colors.textSecondary, fontSize: 13, textAlign: 'center', marginTop: 2 }]}>
+                                    {currentPageState} / {totalPages}
+                                </Text>
+                            )}
+                        </View>
+                    </View>
+
+                    <View style={{ width: 90, alignItems: 'flex-end', paddingRight: 8 }}>
+                        <View style={styles.headerButtons}>
+                            <TouchableOpacity onPress={handleShare} style={styles.headerBtn}>
+                                <MaterialIcon name="share" size={24} color={colors.primary} />
+                            </TouchableOpacity>
+                            {showSaveButton && (
+                                <TouchableOpacity onPress={handleSave} style={styles.headerBtn}>
+                                    <MaterialIcon name="save-alt" size={24} color={colors.primary} />
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                    </View>
+                </View>
+            </Animated.View>
             {initialPage !== null && (
                 <Pdf
                     source={source}
@@ -251,6 +294,7 @@ export const PdfViewerScreen = () => {
                     }}
                     onLoadComplete={(numberOfPages) => {
                         console.log(`Number of pages: ${numberOfPages}`);
+                        setTotalPages(numberOfPages);
                         setLoadProgress(1);
                         // Fade out loading overlay
                         Animated.timing(loadingOpacity, {
@@ -261,7 +305,11 @@ export const PdfViewerScreen = () => {
                     }}
                     onPageChanged={(page) => {
                         currentPageRef.current = page;
+                        setCurrentPageState(page);
                         console.log(`Current page: ${page}`);
+                    }}
+                    onPageSingleTap={(page, x, y) => {
+                        setIsHeaderVisible(prev => !prev);
                     }}
                     onError={(error) => {
                         console.log(error);
@@ -327,17 +375,38 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-start',
         alignItems: 'center',
     },
+    customHeader: {
+        width: '100%',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingBottom: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 6,
+        zIndex: 100,
+    },
+    backBtn: {
+        paddingHorizontal: 16,
+    },
     pdf: {
         flex: 1,
         width: Dimensions.get('window').width,
         height: Dimensions.get('window').height,
     },
     headerTitleContainer: {
-        maxWidth: Dimensions.get('window').width * 0.65,
+        alignItems: 'center',
     },
     headerTitleText: {
         fontSize: 17,
         fontWeight: '600',
+    },
+    pageIndicatorText: {
+        fontSize: 12,
+        marginTop: 2,
+        fontWeight: '500',
     },
     headerButtons: {
         flexDirection: 'row',
