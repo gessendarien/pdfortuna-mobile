@@ -123,7 +123,7 @@ export const PdfGridItem = ({ file, onPress, onMore, isFavorite, showPreview = f
                     <Text style={[styles.name, { color: colors.text }]} numberOfLines={2}>{file.name}</Text>
                     <View style={styles.metaRow}>
                         <Text style={[styles.metaText, { color: colors.textSecondary }]}>{formattedDate}</Text>
-                        {file.pageCount !== undefined && <Text style={[styles.metaText, { color: colors.textSecondary }]}> • {file.pageCount} p.</Text>}
+                        {typeof file.pageCount === 'number' && <Text style={[styles.metaText, { color: colors.textSecondary }]}> • {file.pageCount} p.</Text>}
                     </View>
                 </View>
 

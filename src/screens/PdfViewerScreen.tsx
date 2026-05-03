@@ -27,7 +27,7 @@ export const PdfViewerScreen = () => {
     const [toastVisible, setToastVisible] = useState(false);
     const [toastMessage, setToastMessage] = useState('');
     const [toastType, setToastType] = useState<'success' | 'error'>('success');
-    const toastAnim = useRef(new Animated.Value(-80)).current;
+    const toastAnim = useRef(new Animated.Value(-100)).current;
     const toastTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
     const isSharingRef = useRef(false); // Use Ref for synchronous locking
     const isSavingRef = useRef(false);  // Use Ref for synchronous locking (Save)
@@ -92,7 +92,7 @@ export const PdfViewerScreen = () => {
         setToastVisible(true);
 
         Animated.spring(toastAnim, {
-            toValue: 12,
+            toValue: insets.top + 80,
             useNativeDriver: true,
             friction: 8,
             tension: 60,
@@ -100,12 +100,12 @@ export const PdfViewerScreen = () => {
 
         toastTimeout.current = setTimeout(() => {
             Animated.timing(toastAnim, {
-                toValue: -80,
+                toValue: -100,
                 duration: 250,
                 useNativeDriver: true,
             }).start(() => setToastVisible(false));
         }, 2500);
-    }, [toastAnim]);
+    }, [toastAnim, insets.top]);
 
     const handleSave = () => {
         if (isSavingRef.current) return;

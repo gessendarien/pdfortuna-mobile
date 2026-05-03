@@ -1,7 +1,7 @@
 
-import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, FlatList, TextInput, TouchableOpacity, ActivityIndicator, StatusBar, StyleSheet, Platform, UIManager } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import { View, Text, FlatList, TextInput, TouchableOpacity, ActivityIndicator, StatusBar, StyleSheet } from 'react-native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { LocalFile, openFileInExternalApp } from '../services/FileService';
 import { theme } from '../theme';
@@ -27,10 +27,6 @@ import { useFileManager } from '../hooks/useFileManager';
 import { useFileActions } from '../hooks/useFileActions';
 import { useDocumentViewers } from '../hooks/useDocumentViewers';
 
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-    UIManager.setLayoutAnimationEnabledExperimental(true);
-}
-
 export const HomeScreen = () => {
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<any>();
@@ -39,6 +35,7 @@ export const HomeScreen = () => {
     // Custom hooks
     const settings = useSettings();
     const fileManager = useFileManager();
+    const { checkPermission } = fileManager;
     const fileActions = useFileActions({
         files: fileManager.files,
         setFiles: fileManager.setFiles,
@@ -68,6 +65,17 @@ export const HomeScreen = () => {
         await StorageService.setPrivacyAccepted();
         setPrivacyAccepted(true);
     };
+
+    // Auto-refresh when returning to this screen
+    useFocusEffect(
+        useCallback(() => {
+            // Silently refresh files when the screen comes into focus
+            // This is especially useful when returning from WhatsApp or another screen
+            if (privacyAccepted) {
+                checkPermission(true);
+            }
+        }, [privacyAccepted, checkPermission])
+    );
 
     // Auto-reset filter to 'all' when Word or ODF get re-enabled from settings
     useEffect(() => {

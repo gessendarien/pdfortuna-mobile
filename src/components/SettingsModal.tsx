@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Modal, TouchableOpacity, StyleSheet, Switch, Linking } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, StyleSheet, Switch } from 'react-native';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { theme } from '../theme';
 import { useTheme } from '../theme/ThemeContext';
@@ -111,21 +111,6 @@ export const SettingsModal = ({
                             t('settings.darkModeDesc')
                         )}
 
-                        {/* Remove Ads Option */}
-                        <TouchableOpacity
-                            style={styles.optionRow}
-                            onPress={() => Linking.openURL("https://play.google.com/store/apps/details?id=com.gess.pdfortunapro")}
-                        >
-                            <View style={styles.textContainer}>
-                                <Text style={[styles.optionLabel, { color: colors.text }]}>
-                                    {t('settings.removeAds')}
-                                </Text>
-                                <Text style={[styles.optionDescription, { color: colors.textSecondary }]}>
-                                    {t('settings.removeAdsDesc')}
-                                </Text>
-                            </View>
-                            <MaterialIcon name="star" size={24} color={colors.primary} />
-                        </TouchableOpacity>
                     </View>
                 </View>
             </TouchableOpacity>

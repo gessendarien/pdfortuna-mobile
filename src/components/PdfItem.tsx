@@ -123,7 +123,7 @@ export const PdfItem = ({ file, onPress, onShare, onFavorite, isFavorite, onRena
                         <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{file.name}</Text>
                         <View style={styles.metaContainer}>
                             <Text style={[styles.metaText, { color: colors.textSecondary }]}>{formattedDate}</Text>
-                            {file.pageCount !== undefined && (
+                            {typeof file.pageCount === 'number' && (
                                 <>
                                     <View style={[styles.dot, { backgroundColor: colors.border }]} />
                                     <Text style={[styles.metaText, { color: colors.textSecondary }]}>{file.pageCount} p.</Text>

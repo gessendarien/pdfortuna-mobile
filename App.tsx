@@ -18,6 +18,7 @@ import { useRef, useEffect } from 'react';
 import { handleIncomingIntent, resolveContentUriName } from './src/utils/FileOpenerUtils';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Linking } from 'react-native';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
 
 function AppContent(): React.JSX.Element {
   const navigationRef = useRef<any>(null);
@@ -27,33 +28,41 @@ function AppContent(): React.JSX.Element {
     // Smart handler: resolves the real filename via native ContentUriHelper
     const handleUrl = async (url: string | null) => {
       if (!url) return;
-      console.log("Incoming URL:", url);
+      try {
+        console.log("Incoming URL:", url);
 
-      let decodedUrl = decodeURIComponent(url);
+        let decodedUrl = decodeURIComponent(url);
 
-      // Resolve real name using native ContentResolver (pass both decoded and original)
-      let name = await resolveContentUriName(decodedUrl, url);
+        // Resolve real name using native ContentResolver (pass both decoded and original)
+        let name = await resolveContentUriName(decodedUrl, url);
 
-      if (navigationRef.current) {
-        console.log("Navigating to viewer with:", decodedUrl, "name:", name);
-        navigationRef.current.navigate('PdfViewer', { uri: decodedUrl, name, isExternal: true });
+        if (navigationRef.current) {
+          console.log("Navigating to viewer with:", decodedUrl, "name:", name);
+          navigationRef.current.navigate('PdfViewer', { uri: decodedUrl, name, isExternal: true });
+        }
+      } catch (e) {
+        console.warn('Error handling incoming URL:', e);
       }
     };
 
     // Cold Start: always try handleIncomingIntent first (has full name resolution)
     setTimeout(async () => {
-      // 1. Try handleIncomingIntent (uses SendIntentAndroid + ContentUriHelper)
-      const fileInfo = await handleIncomingIntent();
-      if (fileInfo && navigationRef.current) {
-        console.log("Opening via handleIncomingIntent:", fileInfo);
-        navigationRef.current.navigate('PdfViewer', fileInfo);
-        return;
-      }
+      try {
+        // 1. Try handleIncomingIntent (uses SendIntentAndroid + ContentUriHelper)
+        const fileInfo = await handleIncomingIntent();
+        if (fileInfo && navigationRef.current) {
+          console.log("Opening via handleIncomingIntent:", fileInfo);
+          navigationRef.current.navigate('PdfViewer', fileInfo);
+          return;
+        }
 
-      // 2. Fallback: Check Linking.getInitialURL (handles some intents SendIntent misses)
-      const url = await Linking.getInitialURL();
-      if (url) {
-        await handleUrl(url);
+        // 2. Fallback: Check Linking.getInitialURL (handles some intents SendIntent misses)
+        const url = await Linking.getInitialURL();
+        if (url) {
+          await handleUrl(url);
+        }
+      } catch (e) {
+        console.warn('Error during cold start intent handling:', e);
       }
     }, 1000);
 
@@ -91,9 +100,11 @@ function AppContent(): React.JSX.Element {
 function App(): React.JSX.Element {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <ThemeProvider>
-        <AppContent />
-      </ThemeProvider>
+      <ErrorBoundary>
+        <ThemeProvider>
+          <AppContent />
+        </ThemeProvider>
+      </ErrorBoundary>
     </GestureHandlerRootView>
   );
 }

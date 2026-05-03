@@ -90,12 +90,31 @@ export const checkManagePermission = async (): Promise<boolean> => {
     return true;
 };
 
-// Internal recursive helper (parallelized)
+// Concurrency limiter: process promises in batches to prevent OOM
+const runWithConcurrency = async <T>(tasks: (() => Promise<T>)[], limit: number): Promise<T[]> => {
+    const results: T[] = [];
+    let index = 0;
+    const runNext = async (): Promise<void> => {
+        while (index < tasks.length) {
+            const currentIndex = index++;
+            try {
+                results[currentIndex] = await tasks[currentIndex]();
+            } catch (e) {
+                results[currentIndex] = [] as any;
+            }
+        }
+    };
+    const workers = Array.from({ length: Math.min(limit, tasks.length) }, () => runNext());
+    await Promise.all(workers);
+    return results;
+};
+
+// Internal recursive helper (concurrency-limited)
 const scanDirRecursive = async (path: string): Promise<LocalFile[]> => {
     const files: LocalFile[] = [];
     try {
         const result = await RNFS.readDir(path);
-        const subDirPromises: Promise<LocalFile[]>[] = [];
+        const subDirTasks: (() => Promise<LocalFile[]>)[] = [];
 
         for (const item of result) {
             if (item.isFile()) {
@@ -106,44 +125,55 @@ const scanDirRecursive = async (path: string): Promise<LocalFile[]> => {
                     else if (ext === 'docx') type = 'docx';
                     else if (ext === 'odt' || ext === 'odf') type = 'odf';
 
-                    let pageCount: number | undefined;
-                    if (type === 'pdf') {
-                        // Use native module
-                        try {
-                            if (PdfMeta && PdfMeta.getPageCount) {
-                                pageCount = await PdfMeta.getPageCount(item.path);
-                            }
-                        } catch (e) {
-                            // ignore
-                        }
-                    }
-
                     files.push({
                         name: item.name,
                         path: item.path,
                         size: Number(item.size),
                         date: item.mtime || new Date(),
                         type,
-                        pageCount,
+                        // pageCount is enriched after scan to avoid blocking the bridge
                     });
                 }
             } else if (item.isDirectory()) {
                 // Ignore hidden folders and Android/data to save time/permissions
                 if (!item.name.startsWith('.') && item.name !== 'Android') {
-                    subDirPromises.push(scanDirRecursive(item.path));
+                    subDirTasks.push(() => scanDirRecursive(item.path));
                 }
             }
         }
 
-        // Scan all subdirectories in parallel
-        const subResults = await Promise.all(subDirPromises);
-        for (const subFiles of subResults) {
-            files.push(...subFiles);
+        // Scan subdirectories with concurrency limit of 5
+        if (subDirTasks.length > 0) {
+            const subResults = await runWithConcurrency(subDirTasks, 5);
+            for (const subFiles of subResults) {
+                if (subFiles) files.push(...subFiles);
+            }
         }
     } catch (e) {
-        // console.warn('Error reading ' + path);
+        // Silently ignore permission errors or inaccessible dirs
     }
     return files;
+};
+
+// Enrich files with page counts in batches (non-blocking)
+const enrichWithPageCounts = async (files: LocalFile[]): Promise<void> => {
+    if (!PdfMeta || !PdfMeta.getPageCount) return;
+
+    const BATCH_SIZE = 10;
+    for (let i = 0; i < files.length; i += BATCH_SIZE) {
+        const batch = files.slice(i, i + BATCH_SIZE);
+        const promises = batch.map(async (file) => {
+            try {
+                const count = await PdfMeta.getPageCount(file.path);
+                if (typeof count === 'number') {
+                    file.pageCount = count;
+                }
+            } catch (e) {
+                // ignore individual failures
+            }
+        });
+        await Promise.all(promises);
+    }
 };
 
 export const scanDocuments = async (): Promise<LocalFile[]> => {
@@ -155,19 +185,27 @@ export const scanDocuments = async (): Promise<LocalFile[]> => {
 
     const uniqueFolders = [...new Set(folders)];
 
-    // Scan all root folders in parallel
-    const scanPromises = uniqueFolders.map(async (folder) => {
-        if (await RNFS.exists(folder)) {
-            return scanDirRecursive(folder);
+    // Scan all root folders with concurrency limit
+    const scanTasks = uniqueFolders.map((folder) => async () => {
+        try {
+            if (await RNFS.exists(folder)) {
+                return await scanDirRecursive(folder);
+            }
+        } catch (e) {
+            // ignore
         }
         return [] as LocalFile[];
     });
 
-    const results = await Promise.all(scanPromises);
+    const results = await runWithConcurrency(scanTasks, 3);
     const allFiles = results.flat();
 
     // Deduplicate by path
     const distinctFiles = Array.from(new Map(allFiles.map(item => [item.path, item])).values());
+
+    // Enrich with page counts after scan (non-blocking batched)
+    await enrichWithPageCounts(distinctFiles);
+
     return distinctFiles;
 };
 

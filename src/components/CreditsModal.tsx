@@ -36,7 +36,7 @@ export const CreditsModal = ({ visible, onClose }: Props) => {
                     <View style={styles.content}>
                         <View style={styles.logoContainer}>
                             <Text style={[styles.appName, { color: colors.primary }]}>PDFortuna</Text>
-                            <Text style={[styles.version, { color: colors.textSecondary }]}>v0.0.2</Text>
+                            <Text style={[styles.version, { color: colors.textSecondary }]}>v0.1.0</Text>
                         </View>
 
                         <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('credits.credits')}</Text>
@@ -52,20 +52,6 @@ export const CreditsModal = ({ visible, onClose }: Props) => {
                             </Text>
                         </Text>
 
-                        {/* 
-                        <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('credits.proTitle')}</Text>
-                        <Text style={[styles.text, { color: colors.textSecondary }]}>
-                            {t('credits.proText')}
-                        </Text>
-
-                        <TouchableOpacity
-                            style={[styles.proButton, { backgroundColor: colors.primary }]}
-                            onPress={() => Linking.openURL('https://play.google.com/store/apps/details?id=com.pdfortuna.pro').catch(() => { })}
-                        >
-                            <MaterialIcon name="verified" size={24} color="#fff" style={{ marginRight: 8 }} />
-                            <Text style={styles.githubButtonText}>{t('credits.proButton')}</Text>
-                        </TouchableOpacity>
-                        */}
                     </View>
                 </View>
             </TouchableOpacity>
@@ -133,15 +119,5 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontWeight: 'bold',
         fontSize: 16,
-    },
-    proButton: {
-        flexDirection: 'row',
-        paddingVertical: 12,
-        paddingHorizontal: 24,
-        borderRadius: 8,
-        marginTop: 24,
-        alignItems: 'center',
-        width: '100%',
-        justifyContent: 'center',
     }
 });

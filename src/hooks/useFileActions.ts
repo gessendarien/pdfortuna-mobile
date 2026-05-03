@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { LayoutAnimation, Alert } from 'react-native';
+import { Alert } from 'react-native';
 import Share from 'react-native-share';
 import RNFS from 'react-native-fs';
 import { LocalFile, deleteFile, renameFile } from '../services/FileService';
@@ -60,6 +60,11 @@ export const useFileActions = ({ files, setFiles, favorites, loadFavorites, scan
             if (error && error.message === 'User did not share') return;
 
             try {
+                // Guard: don't base64-encode files larger than 25MB to prevent OOM
+                if (file.size > 25 * 1024 * 1024) {
+                    Alert.alert('Error', 'El archivo es demasiado grande para compartir de esta forma.');
+                    return;
+                }
                 const base64Data = await RNFS.readFile(file.path, 'base64');
                 let mimeType = 'application/pdf';
                 if (file.type === 'doc') mimeType = 'application/msword';
@@ -122,7 +127,6 @@ export const useFileActions = ({ files, setFiles, favorites, loadFavorites, scan
 
         if (animationTimerRef.current) clearTimeout(animationTimerRef.current);
         animationTimerRef.current = setTimeout(() => {
-            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
             setFiles(prev => prev.filter(f => f.path !== file.path));
             setDeletingFileId(null);
             setPendingDeleteFile(file);
@@ -138,7 +142,6 @@ export const useFileActions = ({ files, setFiles, favorites, loadFavorites, scan
         if (!pendingDeleteFile) return;
         if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current);
         const fileToRestore = pendingDeleteFile;
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         setFiles(prev => [...prev, fileToRestore]);
         setRestoringFileId(fileToRestore.path);
         setPendingDeleteFile(null);

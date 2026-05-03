@@ -37,6 +37,17 @@ export const DocxViewerModal = ({ visible, file, onClose }: Props) => {
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
     const isSharingRef = React.useRef(false);
+    
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const [calculatedTotalPages, setCalculatedTotalPages] = useState(file?.pageCount || 1);
+
+    useEffect(() => {
+        if (visible && file) {
+            setCalculatedTotalPages(file.pageCount || 1);
+            setCurrentPage(1);
+        }
+    }, [visible, file]);
 
     useEffect(() => {
         if (visible && file && (file.type === 'docx')) {
@@ -164,6 +175,40 @@ export const DocxViewerModal = ({ visible, file, onClose }: Props) => {
         }
     };
 
+    const handleMessage = (event: any) => {
+        try {
+            const data = JSON.parse(event.nativeEvent.data);
+            if (data.type === 'scroll') {
+                setCurrentPage(data.currentPage);
+                if (typeof file?.pageCount !== 'number') {
+                    setCalculatedTotalPages(data.totalPages);
+                }
+            }
+        } catch (e) {
+            // ignore
+        }
+    };
+
+    const injectedJS = `
+      window.addEventListener('scroll', function() {
+        var scrollY = window.scrollY || window.pageYOffset;
+        var maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+        var percentage = maxScroll > 0 ? scrollY / maxScroll : 0;
+        
+        var totalPages = ${typeof file?.pageCount === 'number' ? file.pageCount : 'Math.max(1, Math.ceil(document.documentElement.scrollHeight / window.innerHeight))'};
+        var currentPage = Math.min(totalPages, Math.max(1, Math.floor(percentage * (totalPages - 1)) + 1));
+        
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'scroll',
+          currentPage: currentPage,
+          totalPages: totalPages
+        }));
+      });
+      setTimeout(function() { window.dispatchEvent(new Event('scroll')); }, 500);
+      setTimeout(function() { window.dispatchEvent(new Event('scroll')); }, 1500); // safety trigger after full render
+      true;
+    `;
+
     if (!visible) return null;
 
     return (
@@ -182,6 +227,9 @@ export const DocxViewerModal = ({ visible, file, onClose }: Props) => {
                     <View style={styles.headerTitleContainer}>
                         <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
                             {file?.name || t('viewer.document')}
+                        </Text>
+                        <Text style={{ color: colors.textSecondary, fontSize: 13, marginTop: 2, fontWeight: '500' }}>
+                            {currentPage} / {typeof file?.pageCount === 'number' ? file.pageCount : calculatedTotalPages}
                         </Text>
                     </View>
                     <TouchableOpacity onPress={handleShare} style={styles.headerBtn}>
@@ -210,6 +258,8 @@ export const DocxViewerModal = ({ visible, file, onClose }: Props) => {
                             source={{ html: htmlContent }}
                             style={styles.webview}
                             scalesPageToFit={false}
+                            injectedJavaScript={injectedJS}
+                            onMessage={handleMessage}
                         />
                     )}
                 </View>

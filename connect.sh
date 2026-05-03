@@ -6,7 +6,7 @@
 
 # 1. Configurar variables de entorno basicas
 export ANDROID_HOME=$HOME/Android/Sdk
-export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 # Ruta por defecto en Ubuntu
+export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 # Ruta por defecto en Ubuntu
 export PATH=$PATH:$ANDROID_HOME/emulator
 export PATH=$PATH:$ANDROID_HOME/platform-tools
 export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { AppState } from 'react-native';
 import { LocalFile, scanDocuments, requestFilePermissions, checkManagePermission, checkFilePermissions } from '../services/FileService';
 import { StorageService } from '../services/StorageService';
@@ -16,21 +16,21 @@ export const useFileManager = () => {
         setFavorites(favs);
     };
 
-    const scanFiles = async () => {
-        setLoading(true);
+    const scanFiles = useCallback(async (silent: boolean = false) => {
+        if (!silent) setLoading(true);
         const scanned = await scanDocuments();
         setFiles(scanned);
-        setLoading(false);
-    };
+        if (!silent) setLoading(false);
+    }, []);
 
-    const checkPermission = async () => {
-        setLoading(true);
+    const checkPermission = useCallback(async (silent: boolean = false) => {
+        if (!silent) setLoading(true);
         // First check if manage permission logic applies (for Android 11+)
         const isManaged = await checkManagePermission();
         if (isManaged) {
             setPermissionGranted(true);
             setIsCheckingPermissions(false);
-            scanFiles();
+            scanFiles(silent);
             return;
         }
 
@@ -38,13 +38,13 @@ export const useFileManager = () => {
         const hasAccess = await checkFilePermissions();
         if (hasAccess) {
             setPermissionGranted(true);
-            scanFiles();
+            scanFiles(silent);
         } else {
             setPermissionGranted(false);
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
         setIsCheckingPermissions(false);
-    };
+    }, [scanFiles]);
 
     const handleRefresh = async () => {
         setRefreshing(true);
@@ -63,15 +63,22 @@ export const useFileManager = () => {
         // The AppState listener will handle the check on return.
     };
 
+    const appState = useRef(AppState.currentState);
+
     useEffect(() => {
         checkPermission();
         loadFavorites();
 
         // Add AppState listener to re-check permissions when app comes to foreground
         const subscription = AppState.addEventListener('change', nextAppState => {
-            if (nextAppState === 'active') {
-                checkPermission();
+            if (
+                appState.current.match(/inactive|background/) &&
+                nextAppState === 'active'
+            ) {
+                // Silent refresh so it doesn't flash the screen
+                checkPermission(true);
             }
+            appState.current = nextAppState;
         });
 
         return () => {
@@ -90,5 +97,6 @@ export const useFileManager = () => {
         scanFiles,
         handleRefresh,
         handleGrantPermission,
+        checkPermission, // Exported to be used for focus effects
     };
 };

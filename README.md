@@ -13,10 +13,10 @@
     <img src="https://img.shields.io/badge/platform-Android-3ddc84?style=for-the-badge&logo=android&logoColor=white" alt="Platform Android" />
   </a>
   <a href="https://github.com/gessendarien/pdfortuna-mobile/releases">
-    <img src="https://img.shields.io/badge/version-0.0.2-blue?style=for-the-badge" alt="Version" />
+    <img src="https://img.shields.io/badge/version-0.1.0-blue?style=for-the-badge" alt="Version" />
   </a>
   <a href="https://github.com/gessendarien/pdfortuna-mobile/blob/main/LICENSE">
-    <img src="https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg?style=for-the-badge" alt="License CC BY-NC 4.0" />
+    <img src="https://img.shields.io/badge/License-GPLv3-blue.svg?style=for-the-badge" alt="License GPLv3" />
   </a>
 </p>
 
@@ -59,9 +59,7 @@ PDFortuna/
 
 ## License
 
-This project is licensed under the **Creative Commons Attribution-NonCommercial 4.0 International License** — see the [LICENSE](LICENSE) file for details.
-
-You are free to use, modify, and distribute this software for non-commercial purposes under the terms of the CC BY-NC 4.0 license.
+This project is licensed under the **GNU General Public License v3.0** — see the [LICENSE](LICENSE) file for details.
 
 
 <p align="center">

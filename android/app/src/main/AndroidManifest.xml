@@ -16,12 +16,6 @@
       android:usesCleartextTraffic="${usesCleartextTraffic}"
       android:requestLegacyExternalStorage="true"
       android:supportsRtl="true">
-      <!-- Google AdMob App ID (Test ID for development) -->
-      <!-- Replace with your real App ID in production -->
-      <meta-data
-        android:name="com.google.android.gms.ads.APPLICATION_ID"
-        android:value="ca-app-pub-3940256099942544~3347511713"
-        tools:replace="android:value"/>
 
       <activity
         android:name=".MainActivity"

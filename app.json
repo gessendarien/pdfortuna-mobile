@@ -1,7 +1,4 @@
 {
   "name": "PDFortuna",
-  "displayName": "PDFortuna",
-  "react-native-google-mobile-ads": {
-    "android_app_id": "ca-app-pub-1943408097917233~9945653959"
-  }
+  "displayName": "PDFortuna"
 }
