@@ -61,7 +61,6 @@ PDFortuna/
 
 This project is licensed under the **GNU General Public License v3.0** — see the [LICENSE](LICENSE) file for details.
 
-
 <p align="center">
-  Made with 💚 by Gessén Darién for Cassca Studios
+  Made with 💚 by Gessén Darién for Cassca Play
 </p>
