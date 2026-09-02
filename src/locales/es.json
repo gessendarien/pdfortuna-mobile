@@ -11,6 +11,9 @@
         "noFavorites": "No hay favoritos aún",
         "noRecent": "No hay documentos recientes",
         "noScanner": "No hay documentos escaneados aún",
+        "noSearchFavorites": "No se encontraron documentos en Favoritos",
+        "noSearchRecent": "No se encontraron documentos en Recientes",
+        "noSearchScanner": "No se encontraron documentos en Escáner",
         "scanDocument": "Escanear documento",
         "searchPlaceholder": "Buscar documentos..."
     },

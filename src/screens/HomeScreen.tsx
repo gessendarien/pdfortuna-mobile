@@ -424,14 +424,39 @@ export const HomeScreen = () => {
                 </View>
             ) : filteredFiles.length === 0 ? (
                 <View style={styles.center}>
-                    <Icon name={activeTab === 'scanner' ? 'document-scanner' : 'search-off'} size={48} color={colors.textSecondary} />
+                    <Icon
+                        name={
+                            searchQuery.trim().length > 0
+                                ? 'search-off'
+                                : activeTab === 'favorites'
+                                    ? 'favorite-border'
+                                    : activeTab === 'recent'
+                                        ? 'history'
+                                        : activeTab === 'scanner'
+                                            ? 'document-scanner'
+                                            : 'folder-open'
+                        }
+                        size={48}
+                        color={colors.textSecondary}
+                    />
                     <Text style={{ marginTop: 10, color: colors.textSecondary, textAlign: 'center', paddingHorizontal: 32 }}>
-                        {activeTab === 'favorites' ? t('home.noFavorites') :
-                            activeTab === 'recent' ? t('home.noRecent') :
-                                activeTab === 'scanner' ? t('home.noScanner') :
-                                    t('home.noDocuments')}
+                        {searchQuery.trim().length > 0
+                            ? activeTab === 'favorites'
+                                ? t('home.noSearchFavorites')
+                                : activeTab === 'recent'
+                                    ? t('home.noSearchRecent')
+                                    : activeTab === 'scanner'
+                                        ? t('home.noSearchScanner')
+                                        : t('home.noDocuments')
+                            : activeTab === 'favorites'
+                                ? t('home.noFavorites')
+                                : activeTab === 'recent'
+                                    ? t('home.noRecent')
+                                    : activeTab === 'scanner'
+                                        ? t('home.noScanner')
+                                        : t('home.noDocuments')}
                     </Text>
-                    {activeTab === 'scanner' && (
+                    {activeTab === 'scanner' && searchQuery.trim().length === 0 && (
                         <TouchableOpacity
                             style={[styles.scanActionButton, { backgroundColor: colors.primary }]}
                             onPress={handleScanDocument}

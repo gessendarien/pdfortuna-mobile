@@ -10,7 +10,10 @@
         "noDocuments": "No documents found",
         "noFavorites": "No favorites yet",
         "noRecent": "No recent documents",
-        "noScanner": "No scanned documents found",
+        "noScanner": "No scanned documents yet",
+        "noSearchFavorites": "No documents found in Favorites",
+        "noSearchRecent": "No documents found in Recent",
+        "noSearchScanner": "No documents found in Scanner",
         "scanDocument": "Scan document",
         "searchPlaceholder": "Search documents..."
     },
