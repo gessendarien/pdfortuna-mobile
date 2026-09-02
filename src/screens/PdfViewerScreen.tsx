@@ -1,5 +1,5 @@
 import React, { useLayoutEffect, useState, useRef, useCallback, useEffect } from 'react';
-import { View, StyleSheet, Dimensions, TouchableOpacity, Animated, Text, ActivityIndicator, AppState, AppStateStatus, LayoutAnimation, StatusBar } from 'react-native';
+import { View, StyleSheet, Dimensions, TouchableOpacity, Animated, Text, TextInput, ActivityIndicator, AppState, AppStateStatus, LayoutAnimation, StatusBar } from 'react-native';
 import Pdf from 'react-native-pdf';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
@@ -36,10 +36,13 @@ export const PdfViewerScreen = () => {
     const [loadProgress, setLoadProgress] = useState(0);
     const loadingOpacity = useRef(new Animated.Value(1)).current;
 
-    // Resume reading state
+    // Resume reading and page state
+    const pdfRef = useRef<any>(null);
     const [initialPage, setInitialPage] = useState<number | null>(null);
     const currentPageRef = useRef<number>(1);
     const [isHeaderVisible, setIsHeaderVisible] = useState(true);
+    const [currentPageState, setCurrentPageState] = useState<number>(1);
+    const [totalPages, setTotalPages] = useState<number>(0);
 
     const headerAnim = useRef(new Animated.Value(1)).current;
 
@@ -50,8 +53,56 @@ export const PdfViewerScreen = () => {
             useNativeDriver: false,
         }).start();
     }, [isHeaderVisible]);
-    const [currentPageState, setCurrentPageState] = useState<number>(1);
-    const [totalPages, setTotalPages] = useState<number>(0);
+
+    // Popover / balloon page jump state
+    const [pagePopoverVisible, setPagePopoverVisible] = useState(false);
+    const [inputPage, setInputPage] = useState<string>('1');
+    const pageInputRef = useRef<TextInput>(null);
+
+    const goToPage = (pageNumber: number) => {
+        if (pageNumber >= 1 && pageNumber <= totalPages) {
+            pdfRef.current?.setPage(pageNumber);
+            currentPageRef.current = pageNumber;
+            setCurrentPageState(pageNumber);
+            setInputPage(pageNumber.toString());
+        }
+    };
+
+    const handlePrevPage = () => {
+        if (currentPageState > 1) {
+            goToPage(currentPageState - 1);
+        }
+    };
+
+    const handleNextPage = () => {
+        if (currentPageState < totalPages) {
+            goToPage(currentPageState + 1);
+        }
+    };
+
+    const handlePageInputChange = (text: string) => {
+        const cleaned = text.replace(/[^0-9]/g, '');
+        setInputPage(cleaned);
+        if (cleaned) {
+            const num = parseInt(cleaned, 10);
+            if (num >= 1 && num <= totalPages) {
+                pdfRef.current?.setPage(num);
+                currentPageRef.current = num;
+                setCurrentPageState(num);
+            }
+        }
+    };
+
+    const handlePageInputSubmit = () => {
+        if (!inputPage) {
+            setInputPage(currentPageState.toString());
+            return;
+        }
+        let num = parseInt(inputPage, 10);
+        if (isNaN(num) || num < 1) num = 1;
+        if (num > totalPages) num = totalPages;
+        goToPage(num);
+    };
 
     // Load saved page
     useEffect(() => {
@@ -264,9 +315,19 @@ export const PdfViewerScreen = () => {
                         <View style={{ width: '100%', alignItems: 'center' }}>
                             <MarqueeText text={displayName} style={[styles.headerTitleText, { color: colors.text, fontSize: 18, fontWeight: 'bold', textAlign: 'center', width: '100%' }]} />
                             {totalPages > 0 && (
-                                <Text style={[styles.pageIndicatorText, { color: colors.textSecondary, fontSize: 13, textAlign: 'center', marginTop: 2 }]}>
-                                    {currentPageState} / {totalPages}
-                                </Text>
+                                <TouchableOpacity
+                                    activeOpacity={0.7}
+                                    onPress={() => {
+                                        setInputPage(currentPageState.toString());
+                                        setPagePopoverVisible(prev => !prev);
+                                    }}
+                                    hitSlop={{ top: 10, bottom: 10, left: 20, right: 20 }}
+                                    style={styles.pageIndicatorButton}
+                                >
+                                    <Text style={[styles.pageIndicatorText, { color: colors.textSecondary, fontSize: 13, textAlign: 'center', marginTop: 2 }]}>
+                                        {currentPageState} / {totalPages}
+                                    </Text>
+                                </TouchableOpacity>
                             )}
                         </View>
                     </View>
@@ -285,8 +346,65 @@ export const PdfViewerScreen = () => {
                     </View>
                 </View>
             </Animated.View>
+
+            {/* Page Jump Popover / Balloon */}
+            {pagePopoverVisible && isHeaderVisible && totalPages > 0 && (
+                <>
+                    {/* Transparent Backdrop to dismiss when tapping outside */}
+                    <TouchableOpacity
+                        style={styles.popoverBackdrop}
+                        activeOpacity={1}
+                        onPress={() => setPagePopoverVisible(false)}
+                    />
+
+                    <View style={[styles.popoverWrapper, { top: insets.top + 60 }]} pointerEvents="box-none">
+                        {/* Triangular tip pointing up */}
+                        <View style={styles.popoverArrow} />
+
+                        {/* Dark rounded balloon content */}
+                        <View style={styles.popoverCard}>
+                            {/* Number input box */}
+                            <View style={styles.pageInputContainer}>
+                                <TextInput
+                                    ref={pageInputRef}
+                                    style={styles.pageTextInput}
+                                    value={inputPage}
+                                    onChangeText={handlePageInputChange}
+                                    onSubmitEditing={handlePageInputSubmit}
+                                    keyboardType="number-pad"
+                                    selectTextOnFocus={true}
+                                    maxLength={4}
+                                    returnKeyType="done"
+                                />
+                            </View>
+
+                            {/* Up and Down Chevrons */}
+                            <View style={styles.chevronsContainer}>
+                                <TouchableOpacity
+                                    onPress={handlePrevPage}
+                                    style={styles.chevronButton}
+                                    activeOpacity={0.6}
+                                    hitSlop={{ top: 8, bottom: 4, left: 8, right: 8 }}
+                                >
+                                    <MaterialIcon name="keyboard-arrow-up" size={30} color="#ffffff" />
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    onPress={handleNextPage}
+                                    style={styles.chevronButton}
+                                    activeOpacity={0.6}
+                                    hitSlop={{ top: 4, bottom: 8, left: 8, right: 8 }}
+                                >
+                                    <MaterialIcon name="keyboard-arrow-down" size={30} color="#ffffff" />
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </View>
+                </>
+            )}
+
             {initialPage !== null && (
                 <Pdf
+                    ref={pdfRef}
                     source={source}
                     page={initialPage}
                     onLoadProgress={(percent) => {
@@ -306,10 +424,15 @@ export const PdfViewerScreen = () => {
                     onPageChanged={(page) => {
                         currentPageRef.current = page;
                         setCurrentPageState(page);
+                        setInputPage(page.toString());
                         console.log(`Current page: ${page}`);
                     }}
                     onPageSingleTap={(page, x, y) => {
-                        setIsHeaderVisible(prev => !prev);
+                        if (pagePopoverVisible) {
+                            setPagePopoverVisible(false);
+                        } else {
+                            setIsHeaderVisible(prev => !prev);
+                        }
                     }}
                     onError={(error) => {
                         console.log(error);
@@ -456,8 +579,76 @@ const styles = StyleSheet.create({
         borderRadius: 2,
         overflow: 'hidden',
     },
-    progressBarFill: {
-        height: '100%',
-        borderRadius: 2,
+    pageIndicatorButton: {
+        paddingHorizontal: 12,
+        paddingVertical: 2,
+        borderRadius: 8,
+    },
+    popoverBackdrop: {
+        ...StyleSheet.absoluteFillObject,
+        zIndex: 150,
+    },
+    popoverWrapper: {
+        position: 'absolute',
+        alignSelf: 'center',
+        alignItems: 'center',
+        zIndex: 200,
+        elevation: 12,
+    },
+    popoverArrow: {
+        width: 0,
+        height: 0,
+        backgroundColor: 'transparent',
+        borderStyle: 'solid',
+        borderLeftWidth: 10,
+        borderRightWidth: 10,
+        borderBottomWidth: 10,
+        borderLeftColor: 'transparent',
+        borderRightColor: 'transparent',
+        borderBottomColor: '#1e293b',
+        marginBottom: -1,
+    },
+    popoverCard: {
+        backgroundColor: '#1e293b',
+        borderRadius: 16,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.35,
+        shadowRadius: 8,
+        elevation: 10,
+    },
+    pageInputContainer: {
+        backgroundColor: '#ffffff',
+        borderRadius: 8,
+        minWidth: 48,
+        height: 48,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 8,
+    },
+    pageTextInput: {
+        fontSize: 26,
+        fontWeight: 'bold',
+        color: '#0f172a',
+        textAlign: 'center',
+        padding: 0,
+        margin: 0,
+        includeFontPadding: false,
+    },
+    chevronsContainer: {
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 2,
+    },
+    chevronButton: {
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 0,
     },
 });
