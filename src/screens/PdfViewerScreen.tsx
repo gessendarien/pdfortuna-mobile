@@ -58,6 +58,8 @@ export const PdfViewerScreen = () => {
     const [pagePopoverVisible, setPagePopoverVisible] = useState(false);
     const [inputPage, setInputPage] = useState<string>('1');
     const pageInputRef = useRef<TextInput>(null);
+    const isEditingRef = useRef(false);
+    const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const goToPage = (pageNumber: number) => {
         if (pageNumber >= 1 && pageNumber <= totalPages) {
@@ -83,17 +85,27 @@ export const PdfViewerScreen = () => {
     const handlePageInputChange = (text: string) => {
         const cleaned = text.replace(/[^0-9]/g, '');
         setInputPage(cleaned);
+
+        if (debounceTimerRef.current) {
+            clearTimeout(debounceTimerRef.current);
+        }
+
         if (cleaned) {
             const num = parseInt(cleaned, 10);
             if (num >= 1 && num <= totalPages) {
-                pdfRef.current?.setPage(num);
-                currentPageRef.current = num;
-                setCurrentPageState(num);
+                debounceTimerRef.current = setTimeout(() => {
+                    pdfRef.current?.setPage(num);
+                    currentPageRef.current = num;
+                    setCurrentPageState(num);
+                }, 600);
             }
         }
     };
 
     const handlePageInputSubmit = () => {
+        if (debounceTimerRef.current) {
+            clearTimeout(debounceTimerRef.current);
+        }
         if (!inputPage) {
             setInputPage(currentPageState.toString());
             return;
@@ -354,10 +366,15 @@ export const PdfViewerScreen = () => {
                     <TouchableOpacity
                         style={styles.popoverBackdrop}
                         activeOpacity={1}
-                        onPress={() => setPagePopoverVisible(false)}
+                        onPress={() => {
+                            if (isEditingRef.current) {
+                                pageInputRef.current?.blur();
+                            }
+                            setPagePopoverVisible(false);
+                        }}
                     />
 
-                    <View style={[styles.popoverWrapper, { top: insets.top + 60 }]} pointerEvents="box-none">
+                    <View style={[styles.popoverWrapper, { top: insets.top + 74 }]} pointerEvents="box-none">
                         {/* Triangular tip pointing up */}
                         <View style={styles.popoverArrow} />
 
@@ -371,6 +388,11 @@ export const PdfViewerScreen = () => {
                                     value={inputPage}
                                     onChangeText={handlePageInputChange}
                                     onSubmitEditing={handlePageInputSubmit}
+                                    onFocus={() => { isEditingRef.current = true; }}
+                                    onBlur={() => {
+                                        isEditingRef.current = false;
+                                        handlePageInputSubmit();
+                                    }}
                                     keyboardType="number-pad"
                                     selectTextOnFocus={true}
                                     maxLength={4}
@@ -386,7 +408,7 @@ export const PdfViewerScreen = () => {
                                     activeOpacity={0.6}
                                     hitSlop={{ top: 8, bottom: 4, left: 8, right: 8 }}
                                 >
-                                    <MaterialIcon name="keyboard-arrow-up" size={30} color="#ffffff" />
+                                    <MaterialIcon name="keyboard-arrow-up" size={26} color="#ffffff" />
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     onPress={handleNextPage}
@@ -394,7 +416,7 @@ export const PdfViewerScreen = () => {
                                     activeOpacity={0.6}
                                     hitSlop={{ top: 4, bottom: 8, left: 8, right: 8 }}
                                 >
-                                    <MaterialIcon name="keyboard-arrow-down" size={30} color="#ffffff" />
+                                    <MaterialIcon name="keyboard-arrow-down" size={26} color="#ffffff" />
                                 </TouchableOpacity>
                             </View>
                         </View>
@@ -424,7 +446,9 @@ export const PdfViewerScreen = () => {
                     onPageChanged={(page) => {
                         currentPageRef.current = page;
                         setCurrentPageState(page);
-                        setInputPage(page.toString());
+                        if (!isEditingRef.current) {
+                            setInputPage(page.toString());
+                        }
                         console.log(`Current page: ${page}`);
                     }}
                     onPageSingleTap={(page, x, y) => {
@@ -600,9 +624,9 @@ const styles = StyleSheet.create({
         height: 0,
         backgroundColor: 'transparent',
         borderStyle: 'solid',
-        borderLeftWidth: 10,
-        borderRightWidth: 10,
-        borderBottomWidth: 10,
+        borderLeftWidth: 8,
+        borderRightWidth: 8,
+        borderBottomWidth: 8,
         borderLeftColor: 'transparent',
         borderRightColor: 'transparent',
         borderBottomColor: '#1e293b',
@@ -610,29 +634,31 @@ const styles = StyleSheet.create({
     },
     popoverCard: {
         backgroundColor: '#1e293b',
-        borderRadius: 16,
-        paddingHorizontal: 12,
-        paddingVertical: 10,
+        borderRadius: 14,
+        paddingHorizontal: 10,
+        paddingVertical: 8,
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 12,
+        gap: 10,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.15)',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.35,
         shadowRadius: 8,
-        elevation: 10,
+        elevation: 12,
     },
     pageInputContainer: {
         backgroundColor: '#ffffff',
         borderRadius: 8,
-        minWidth: 48,
-        height: 48,
+        minWidth: 42,
+        height: 40,
         justifyContent: 'center',
         alignItems: 'center',
-        paddingHorizontal: 8,
+        paddingHorizontal: 6,
     },
     pageTextInput: {
-        fontSize: 26,
+        fontSize: 19,
         fontWeight: 'bold',
         color: '#0f172a',
         textAlign: 'center',
@@ -644,7 +670,7 @@ const styles = StyleSheet.create({
         flexDirection: 'column',
         justifyContent: 'center',
         alignItems: 'center',
-        gap: 2,
+        gap: 0,
     },
     chevronButton: {
         justifyContent: 'center',
