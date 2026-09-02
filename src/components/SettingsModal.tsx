@@ -120,7 +120,6 @@ export const SettingsModal = ({
                                     onPress={onOpenAbout}
                                     activeOpacity={0.7}
                                 >
-                                    <MaterialIcon name="info-outline" size={18} color={colors.primary} style={{ marginRight: 8 }} />
                                     <Text style={[styles.aboutButtonText, { color: colors.text }]}>
                                         {t('settings.about')}
                                     </Text>

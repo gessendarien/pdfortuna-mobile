@@ -149,7 +149,7 @@ class DocumentScannerModule(private val reactContext: ReactApplicationContext) :
                 documentsDir.mkdirs()
             }
 
-            val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+            val timestamp = SimpleDateFormat("dd-MM-yyyy_HH-mm", Locale.getDefault()).format(Date())
             val targetFileName = "Escaneo_$timestamp.pdf"
             val targetFile = File(documentsDir, targetFileName)
 

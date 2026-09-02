@@ -51,7 +51,9 @@
     },
     "rename": {
         "title": "Renombrar Archivo",
+        "scanTitle": "Guardar escaneo",
         "save": "Guardar",
+        "scanSave": "Aceptar",
         "cancel": "Cancelar"
     },
     "confirm": {

@@ -3,7 +3,7 @@ import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { View, Text, FlatList, TextInput, TouchableOpacity, ActivityIndicator, StatusBar, StyleSheet } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { LocalFile, openFileInExternalApp } from '../services/FileService';
+import { LocalFile, openFileInExternalApp, renameFile } from '../services/FileService';
 import { theme } from '../theme';
 import { useTheme } from '../theme/ThemeContext';
 import { t } from '../i18n';
@@ -48,6 +48,8 @@ export const HomeScreen = () => {
 
     // UI-only state
     const [isScanning, setIsScanning] = useState(false);
+    const [scannedFileToSave, setScannedFileToSave] = useState<{ path: string; name: string } | null>(null);
+    const [scanRenameModalVisible, setScanRenameModalVisible] = useState(false);
     const [isSearchVisible, setIsSearchVisible] = useState(false);
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [activeTab, setActiveTab] = useState<'all' | 'recent' | 'favorites' | 'scanner'>('all');
@@ -98,17 +100,58 @@ export const HomeScreen = () => {
         try {
             const result = await startDocumentScan();
             if (result.success && result.path && result.name) {
-                // Refresh local file list so the new scan appears in the app
-                await fileManager.scanFiles(true);
-                setActiveTab('scanner');
-                // Open newly scanned PDF directly in reader
-                navigation.navigate('PdfViewer', { uri: result.path, name: result.name });
+                setScannedFileToSave({ path: result.path, name: result.name });
+                setScanRenameModalVisible(true);
             }
         } catch (e) {
             console.error('Document scanning error:', e);
         } finally {
             setIsScanning(false);
         }
+    };
+
+    const handleConfirmScanName = async (newName: string) => {
+        if (!scannedFileToSave) return;
+
+        let finalPath = scannedFileToSave.path;
+        let finalName = scannedFileToSave.name;
+
+        // Clean name (sanitize characters that could fail on Android/FAT storage)
+        const sanitizedNewName = newName.replace(/[:*?"<>|\\\/]/g, '-').trim();
+
+        if (sanitizedNewName && sanitizedNewName !== scannedFileToSave.name) {
+            const success = await renameFile(scannedFileToSave.path, sanitizedNewName);
+            if (success) {
+                const dir = scannedFileToSave.path.substring(0, scannedFileToSave.path.lastIndexOf('/') + 1);
+                finalPath = dir + sanitizedNewName;
+                finalName = sanitizedNewName;
+            }
+        }
+
+        setScannedFileToSave(null);
+        setScanRenameModalVisible(false);
+
+        // Refresh list and open PDF in reader
+        await fileManager.scanFiles(true);
+        setActiveTab('scanner');
+        navigation.navigate('PdfViewer', { uri: finalPath, name: finalName });
+    };
+
+    const handleCancelScanName = async () => {
+        if (!scannedFileToSave) {
+            setScanRenameModalVisible(false);
+            return;
+        }
+
+        const path = scannedFileToSave.path;
+        const name = scannedFileToSave.name;
+        setScannedFileToSave(null);
+        setScanRenameModalVisible(false);
+
+        // Saved with default name; refresh and open
+        await fileManager.scanFiles(true);
+        setActiveTab('scanner');
+        navigation.navigate('PdfViewer', { uri: path, name: name });
     };
 
     const handleFilePress = (file: LocalFile) => {
@@ -476,6 +519,17 @@ export const HomeScreen = () => {
                         fileActions.setFileToRename(null);
                     }}
                     onRename={fileActions.onRenameFile}
+                />
+            )}
+
+            {scanRenameModalVisible && (
+                <RenameModal
+                    visible={scanRenameModalVisible}
+                    currentName={scannedFileToSave?.name || ''}
+                    title={t('rename.scanTitle')}
+                    saveLabel={t('rename.scanSave')}
+                    onClose={handleCancelScanName}
+                    onRename={handleConfirmScanName}
                 />
             )}
 

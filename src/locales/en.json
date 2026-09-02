@@ -51,7 +51,9 @@
     },
     "rename": {
         "title": "Rename File",
+        "scanTitle": "Save Scanned Document",
         "save": "Save",
+        "scanSave": "Accept",
         "cancel": "Cancel"
     },
     "confirm": {
