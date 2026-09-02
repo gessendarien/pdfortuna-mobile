@@ -70,9 +70,9 @@
     },
     "credits": {
         "credits": "Credits",
-        "developedBy": "Developed with 💚 by Gessén Darién.",
+        "developedBy": "Developed with 💚 by Gessén Darién for Cassca64 Studio.",
         "privacyTitle": "Privacy and Source code",
-        "privacyText": "This app does not send any information to external servers and all data stays on your device, so your privacy is protected. You can also view its ",
+        "privacyText": "This app does not send any information to external servers and all data remains on your device so your privacy is protected, you can also see its ",
         "sourceCode": "source code."
     },
     "viewer": {
