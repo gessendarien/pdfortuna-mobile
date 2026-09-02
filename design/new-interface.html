@@ -1,0 +1,209 @@
+<!DOCTYPE html><html lang="es" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>PDFortuna</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Grand+Hotel&amp;display=swap" rel="stylesheet" class="">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Hanken Grotesk"', 'sans-serif'],
+          },
+          colors: {
+            surface: '#11151e',
+            'surface-dim': '#0f131c',
+            'surface-bright': '#353943',
+            'surface-container-lowest': '#0a0e17',
+            'surface-container-low': '#1e2330',
+            'surface-container': '#1c2029',
+            'surface-container-high': '#272b38',
+            'surface-container-highest': '#323746',
+            primary: '#6bc4ff',
+            'on-primary': '#ffffff',
+            'primary-container': '#004a75',
+            'on-primary-container': '#ceebff',
+            secondary: '#a7ccdf',
+            'on-secondary': '#0d3444',
+            'secondary-container': '#274a5b',
+            'on-secondary-container': '#c3e8fb',
+            tertiary: '#b7c7ec',
+            'on-tertiary': '#21314f',
+            'tertiary-container': '#384766',
+            'on-tertiary-container': '#d7e3ff',
+            error: '#ffb4ab',
+            'on-error': '#690005',
+            'error-container': '#93000a',
+            'on-error-container': '#ffdad6',
+            'on-surface': '#ffffff',
+            'on-surface-variant': '#8c94a6',
+            outline: '#8b9198',
+            'outline-variant': '#41474d',
+            inverse: '#e1e2e8',
+            'inverse-on-surface': '#0f131c',
+            'inverse-primary': '#00639b',
+          },
+          borderRadius: {
+            '8': '8px',
+          }
+        }
+      }
+    }
+  </script>
+<style data-purpose="custom-styles">
+    body {
+      background-color: theme('colors.surface');
+      color: theme('colors.on-surface');
+    }
+    
+    .doc-thumbnail {
+      object-fit: cover;
+      object-position: top center;
+    }
+    
+    /* Scrollbar for filter tags */
+    .filter-tags::-webkit-scrollbar {
+      display: none;
+    }
+    .filter-tags {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="antialiased min-h-screen flex flex-col font-sans bg-surface text-on-surface">
+<!-- BEGIN: Top Bar -->
+<header class="px-5 pt-12 pb-4 flex items-center sticky top-0 bg-surface z-10 justify-center" data-purpose="top-bar">
+<h1 class="text-2xl font-semibold tracking-wide text-on-surface font-bold" style="font-size: 2.5rem;">PDFortuna</h1>
+<button aria-label="Settings" class="p-2 text-on-surface-variant hover:text-on-surface transition-colors rounded-full absolute right-5">
+<i class="fa-solid fa-gear text-xl"></i>
+</button>
+</header>
+<!-- END: Top Bar -->
+<!-- BEGIN: Action Buttons -->
+<section class="px-5 py-4 flex justify-around items-center" data-purpose="action-buttons">
+<button aria-label="Búsqueda" class="w-14 h-14 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface-variant hover:bg-surface-container-highest transition-colors">
+<i class="fa-solid fa-magnifying-glass text-xl"></i>
+</button>
+<button aria-label="Favoritos" class="w-14 h-14 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface-variant hover:bg-surface-container-highest transition-colors">
+<i class="fa-solid fa-heart text-xl"></i>
+</button>
+<button aria-label="Cámara" class="w-14 h-14 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface-variant hover:bg-surface-container-highest transition-colors">
+<i class="fa-solid fa-camera text-xl"></i>
+</button>
+</section>
+<!-- END: Action Buttons -->
+<!-- BEGIN: Filter Tags -->
+<section class="px-5 py-2 flex items-center gap-3 overflow-x-auto filter-tags" data-purpose="filter-tags">
+<button aria-pressed="true" class="px-5 py-2 rounded-full bg-primary text-on-primary font-medium text-sm whitespace-nowrap transition-colors">
+      Todos
+    </button>
+<button aria-pressed="false" class="px-5 py-2 rounded-full bg-surface-container-high text-on-surface-variant font-medium text-sm whitespace-nowrap hover:bg-surface-container-highest transition-colors">
+      Recientes
+    </button>
+<button aria-pressed="false" class="px-5 py-2 rounded-full bg-surface-container-high text-on-surface-variant font-medium text-sm whitespace-nowrap hover:bg-surface-container-highest transition-colors">
+      Escáner
+    </button>
+<div class="flex-grow"></div>
+<button aria-label="View options" class="p-2 text-on-surface-variant hover:text-on-surface transition-colors">
+<i class="fa-solid fa-list-ul text-lg"></i>
+</button>
+</section>
+<!-- END: Filter Tags -->
+<!-- BEGIN: Document Grid -->
+<main class="px-5 py-6 grid grid-cols-2 gap-4 flex-grow" data-purpose="document-grid">
+<!-- Document Card 1 -->
+<article class="bg-surface-container-low rounded-xl overflow-hidden flex flex-col">
+<div class="h-48 bg-white p-2 relative">
+<img alt="Acta de Nacimiento" class="w-full h-full doc-thumbnail rounded-8" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAxmwtQSZPU-YQU74tTPg5i0ydsWVFsSAFAOdlObDT4CnIi2XkAR6wjAmfKKjQB4VNj2EZVLt3Qfo1y_NLYU4YUtxy-Q440QHe8toa2MEsVZTxIFDKV017vmOt7N-BKPlnBjUWhArnN6qSC4VQ4RTNVB8m1WVcxWpd3nqYicqh1jhkjzM2Oy51jaz3IkSKJADG1TAXHm5HC6NzamdbtGF5SmK-4a60KDa0_WdFTVxnG_wOzDVDA_Z2azA">
+</div>
+<div class="p-3 flex flex-col gap-1">
+<h3 class="font-semibold text-sm truncate text-on-surface">Acta_Nacimiento.pdf</h3>
+<div class="flex justify-between items-center mt-1">
+<p class="text-xs text-on-surface-variant">18 Mar • 1 p.</p>
+<button aria-label="More options for Acta_Nacimiento.pdf" class="p-1 text-on-surface-variant hover:text-on-surface">
+<i class="fa-solid fa-ellipsis-vertical"></i>
+</button>
+</div>
+</div>
+</article>
+<!-- Document Card 2 -->
+<article class="bg-surface-container-low rounded-xl overflow-hidden flex flex-col">
+<div class="h-48 bg-white p-2 relative">
+<img alt="Acta-Certificado-Defuncion" class="w-full h-full doc-thumbnail rounded-8" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBANoAlsCTX-Pwx5fMnIyjE-bcUFacguIixR95Ktu3Z0SozKaoQ9wJXVgWFJ5dblx-t3BD7o-7Tsf2-B1KhAWFRyDHwFM6amqoOsDX4A1SSnMRb_HiOcr1D0J07tNoRMVigLCqrCsJaQNCKFgoQupJYDX8zTYrL-kdncj1Tv1Bj24NdHsv3vJmDWbrfkGTSpm07Biml_5D-VMAWgYt3t_6ImWXqtm5MruScZELTmnZ6yflXpuGxwUlVfg">
+</div>
+<div class="p-3 flex flex-col gap-1">
+<h3 class="font-semibold text-sm truncate text-on-surface">Acta-Certificado-Defuncion.pdf</h3>
+<div class="flex justify-between items-center mt-1">
+<p class="text-xs text-on-surface-variant">14 Jul • 3 p.</p>
+<button aria-label="More options for Acta-Certificado-Defuncion.pdf" class="p-1 text-on-surface-variant hover:text-on-surface">
+<i class="fa-solid fa-ellipsis-vertical"></i>
+</button>
+</div>
+</div>
+</article>
+<!-- Document Card 3 -->
+<article class="bg-surface-container-low rounded-xl overflow-hidden flex flex-col">
+<div class="h-48 bg-white p-0 relative">
+<!-- Heart Icon Overlay -->
+<div class="absolute top-2 left-2 z-10 text-error drop-shadow-md">
+<i class="fa-solid fa-heart"></i>
+</div>
+<img alt="Atlas del mundo" class="w-full h-full doc-thumbnail" src="https://lh3.googleusercontent.com/aida-public/AB6AXuARcWlrvb-4_M8dGS4h0odL8Uq7-Q_WdKA3xRex7-8t0xCpdMnbZO3c8gRl1Wcsx9oVS3OzbZ6frvuvEuVWK8vcWg_QLah71_QwNCjK6H7N120YQb3VFa23TsroWGeuYdvHhbVzpMhjojOrMC56H4IyNRPkimyePSD8cHwcgAb0rjFi5Fg625yiimAVNLQJApDaxq9weMLSi-e_uFntlxh3HHZWxBRrhLjBgk_QHavVa0q0_VHa4jDulw">
+</div>
+<div class="p-3 flex flex-col gap-1">
+<h3 class="font-semibold text-sm truncate text-on-surface">Atlas del mundo.pdf</h3>
+<div class="flex justify-between items-center mt-1">
+<p class="text-xs text-on-surface-variant">15 Feb • 116 p.</p>
+<button aria-label="More options for Atlas del mundo.pdf" class="p-1 text-on-surface-variant hover:text-on-surface">
+<i class="fa-solid fa-ellipsis-vertical"></i>
+</button>
+</div>
+</div>
+</article>
+<!-- Document Card 4 -->
+<article class="bg-surface-container-low rounded-xl overflow-hidden flex flex-col">
+<div class="h-48 bg-[#a32946] flex items-center justify-center p-4 relative">
+<!-- Abstracted Cover -->
+<div class="w-24 h-24 border-[6px] border-white/20 rounded-full flex flex-col items-center justify-center">
+<div class="w-12 h-6 border-t-[6px] border-l-[6px] border-r-[6px] border-white/20 rounded-t-full"></div>
+<div class="w-1 h-8 bg-white/20"></div>
+</div>
+</div>
+<div class="p-3 flex flex-col gap-1">
+<h3 class="font-semibold text-sm truncate text-on-surface">B_Vids.pdf</h3>
+<div class="flex justify-between items-center mt-1">
+<p class="text-xs text-on-surface-variant">03 Aug • 46 p.</p>
+<button aria-label="More options for B_Vids.pdf" class="p-1 text-on-surface-variant hover:text-on-surface">
+<i class="fa-solid fa-ellipsis-vertical"></i>
+</button>
+</div>
+</div>
+</article>
+<!-- Document Card 5 -->
+<article class="bg-surface-container-low rounded-xl overflow-hidden flex flex-col">
+<div class="h-48 bg-surface-container-high flex items-center justify-center p-4 relative">
+<div class="bg-blue-500 text-white font-bold text-3xl w-12 h-12 flex items-center justify-center rounded-sm">W</div>
+</div>
+<div class="p-3 flex flex-col gap-1">
+<h3 class="font-semibold text-sm truncate text-on-surface text-transparent bg-clip-text bg-gradient-to-r from-transparent to-transparent">Placeholder</h3>
+</div>
+</article>
+<!-- Document Card 6 -->
+<article class="bg-surface-container-low rounded-xl overflow-hidden flex flex-col">
+<div class="h-48 bg-white p-2 relative">
+<img alt="Document" class="w-full h-full doc-thumbnail rounded-8" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCEJvhQ6TSPAx2wWOQR1zcZvAfXSgUu95G0tzPeFnMQ8011S5wjYS8PiQhMCOtU8eKXnmda86Ym1yvu2Lv9lJ5Kef_TLdtKwUnD9h7x7RvDptOBO-ta5nwRn6QTMu7p1E43vXc8rODJZVhNmFkMAlLbTd5G2eLPb7FTInR1X25BresRnUaUSoShgtWBpvmxkhxPwG3MEkXcobu00mB81ZacxlOYa2fLcVvzS_eeaAVxckYBfjM6ErhTnw">
+</div>
+<div class="p-3 flex flex-col gap-1">
+<h3 class="font-semibold text-sm truncate text-on-surface text-transparent bg-clip-text bg-gradient-to-r from-transparent to-transparent">Placeholder</h3>
+</div>
+</article>
+</main>
+<!-- END: Document Grid -->
+
+
+</body></html>

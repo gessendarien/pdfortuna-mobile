@@ -20,6 +20,7 @@ import { UndoToast } from '../components/UndoToast';
 import { CreditsModal } from '../components/CreditsModal';
 import { PrivacyConsentModal } from '../components/PrivacyConsentModal';
 import { StorageService } from '../services/StorageService';
+import { startDocumentScan } from '../services/DocumentScannerService';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useSettings } from '../hooks/useSettings';
@@ -46,8 +47,10 @@ export const HomeScreen = () => {
     const viewers = useDocumentViewers();
 
     // UI-only state
+    const [isScanning, setIsScanning] = useState(false);
+    const [isSearchVisible, setIsSearchVisible] = useState(false);
     const [searchQuery, setSearchQuery] = useState<string>('');
-    const [activeTab, setActiveTab] = useState<'all' | 'recent' | 'favorites'>('all');
+    const [activeTab, setActiveTab] = useState<'all' | 'recent' | 'favorites' | 'scanner'>('all');
     const [filterType, setFilterType] = useState<'all' | 'pdf' | 'doc' | 'odf'>('all');
     const [filterModalVisible, setFilterModalVisible] = useState(false);
     const [optionsFile, setOptionsFile] = useState<LocalFile | null>(null);
@@ -89,6 +92,25 @@ export const HomeScreen = () => {
         return () => fileActions.cleanup();
     }, []);
 
+    const handleScanDocument = async () => {
+        if (isScanning) return;
+        setIsScanning(true);
+        try {
+            const result = await startDocumentScan();
+            if (result.success && result.path && result.name) {
+                // Refresh local file list so the new scan appears in the app
+                await fileManager.scanFiles(true);
+                setActiveTab('scanner');
+                // Open newly scanned PDF directly in reader
+                navigation.navigate('PdfViewer', { uri: result.path, name: result.name });
+            }
+        } catch (e) {
+            console.error('Document scanning error:', e);
+        } finally {
+            setIsScanning(false);
+        }
+    };
+
     const handleFilePress = (file: LocalFile) => {
         if (file.type === 'pdf') {
             navigation.navigate('PdfViewer', { uri: file.path, name: file.name });
@@ -123,6 +145,22 @@ export const HomeScreen = () => {
         } else if (activeTab === 'recent') {
             result.sort((a, b) => b.date.getTime() - a.date.getTime());
             result = result.slice(0, 10);
+        } else if (activeTab === 'scanner') {
+            result = result.filter(f => {
+                const lowerPath = f.path.toLowerCase();
+                const lowerName = f.name.toLowerCase();
+                return (
+                    lowerPath.includes('/pdfortuna/') ||
+                    lowerPath.includes('scan') ||
+                    lowerPath.includes('escan') ||
+                    lowerPath.includes('camscanner') ||
+                    lowerName.startsWith('escaneo_') ||
+                    lowerName.startsWith('scan_') ||
+                    lowerName.includes('scan') ||
+                    lowerName.includes('escan')
+                );
+            });
+            result.sort((a, b) => b.date.getTime() - a.date.getTime());
         } else {
             result.sort((a, b) => a.name.localeCompare(b.name));
         }
@@ -220,32 +258,103 @@ export const HomeScreen = () => {
         <View style={[styles.container, { backgroundColor: colors.backgroundLight, paddingTop: insets.top }]}>
             {/* Header */}
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => viewers.setCreditsVisible(true)}>
-                    <Text style={[styles.headerTitle, { color: colors.text }]}>PDFortuna</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => viewers.setSettingsVisible(true)}>
+                <Text style={[styles.headerTitle, { color: colors.text }]}>PDFortuna</Text>
+                <TouchableOpacity
+                    style={styles.settingsButton}
+                    onPress={() => viewers.setSettingsVisible(true)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
                     <Icon name="settings" size={24} color={colors.textSecondary} />
                 </TouchableOpacity>
             </View>
 
-            {/* Search */}
-            <View style={[styles.searchContainer, { backgroundColor: colors.surfaceLight, borderColor: colors.border }]}>
-                <TouchableOpacity onPress={() => setFilterModalVisible(true)} style={{ marginRight: 8 }} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                    <Icon name="filter-list" size={24} color={filterType !== 'all' ? colors.primary : colors.textSecondary} />
+            {/* Action Buttons (Search, Favorites, Scanner) */}
+            <View style={styles.actionButtonsContainer}>
+                <TouchableOpacity
+                    style={[
+                        styles.actionCircleButton,
+                        {
+                            backgroundColor: isSearchVisible ? colors.primary : colors.surfaceLight,
+                            borderColor: isSearchVisible ? colors.primary : colors.border,
+                        },
+                    ]}
+                    onPress={() => setIsSearchVisible(prev => !prev)}
+                    activeOpacity={0.7}
+                >
+                    <Icon
+                        name="search"
+                        size={24}
+                        color={isSearchVisible ? '#ffffff' : colors.textSecondary}
+                    />
                 </TouchableOpacity>
-                <TextInput
-                    style={[styles.searchInput, { color: colors.text }]}
-                    placeholder={t('home.searchPlaceholder')}
-                    placeholderTextColor={colors.textSecondary}
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                />
-                {searchQuery.length > 0 &&
-                    <TouchableOpacity onPress={() => setSearchQuery('')}>
-                        <Icon name="close" size={20} color={colors.textSecondary} />
-                    </TouchableOpacity>
-                }
+
+                <TouchableOpacity
+                    style={[
+                        styles.actionCircleButton,
+                        {
+                            backgroundColor: activeTab === 'favorites' ? colors.primary : colors.surfaceLight,
+                            borderColor: activeTab === 'favorites' ? colors.primary : colors.border,
+                        },
+                    ]}
+                    onPress={() => setActiveTab(prev => prev === 'favorites' ? 'all' : 'favorites')}
+                    activeOpacity={0.7}
+                >
+                    <Icon
+                        name={activeTab === 'favorites' ? "favorite" : "favorite-border"}
+                        size={24}
+                        color={activeTab === 'favorites' ? '#ffffff' : colors.textSecondary}
+                    />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={[
+                        styles.actionCircleButton,
+                        {
+                            backgroundColor: (activeTab === 'scanner' || isScanning) ? colors.primary : colors.surfaceLight,
+                            borderColor: (activeTab === 'scanner' || isScanning) ? colors.primary : colors.border,
+                        },
+                    ]}
+                    onPress={handleScanDocument}
+                    activeOpacity={0.7}
+                    disabled={isScanning}
+                >
+                    {isScanning ? (
+                        <ActivityIndicator size="small" color="#ffffff" />
+                    ) : (
+                        <Icon
+                            name="photo-camera"
+                            size={24}
+                            color={(activeTab === 'scanner' || isScanning) ? '#ffffff' : colors.textSecondary}
+                        />
+                    )}
+                </TouchableOpacity>
             </View>
+
+            {/* Search Input (conditionally visible) */}
+            {isSearchVisible && (
+                <View style={[styles.searchContainer, { backgroundColor: colors.surfaceLight, borderColor: colors.border }]}>
+                    <TouchableOpacity onPress={() => setFilterModalVisible(true)} style={{ marginRight: 8 }} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                        <Icon name="filter-list" size={24} color={filterType !== 'all' ? colors.primary : colors.textSecondary} />
+                    </TouchableOpacity>
+                    <TextInput
+                        style={[styles.searchInput, { color: colors.text }]}
+                        placeholder={t('home.searchPlaceholder')}
+                        placeholderTextColor={colors.textSecondary}
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                        autoFocus={true}
+                    />
+                    {searchQuery.length > 0 ? (
+                        <TouchableOpacity onPress={() => setSearchQuery('')}>
+                            <Icon name="close" size={20} color={colors.textSecondary} />
+                        </TouchableOpacity>
+                    ) : (
+                        <TouchableOpacity onPress={() => setIsSearchVisible(false)}>
+                            <Icon name="close" size={20} color={colors.textSecondary} />
+                        </TouchableOpacity>
+                    )}
+                </View>
+            )}
 
             {/* Tabs */}
             <View style={styles.tabsContainer}>
@@ -255,8 +364,8 @@ export const HomeScreen = () => {
                 <TouchableOpacity onPress={() => setActiveTab('recent')} style={[styles.tab, { backgroundColor: colors.surfaceLight, borderColor: colors.border }, activeTab === 'recent' && { backgroundColor: colors.primary, borderColor: colors.primary }]}>
                     <Text style={[styles.tabText, { color: colors.textSecondary }, activeTab === 'recent' && styles.activeTabText]}>{t('tabs.recent')}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => setActiveTab('favorites')} style={[styles.tab, { backgroundColor: colors.surfaceLight, borderColor: colors.border }, activeTab === 'favorites' && { backgroundColor: colors.primary, borderColor: colors.primary }]}>
-                    <Text style={[styles.tabText, { color: colors.textSecondary }, activeTab === 'favorites' && styles.activeTabText]}>{t('tabs.favorites')}</Text>
+                <TouchableOpacity onPress={() => setActiveTab('scanner')} style={[styles.tab, { backgroundColor: colors.surfaceLight, borderColor: colors.border }, activeTab === 'scanner' && { backgroundColor: colors.primary, borderColor: colors.primary }]}>
+                    <Text style={[styles.tabText, { color: colors.textSecondary }, activeTab === 'scanner' && styles.activeTabText]}>{t('tabs.scanner')}</Text>
                 </TouchableOpacity>
                 <View style={{ flex: 1 }} />
                 <TouchableOpacity onPress={() => settings.setIsGridView(!settings.isGridView)} style={{ padding: 6 }}>
@@ -272,12 +381,24 @@ export const HomeScreen = () => {
                 </View>
             ) : filteredFiles.length === 0 ? (
                 <View style={styles.center}>
-                    <Icon name="search-off" size={48} color={colors.textSecondary} />
-                    <Text style={{ marginTop: 10, color: colors.textSecondary }}>
+                    <Icon name={activeTab === 'scanner' ? 'document-scanner' : 'search-off'} size={48} color={colors.textSecondary} />
+                    <Text style={{ marginTop: 10, color: colors.textSecondary, textAlign: 'center', paddingHorizontal: 32 }}>
                         {activeTab === 'favorites' ? t('home.noFavorites') :
                             activeTab === 'recent' ? t('home.noRecent') :
-                                t('home.noDocuments')}
+                                activeTab === 'scanner' ? t('home.noScanner') :
+                                    t('home.noDocuments')}
                     </Text>
+                    {activeTab === 'scanner' && (
+                        <TouchableOpacity
+                            style={[styles.scanActionButton, { backgroundColor: colors.primary }]}
+                            onPress={handleScanDocument}
+                            activeOpacity={0.8}
+                            disabled={isScanning}
+                        >
+                            <Icon name="photo-camera" size={20} color="#fff" style={{ marginRight: 8 }} />
+                            <Text style={styles.scanActionButtonText}>{t('home.scanDocument')}</Text>
+                        </TouchableOpacity>
+                    )}
                 </View>
             ) : (
                 <FlatList
@@ -427,6 +548,12 @@ export const HomeScreen = () => {
                 onToggleStartupViewMode={settings.setStartupViewMode}
                 showODF={settings.showODF}
                 onToggleShowODF={settings.setShowODF}
+                onOpenAbout={() => {
+                    viewers.setSettingsVisible(false);
+                    setTimeout(() => {
+                        viewers.setCreditsVisible(true);
+                    }, 150);
+                }}
             />
 
             <CreditsModal
@@ -485,14 +612,41 @@ const styles = StyleSheet.create({
     },
     header: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
+        justifyContent: 'center',
         alignItems: 'center',
         paddingHorizontal: 16,
         paddingVertical: 12,
+        position: 'relative',
     },
     headerTitle: {
         fontSize: 24,
         fontWeight: 'bold',
+        textAlign: 'center',
+    },
+    settingsButton: {
+        position: 'absolute',
+        right: 16,
+    },
+    actionButtonsContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        alignItems: 'center',
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        marginBottom: 8,
+    },
+    actionCircleButton: {
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
     },
     searchContainer: {
         flexDirection: 'row',
@@ -531,5 +685,20 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    scanActionButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        borderRadius: 24,
+        marginTop: 18,
+        elevation: 2,
+    },
+    scanActionButtonText: {
+        color: '#fff',
+        fontWeight: 'bold',
+        fontSize: 15,
     }
 });

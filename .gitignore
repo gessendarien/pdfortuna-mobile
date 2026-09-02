@@ -109,6 +109,7 @@ Gemfile.lock
 # Bundle/Outputs
 # ===========================
 .bundle/
+output/
 
 # ===========================
 # Environment Variables

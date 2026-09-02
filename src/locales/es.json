@@ -10,11 +10,14 @@
         "noDocuments": "No se encontraron documentos",
         "noFavorites": "No hay favoritos aún",
         "noRecent": "No hay documentos recientes",
+        "noScanner": "No hay documentos escaneados aún",
+        "scanDocument": "Escanear documento",
         "searchPlaceholder": "Buscar documentos..."
     },
     "tabs": {
         "all": "Todos",
         "recent": "Recientes",
+        "scanner": "Escáner",
         "favorites": "Favoritos"
     },
     "settings": {
@@ -30,7 +33,8 @@
         "showODF": "Mostrar y abrir documentos ODF",
         "showODFDesc": "Incluye archivos .odt y .odf en la lista",
         "darkMode": "Modo oscuro",
-        "darkModeDesc": "Cambia la apariencia de la app"
+        "darkModeDesc": "Cambia la apariencia de la app",
+        "about": "Acerca de PDFortuna"
     },
     "fileOptions": {
         "addFavorite": "Añadir a favoritos",

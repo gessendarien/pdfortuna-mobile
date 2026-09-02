@@ -18,6 +18,7 @@ interface Props {
     onToggleStartupViewMode: (value: boolean) => void;
     showODF: boolean;
     onToggleShowODF: (value: boolean) => void;
+    onOpenAbout?: () => void;
 }
 
 export const SettingsModal = ({
@@ -32,7 +33,8 @@ export const SettingsModal = ({
     startupViewMode,
     onToggleStartupViewMode,
     showODF,
-    onToggleShowODF
+    onToggleShowODF,
+    onOpenAbout
 }: Props) => {
     const { colors, isDarkMode, toggleDarkMode } = useTheme();
 
@@ -111,6 +113,20 @@ export const SettingsModal = ({
                             t('settings.darkModeDesc')
                         )}
 
+                        {onOpenAbout && (
+                            <View style={styles.aboutContainer}>
+                                <TouchableOpacity
+                                    style={[styles.aboutButton, { borderColor: colors.border, backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)' }]}
+                                    onPress={onOpenAbout}
+                                    activeOpacity={0.7}
+                                >
+                                    <MaterialIcon name="info-outline" size={18} color={colors.primary} style={{ marginRight: 8 }} />
+                                    <Text style={[styles.aboutButtonText, { color: colors.text }]}>
+                                        {t('settings.about')}
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
                     </View>
                 </View>
             </TouchableOpacity>
@@ -168,5 +184,23 @@ const styles = StyleSheet.create({
     },
     optionDescription: {
         fontSize: 12,
+    },
+    aboutContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 8,
+    },
+    aboutButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        borderRadius: 20,
+        borderWidth: 1,
+    },
+    aboutButtonText: {
+        fontSize: 15,
+        fontWeight: '600',
     }
 });
