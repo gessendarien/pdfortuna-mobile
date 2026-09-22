@@ -3,11 +3,10 @@ import { StorageService } from '../services/StorageService';
 
 export const useSettings = () => {
     const [isGridView, setIsGridView] = useState(false);
-    const [startupViewMode, setStartupViewMode] = useState(false);
     const [isSettingsLoaded, setIsSettingsLoaded] = useState(false);
 
-    // Default settings: All FALSE (disabled) for new installations
-    const [showPreviews, setShowPreviews] = useState(false);
+    // Previews: ALWAYS true by default as requested
+    const [showPreviews, setShowPreviews] = useState(true);
     const [showWord, setShowWord] = useState(false);
     const [openWordInApp, setOpenWordInApp] = useState(false);
     const [showODF, setShowODF] = useState(false);
@@ -17,46 +16,61 @@ export const useSettings = () => {
         const load = async () => {
             const prefs = await StorageService.loadSettings();
             if (prefs) {
-                if (prefs.showPreviews !== undefined) setShowPreviews(!!prefs.showPreviews);
-                if (prefs.showWord !== undefined) setShowWord(!!prefs.showWord);
-                if (prefs.openWordInApp !== undefined) setOpenWordInApp(!!prefs.openWordInApp);
-                if (prefs.showODF !== undefined) setShowODF(!!prefs.showODF);
+                setShowPreviews(true);
 
-                // Load startup view mode
-                let startup = false;
-                if (prefs.startupViewMode !== undefined) {
-                    startup = !!prefs.startupViewMode;
-                } else if (prefs.isGridView !== undefined) {
-                    // Migration: used old setting
-                    startup = !!prefs.isGridView;
+                const office = prefs.showOffice !== undefined
+                    ? !!prefs.showOffice
+                    : (prefs.showWord !== undefined ? !!prefs.showWord : !!prefs.showODF);
+                setShowWord(office);
+                setShowODF(office);
+
+                const openOffice = prefs.openOfficeInApp !== undefined
+                    ? !!prefs.openOfficeInApp
+                    : !!prefs.openWordInApp;
+                setOpenWordInApp(openOffice);
+
+                // Remember last chosen view mode (grid vs list)
+                if (prefs.isGridView !== undefined) {
+                    setIsGridView(!!prefs.isGridView);
+                } else if (prefs.startupViewMode !== undefined) {
+                    setIsGridView(!!prefs.startupViewMode);
                 }
-                setStartupViewMode(startup);
-                setIsGridView(startup); // Set current view to startup preference
             }
             setIsSettingsLoaded(true);
         };
         load();
     }, []);
 
-    // Save settings
+    // Save settings whenever view mode or office settings change
     useEffect(() => {
         if (!isSettingsLoaded) return;
         StorageService.saveSettings({
-            showPreviews,
+            showPreviews: true,
             showWord,
             openWordInApp,
-            showODF,
-            startupViewMode // Save the preferred startup mode, not the current view
+            showODF: showWord,
+            isGridView,
+            showOffice: showWord,
+            openOfficeInApp: openWordInApp,
         });
-    }, [isSettingsLoaded, showPreviews, showWord, openWordInApp, showODF, startupViewMode]);
+    }, [isSettingsLoaded, showWord, openWordInApp, isGridView]);
+
+    const setOffice = (val: boolean) => {
+        setShowWord(val);
+        setShowODF(val);
+    };
 
     return {
-        isGridView, setIsGridView,
-        startupViewMode, setStartupViewMode,
+        isGridView,
+        setIsGridView,
         isSettingsLoaded,
-        showPreviews, setShowPreviews,
-        showWord, setShowWord,
-        openWordInApp, setOpenWordInApp,
-        showODF, setShowODF,
+        showPreviews,
+        setShowPreviews,
+        showWord,
+        setShowWord: setOffice,
+        openWordInApp,
+        setOpenWordInApp,
+        showODF,
+        setShowODF: setOffice,
     };
 };

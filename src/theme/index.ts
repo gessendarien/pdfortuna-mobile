@@ -1,5 +1,6 @@
 export const lightColors = {
-  primary: '#369596',
+  primary: '#dd1f47',
+  secondary: '#cc2f44',
   backgroundLight: '#f9fafb',
   surfaceLight: '#ffffff',
   text: '#0f172a',
@@ -7,10 +8,12 @@ export const lightColors = {
   border: '#e2e8f0',
   error: '#ef4444',
   success: '#10b981',
+  accentRed: '#dd1f47',
 };
 
 export const darkColors = {
-  primary: '#38bdf8', // Light Blue 400 - more vibrant against dark slate
+  primary: '#dd1f47', // Red from camera button as primary
+  secondary: '#cc2f44', // User requested secondary
   backgroundLight: '#0f172a', // Slate 900
   surfaceLight: '#1e293b', // Slate 800
   text: '#f1f5f9', // Slate 100
@@ -18,6 +21,7 @@ export const darkColors = {
   border: '#334155', // Slate 700
   error: '#f87171', // Red 400
   success: '#4ade80', // Green 400
+  accentRed: '#dd1f47',
 };
 
 // Static export for layout values (shared between modes)

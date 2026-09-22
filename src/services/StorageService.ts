@@ -6,12 +6,14 @@ const PAGE_HISTORY_KEY = 'document_page_history';
 const PRIVACY_ACCEPTED_KEY = 'privacy_policy_accepted';
 
 export interface AppSettings {
-    showPreviews: boolean;
-    showWord: boolean;
-    openWordInApp: boolean;
-    showODF: boolean;
-    startupViewMode: boolean;
-    isGridView?: boolean; // Legacy, used for migration
+    showPreviews?: boolean;
+    showWord?: boolean;
+    openWordInApp?: boolean;
+    showODF?: boolean;
+    startupViewMode?: boolean;
+    isGridView?: boolean;
+    showOffice?: boolean;
+    openOfficeInApp?: boolean;
 }
 
 export const StorageService = {
@@ -109,14 +111,15 @@ export const StorageService = {
         } catch (e) {
             console.log('Error loading settings', e);
         }
-        // Default settings (First time load) -> All False by default
+        // Default settings (First time load) -> Previews always true, others false
         return {
-            showPreviews: false,
+            showPreviews: true,
             showWord: false,
             openWordInApp: false,
             showODF: false,
-            startupViewMode: false,
             isGridView: false,
+            showOffice: false,
+            openOfficeInApp: false,
         };
     },
 

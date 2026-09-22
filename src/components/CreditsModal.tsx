@@ -47,9 +47,10 @@ export const CreditsModal = ({ visible, onClose }: Props) => {
                         <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('credits.privacyTitle')}</Text>
                         <Text style={[styles.text, { color: colors.textSecondary }]}>
                             {t('credits.privacyText')}
-                            <Text style={{ color: colors.primary, fontWeight: 'bold' }} onPress={handleLink}>
-                                {t('credits.sourceCode')}
+                            <Text style={{ color: colors.primary, fontWeight: 'bold', textDecorationLine: 'underline' }} onPress={handleLink}>
+                                {t('credits.website')}
                             </Text>
+                            .
                         </Text>
 
                     </View>

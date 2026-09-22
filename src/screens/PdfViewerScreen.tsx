@@ -1,5 +1,5 @@
 import React, { useLayoutEffect, useState, useRef, useCallback, useEffect } from 'react';
-import { View, StyleSheet, Dimensions, TouchableOpacity, Animated, Text, TextInput, ActivityIndicator, AppState, AppStateStatus, LayoutAnimation, StatusBar } from 'react-native';
+import { View, StyleSheet, Dimensions, TouchableOpacity, Animated, Text, TextInput, ActivityIndicator, AppState, AppStateStatus, LayoutAnimation, StatusBar, BackHandler } from 'react-native';
 import Pdf from 'react-native-pdf';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
@@ -60,6 +60,29 @@ export const PdfViewerScreen = () => {
     const pageInputRef = useRef<TextInput>(null);
     const isEditingRef = useRef(false);
     const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // Hardware back press handler
+    useEffect(() => {
+        const onBackPress = () => {
+            if (pagePopoverVisible) {
+                setPagePopoverVisible(false);
+                return true;
+            }
+            if (saveModalVisible) {
+                setSaveModalVisible(false);
+                return true;
+            }
+            if (navigation.canGoBack()) {
+                navigation.goBack();
+                return true;
+            }
+            (navigation as any).navigate('Home');
+            return true;
+        };
+
+        const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+        return () => subscription.remove();
+    }, [navigation, pagePopoverVisible, saveModalVisible]);
 
     const goToPage = (pageNumber: number) => {
         if (pageNumber >= 1 && pageNumber <= totalPages) {
@@ -602,6 +625,10 @@ const styles = StyleSheet.create({
         height: 4,
         borderRadius: 2,
         overflow: 'hidden',
+    },
+    progressBarFill: {
+        height: '100%',
+        borderRadius: 2,
     },
     pageIndicatorButton: {
         paddingHorizontal: 12,

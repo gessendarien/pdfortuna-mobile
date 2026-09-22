@@ -73,7 +73,7 @@ const isUuidLike = (name: string): boolean => {
 export const handleIncomingIntent = async () => {
     if (Platform.OS === 'android') {
         try {
-            const fileUrl = await SendIntentAndroid.getFileUrl();
+            const fileUrl = await (SendIntentAndroid as any).getFileUrl();
             if (fileUrl) {
                 let decodedUrl = decodeURIComponent(fileUrl);
                 let fileName = await resolveNameFromUri(decodedUrl, fileUrl);

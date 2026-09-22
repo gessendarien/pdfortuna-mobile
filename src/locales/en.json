@@ -18,23 +18,46 @@
         "searchPlaceholder": "Search documents..."
     },
     "tabs": {
+        "documents": "Documents",
+        "favorites": "Favorites",
+        "tools": "Tools",
+        "settings": "Settings",
         "all": "All",
         "recent": "Recent",
-        "scanner": "Scanner",
-        "favorites": "Favorites"
+        "scanner": "Scanner"
+    },
+    "tools": {
+        "title": "PDF Tools",
+        "subtitle": "Document editing and management",
+        "comingSoon": "Coming Soon",
+        "comingSoonAlert": "This feature will be available in the next PDFortuna update.",
+        "sign": "Sign Document",
+        "signDesc": "Sign any page of your PDF",
+        "merge": "Merge Documents",
+        "mergeDesc": "Combine multiple PDFs into one",
+        "split": "Split Document",
+        "splitDesc": "Extract or split into files",
+        "deletePages": "Delete Pages",
+        "deletePagesDesc": "Remove unwanted pages",
+        "reorder": "Reorder Pages",
+        "reorderDesc": "Reorganize the page order",
+        "rotate": "Rotate Pages",
+        "rotateDesc": "Rotate pages 90°, 180° or 270°",
+        "edit": "Edit Document",
+        "editDesc": "Insert text notes and stamps",
+        "form": "Fill Forms",
+        "formDesc": "Fill interactive PDF forms",
+        "watermark": "Watermark",
+        "watermarkDesc": "Add diagonal or tiled watermark",
+        "redact": "Redact / Censor",
+        "redactDesc": "Black out confidential data"
     },
     "settings": {
         "title": "Settings",
-        "gridView": "Grid startup view",
-        "gridViewDesc": "Show files in grid mode by default",
-        "previews": "Show preview",
-        "previewsDesc": "Show thumbnails of the first page in PDFs",
-        "showWord": "Show Word documents",
-        "showWordDesc": "Include .doc and .docx files in the list",
-        "openWordInApp": "Open Word in App",
-        "openWordInAppDesc": "Use the built-in quick viewer instead of opening an external app",
-        "showODF": "Show and open ODF documents",
-        "showODFDesc": "Include .odt and .odf files in the list",
+        "showOffice": "Show Word and ODF documents",
+        "showOfficeDesc": "Include .doc, .docx, .odt and .odf files in the list",
+        "openOfficeInApp": "Open Word and ODF in the App",
+        "openOfficeInAppDesc": "Use the built-in quick viewer instead of opening an external app. This option is a quick viewer only, full document compatibility is not guaranteed.",
         "darkMode": "Dark mode",
         "darkModeDesc": "Change the app appearance",
         "about": "About PDFortuna"
@@ -73,10 +96,10 @@
     },
     "credits": {
         "credits": "Credits",
-        "developedBy": "Developed with 💚 by Gessén Darién for Cassca64 Studio.",
+        "developedBy": "Developed by Gessén Darién 💚",
         "privacyTitle": "Privacy and Source code",
-        "privacyText": "This app does not send any information to external servers and all data remains on your device so your privacy is protected, you can also see its ",
-        "sourceCode": "source code."
+        "privacyText": "This app does not send any information to external servers and all data remains on your device so your privacy is protected. If you want to see more including the source code, visit the ",
+        "website": "website"
     },
     "viewer": {
         "document": "Document",

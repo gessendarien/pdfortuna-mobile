@@ -1,6 +1,6 @@
 
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { View, Text, FlatList, TextInput, TouchableOpacity, ActivityIndicator, StatusBar, StyleSheet } from 'react-native';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import { View, Text, FlatList, TextInput, TouchableOpacity, ActivityIndicator, StyleSheet, Linking, BackHandler } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { LocalFile, openFileInExternalApp, renameFile } from '../services/FileService';
@@ -19,6 +19,9 @@ import { ConfirmModal } from '../components/ConfirmModal';
 import { UndoToast } from '../components/UndoToast';
 import { CreditsModal } from '../components/CreditsModal';
 import { PrivacyConsentModal } from '../components/PrivacyConsentModal';
+import { BottomNavBar, NavTabType } from '../components/BottomNavBar';
+import { PdfToolsView } from '../components/PdfToolsView';
+import { SettingsView } from '../components/SettingsView';
 import { StorageService } from '../services/StorageService';
 import { startDocumentScan } from '../services/DocumentScannerService';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -52,12 +55,14 @@ export const HomeScreen = () => {
     const [scanRenameModalVisible, setScanRenameModalVisible] = useState(false);
     const [isSearchVisible, setIsSearchVisible] = useState(false);
     const [searchQuery, setSearchQuery] = useState<string>('');
-    const [activeTab, setActiveTab] = useState<'all' | 'recent' | 'favorites' | 'scanner'>('all');
+    const [currentNavTab, setCurrentNavTab] = useState<NavTabType>('documents');
+    const [documentSubTab, setDocumentSubTab] = useState<'all' | 'recent' | 'scanner'>('all');
     const [filterType, setFilterType] = useState<'all' | 'pdf' | 'doc' | 'odf'>('all');
     const [filterModalVisible, setFilterModalVisible] = useState(false);
     const [optionsFile, setOptionsFile] = useState<LocalFile | null>(null);
     const [optionsModalVisible, setOptionsModalVisible] = useState(false);
     const [privacyAccepted, setPrivacyAccepted] = useState<boolean | null>(null);
+    const [privacyModalVisible, setPrivacyModalVisible] = useState(false);
 
     // Check if privacy policy has been accepted
     useEffect(() => {
@@ -81,6 +86,87 @@ export const HomeScreen = () => {
             }
         }, [privacyAccepted, checkPermission])
     );
+
+    // Reference to volatile state for hardware back press to avoid stale closures
+    const navStateRef = useRef({
+        currentNavTab,
+        documentSubTab,
+        isSearchVisible,
+        searchQuery,
+        filterModalVisible,
+        optionsModalVisible,
+        scanRenameModalVisible,
+        privacyModalVisible,
+    });
+    navStateRef.current = {
+        currentNavTab,
+        documentSubTab,
+        isSearchVisible,
+        searchQuery,
+        filterModalVisible,
+        optionsModalVisible,
+        scanRenameModalVisible,
+        privacyModalVisible,
+    };
+
+    // Hardware back press handler for sections, menus, modals, and tabs
+    useEffect(() => {
+        const onBackPress = () => {
+            if (viewers.docxViewerVisible) {
+                viewers.closeDocxViewer();
+                return true;
+            }
+            if (viewers.odtViewerVisible) {
+                viewers.closeOdtViewer();
+                return true;
+            }
+            if (viewers.creditsVisible) {
+                viewers.setCreditsVisible(false);
+                return true;
+            }
+            if (navStateRef.current.privacyModalVisible) {
+                setPrivacyModalVisible(false);
+                return true;
+            }
+            if (navStateRef.current.optionsModalVisible) {
+                setOptionsModalVisible(false);
+                return true;
+            }
+            if (navStateRef.current.filterModalVisible) {
+                setFilterModalVisible(false);
+                return true;
+            }
+            if (navStateRef.current.scanRenameModalVisible) {
+                setScanRenameModalVisible(false);
+                return true;
+            }
+            if (fileActions.renameModalVisible) {
+                fileActions.setRenameModalVisible(false);
+                return true;
+            }
+            if (fileActions.confirmDeleteVisible) {
+                fileActions.setConfirmDeleteVisible(false);
+                return true;
+            }
+            if (navStateRef.current.isSearchVisible || navStateRef.current.searchQuery.length > 0) {
+                setIsSearchVisible(false);
+                setSearchQuery('');
+                return true;
+            }
+            if (navStateRef.current.currentNavTab !== 'documents') {
+                setCurrentNavTab('documents');
+                return true;
+            }
+            if (navStateRef.current.documentSubTab !== 'all') {
+                setDocumentSubTab('all');
+                return true;
+            }
+            return false;
+        };
+
+        const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+        return () => subscription.remove();
+    }, [viewers, fileActions]);
 
     // Auto-reset filter to 'all' when Word or ODF get re-enabled from settings
     useEffect(() => {
@@ -133,7 +219,8 @@ export const HomeScreen = () => {
 
         // Refresh list and open PDF in reader
         await fileManager.scanFiles(true);
-        setActiveTab('scanner');
+        setCurrentNavTab('documents');
+        setDocumentSubTab('scanner');
         navigation.navigate('PdfViewer', { uri: finalPath, name: finalName });
     };
 
@@ -150,7 +237,8 @@ export const HomeScreen = () => {
 
         // Saved with default name; refresh and open
         await fileManager.scanFiles(true);
-        setActiveTab('scanner');
+        setCurrentNavTab('documents');
+        setDocumentSubTab('scanner');
         navigation.navigate('PdfViewer', { uri: path, name: name });
     };
 
@@ -182,30 +270,32 @@ export const HomeScreen = () => {
     const filteredFiles = useMemo(() => {
         let result = [...fileManager.files];
 
-        if (activeTab === 'favorites') {
+        if (currentNavTab === 'favorites') {
             result = result.filter(f => fileManager.favorites.includes(f.path));
             result.sort((a, b) => a.name.localeCompare(b.name));
-        } else if (activeTab === 'recent') {
-            result.sort((a, b) => b.date.getTime() - a.date.getTime());
-            result = result.slice(0, 10);
-        } else if (activeTab === 'scanner') {
-            result = result.filter(f => {
-                const lowerPath = f.path.toLowerCase();
-                const lowerName = f.name.toLowerCase();
-                return (
-                    lowerPath.includes('/pdfortuna/') ||
-                    lowerPath.includes('scan') ||
-                    lowerPath.includes('escan') ||
-                    lowerPath.includes('camscanner') ||
-                    lowerName.startsWith('escaneo_') ||
-                    lowerName.startsWith('scan_') ||
-                    lowerName.includes('scan') ||
-                    lowerName.includes('escan')
-                );
-            });
-            result.sort((a, b) => b.date.getTime() - a.date.getTime());
-        } else {
-            result.sort((a, b) => a.name.localeCompare(b.name));
+        } else if (currentNavTab === 'documents') {
+            if (documentSubTab === 'recent') {
+                result.sort((a, b) => b.date.getTime() - a.date.getTime());
+                result = result.slice(0, 10);
+            } else if (documentSubTab === 'scanner') {
+                result = result.filter(f => {
+                    const lowerPath = f.path.toLowerCase();
+                    const lowerName = f.name.toLowerCase();
+                    return (
+                        lowerPath.includes('/pdfortuna/') ||
+                        lowerPath.includes('scan') ||
+                        lowerPath.includes('escan') ||
+                        lowerPath.includes('camscanner') ||
+                        lowerName.startsWith('escaneo_') ||
+                        lowerName.startsWith('scan_') ||
+                        lowerName.includes('scan') ||
+                        lowerName.includes('escan')
+                    );
+                });
+                result.sort((a, b) => b.date.getTime() - a.date.getTime());
+            } else {
+                result.sort((a, b) => a.name.localeCompare(b.name));
+            }
         }
 
         if (filterType !== 'all') {
@@ -230,7 +320,7 @@ export const HomeScreen = () => {
         }
 
         return result;
-    }, [fileManager.files, searchQuery, fileManager.favorites, activeTab, filterType, settings.showWord, settings.showODF]);
+    }, [fileManager.files, searchQuery, fileManager.favorites, currentNavTab, documentSubTab, filterType, settings.showWord, settings.showODF]);
 
     const displayList = useMemo(() => {
         if (!settings.isGridView) {
@@ -301,84 +391,68 @@ export const HomeScreen = () => {
         <View style={[styles.container, { backgroundColor: colors.backgroundLight, paddingTop: insets.top }]}>
             {/* Header */}
             <View style={styles.header}>
-                <Text style={[styles.headerTitle, { color: colors.text }]}>PDFortuna</Text>
-                <TouchableOpacity
-                    style={styles.settingsButton}
-                    onPress={() => viewers.setSettingsVisible(true)}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                    <Icon name="settings" size={24} color={colors.textSecondary} />
-                </TouchableOpacity>
-            </View>
+                <Text style={[styles.headerTitle, { color: colors.text }]}>
+                    {currentNavTab === 'documents'
+                        ? 'PDFortuna'
+                        : currentNavTab === 'favorites'
+                        ? t('tabs.favorites')
+                        : currentNavTab === 'tools'
+                        ? t('tools.title')
+                        : t('settings.title')}
+                </Text>
 
-            {/* Action Buttons (Search, Favorites, Scanner) */}
-            <View style={styles.actionButtonsContainer}>
-                <TouchableOpacity
-                    style={[
-                        styles.actionCircleButton,
-                        {
-                            backgroundColor: isSearchVisible ? colors.primary : colors.surfaceLight,
-                            borderColor: isSearchVisible ? colors.primary : colors.border,
-                        },
-                    ]}
-                    onPress={() => setIsSearchVisible(prev => !prev)}
-                    activeOpacity={0.7}
-                >
-                    <Icon
-                        name="search"
-                        size={24}
-                        color={isSearchVisible ? '#ffffff' : colors.textSecondary}
-                    />
-                </TouchableOpacity>
+                {/* Actions for Documents and Favorites */}
+                {(currentNavTab === 'documents' || currentNavTab === 'favorites') && (
+                    <View style={styles.headerActions}>
+                        <TouchableOpacity
+                            style={styles.headerIconButton}
+                            onPress={() => setIsSearchVisible(prev => !prev)}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
+                            <Icon
+                                name={isSearchVisible ? 'search-off' : 'search'}
+                                size={24}
+                                color={isSearchVisible ? colors.primary : colors.textSecondary}
+                            />
+                        </TouchableOpacity>
 
-                <TouchableOpacity
-                    style={[
-                        styles.actionCircleButton,
-                        {
-                            backgroundColor: activeTab === 'favorites' ? colors.primary : colors.surfaceLight,
-                            borderColor: activeTab === 'favorites' ? colors.primary : colors.border,
-                        },
-                    ]}
-                    onPress={() => setActiveTab(prev => prev === 'favorites' ? 'all' : 'favorites')}
-                    activeOpacity={0.7}
-                >
-                    <Icon
-                        name={activeTab === 'favorites' ? "favorite" : "favorite-border"}
-                        size={24}
-                        color={activeTab === 'favorites' ? '#ffffff' : colors.textSecondary}
-                    />
-                </TouchableOpacity>
+                        {currentNavTab === 'documents' && (
+                            <TouchableOpacity
+                                style={styles.headerIconButton}
+                                onPress={() => setFilterModalVisible(true)}
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            >
+                                <Icon
+                                    name="filter-list"
+                                    size={24}
+                                    color={filterType !== 'all' ? colors.primary : colors.textSecondary}
+                                />
+                            </TouchableOpacity>
+                        )}
 
-                <TouchableOpacity
-                    style={[
-                        styles.actionCircleButton,
-                        {
-                            backgroundColor: (activeTab === 'scanner' || isScanning) ? colors.primary : colors.surfaceLight,
-                            borderColor: (activeTab === 'scanner' || isScanning) ? colors.primary : colors.border,
-                        },
-                    ]}
-                    onPress={handleScanDocument}
-                    activeOpacity={0.7}
-                    disabled={isScanning}
-                >
-                    {isScanning ? (
-                        <ActivityIndicator size="small" color="#ffffff" />
-                    ) : (
-                        <Icon
-                            name="photo-camera"
-                            size={24}
-                            color={(activeTab === 'scanner' || isScanning) ? '#ffffff' : colors.textSecondary}
-                        />
-                    )}
-                </TouchableOpacity>
+                        <TouchableOpacity
+                            style={styles.headerIconButton}
+                            onPress={() => settings.setIsGridView(!settings.isGridView)}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
+                            <Icon
+                                name={settings.isGridView ? 'view-list' : 'grid-view'}
+                                size={24}
+                                color={colors.textSecondary}
+                            />
+                        </TouchableOpacity>
+                    </View>
+                )}
             </View>
 
             {/* Search Input (conditionally visible) */}
-            {isSearchVisible && (
+            {isSearchVisible && (currentNavTab === 'documents' || currentNavTab === 'favorites') && (
                 <View style={[styles.searchContainer, { backgroundColor: colors.surfaceLight, borderColor: colors.border }]}>
-                    <TouchableOpacity onPress={() => setFilterModalVisible(true)} style={{ marginRight: 8 }} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                        <Icon name="filter-list" size={24} color={filterType !== 'all' ? colors.primary : colors.textSecondary} />
-                    </TouchableOpacity>
+                    {currentNavTab === 'documents' && (
+                        <TouchableOpacity onPress={() => setFilterModalVisible(true)} style={styles.searchFilterBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                            <Icon name="filter-list" size={24} color={filterType !== 'all' ? colors.primary : colors.textSecondary} />
+                        </TouchableOpacity>
+                    )}
                     <TextInput
                         style={[styles.searchInput, { color: colors.text }]}
                         placeholder={t('home.searchPlaceholder')}
@@ -399,140 +473,174 @@ export const HomeScreen = () => {
                 </View>
             )}
 
-            {/* Tabs */}
-            <View style={styles.tabsContainer}>
-                <TouchableOpacity onPress={() => setActiveTab('all')} style={[styles.tab, { backgroundColor: colors.surfaceLight, borderColor: colors.border }, activeTab === 'all' && { backgroundColor: colors.primary, borderColor: colors.primary }]}>
-                    <Text style={[styles.tabText, { color: colors.textSecondary }, activeTab === 'all' && styles.activeTabText]}>{t('tabs.all')}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => setActiveTab('recent')} style={[styles.tab, { backgroundColor: colors.surfaceLight, borderColor: colors.border }, activeTab === 'recent' && { backgroundColor: colors.primary, borderColor: colors.primary }]}>
-                    <Text style={[styles.tabText, { color: colors.textSecondary }, activeTab === 'recent' && styles.activeTabText]}>{t('tabs.recent')}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => setActiveTab('scanner')} style={[styles.tab, { backgroundColor: colors.surfaceLight, borderColor: colors.border }, activeTab === 'scanner' && { backgroundColor: colors.primary, borderColor: colors.primary }]}>
-                    <Text style={[styles.tabText, { color: colors.textSecondary }, activeTab === 'scanner' && styles.activeTabText]}>{t('tabs.scanner')}</Text>
-                </TouchableOpacity>
-                <View style={{ flex: 1 }} />
-                <TouchableOpacity onPress={() => settings.setIsGridView(!settings.isGridView)} style={{ padding: 6 }}>
-                    <Icon name={settings.isGridView ? "view-list" : "grid-view"} size={24} color={colors.textSecondary} />
-                </TouchableOpacity>
-            </View>
+            {/* Document Sub-tabs (only shown in documents tab) */}
+            {currentNavTab === 'documents' && (
+                <View style={styles.tabsContainer}>
+                    <TouchableOpacity
+                        onPress={() => setDocumentSubTab('all')}
+                        style={[
+                            styles.tab,
+                            { backgroundColor: colors.surfaceLight, borderColor: colors.border },
+                            documentSubTab === 'all' && { backgroundColor: colors.primary, borderColor: colors.primary },
+                        ]}
+                    >
+                        <Text style={[styles.tabText, { color: '#cc2f44' }, documentSubTab === 'all' && styles.activeTabText]}>
+                            {t('tabs.all')}
+                        </Text>
+                    </TouchableOpacity>
 
-            {/* Content */}
-            {(fileManager.loading || fileManager.isCheckingPermissions) ? (
-                <View style={styles.center}>
-                    <ActivityIndicator size="large" color={colors.primary} />
-                    <Text style={{ marginTop: 10, color: colors.textSecondary }}>{t('home.scanning')}</Text>
-                </View>
-            ) : filteredFiles.length === 0 ? (
-                <View style={styles.center}>
-                    <Icon
-                        name={
-                            searchQuery.trim().length > 0
-                                ? 'search-off'
-                                : activeTab === 'favorites'
-                                    ? 'favorite-border'
-                                    : activeTab === 'recent'
-                                        ? 'history'
-                                        : activeTab === 'scanner'
-                                            ? 'document-scanner'
-                                            : 'folder-open'
-                        }
-                        size={48}
-                        color={colors.textSecondary}
-                    />
-                    <Text style={{ marginTop: 10, color: colors.textSecondary, textAlign: 'center', paddingHorizontal: 32 }}>
-                        {searchQuery.trim().length > 0
-                            ? activeTab === 'favorites'
-                                ? t('home.noSearchFavorites')
-                                : activeTab === 'recent'
-                                    ? t('home.noSearchRecent')
-                                    : activeTab === 'scanner'
-                                        ? t('home.noSearchScanner')
-                                        : t('home.noDocuments')
-                            : activeTab === 'favorites'
-                                ? t('home.noFavorites')
-                                : activeTab === 'recent'
-                                    ? t('home.noRecent')
-                                    : activeTab === 'scanner'
-                                        ? t('home.noScanner')
-                                        : t('home.noDocuments')}
-                    </Text>
-                    {activeTab === 'scanner' && searchQuery.trim().length === 0 && (
-                        <TouchableOpacity
-                            style={[styles.scanActionButton, { backgroundColor: colors.primary }]}
-                            onPress={handleScanDocument}
-                            activeOpacity={0.8}
-                            disabled={isScanning}
-                        >
-                            <Icon name="photo-camera" size={20} color="#fff" style={{ marginRight: 8 }} />
-                            <Text style={styles.scanActionButtonText}>{t('home.scanDocument')}</Text>
-                        </TouchableOpacity>
-                    )}
-                </View>
-            ) : (
-                <FlatList
-                    refreshing={fileManager.refreshing}
-                    onRefresh={fileManager.handleRefresh}
-                    key={settings.isGridView ? 'grid' : 'list'}
-                    data={displayList}
-                    keyExtractor={(item) => item.path || item.id}
-                    numColumns={1}
-                    initialNumToRender={settings.isGridView ? 4 : 8}
-                    maxToRenderPerBatch={settings.isGridView ? 2 : 10}
-                    windowSize={settings.isGridView ? 3 : 11}
-                    removeClippedSubviews={true}
-                    renderItem={({ item }) => {
-                        if (settings.isGridView) {
-                            if (item.type === 'row') {
-                                return (
-                                    <View style={{ flexDirection: 'row', paddingHorizontal: 16, justifyContent: 'space-between' }}>
-                                        {item.items.map((file: LocalFile) => (
-                                            <View key={file.path} style={{ width: '48%' }}>
-                                                <PdfGridItem
-                                                    file={file}
-                                                    onPress={() => handleFilePress(file)}
-                                                    onMore={() => {
-                                                        setOptionsFile(file);
-                                                        setOptionsModalVisible(true);
-                                                    }}
-                                                    isFavorite={fileManager.favorites.includes(file.path)}
-                                                    showPreview={settings.showPreviews}
-                                                    isDeleting={fileActions.deletingFileId === file.path}
-                                                    isRestoring={fileActions.restoringFileId === file.path}
-                                                />
-                                            </View>
-                                        ))}
-                                        {/* Spacer for odd number of items */}
-                                        {item.items.length === 1 && <View style={{ width: '48%' }} />}
-                                    </View>
-                                );
-                            }
-                            return null;
-                        }
+                    <TouchableOpacity
+                        onPress={() => setDocumentSubTab('recent')}
+                        style={[
+                            styles.tab,
+                            { backgroundColor: colors.surfaceLight, borderColor: colors.border },
+                            documentSubTab === 'recent' && { backgroundColor: colors.primary, borderColor: colors.primary },
+                        ]}
+                    >
+                        <Text style={[styles.tabText, { color: '#cc2f44' }, documentSubTab === 'recent' && styles.activeTabText]}>
+                            {t('tabs.recent')}
+                        </Text>
+                    </TouchableOpacity>
 
-                        return (
-                            <PdfItem
-                                file={item}
-                                onPress={() => handleFilePress(item)}
-                                onShare={() => fileActions.handleShare(item)}
-                                onFavorite={() => fileActions.handleFavorite(item)}
-                                isFavorite={fileManager.favorites.includes(item.path)}
-                                onRename={() => {
-                                    fileActions.setFileToRename(item);
-                                    fileActions.setRenameModalVisible(true);
-                                }}
-                                onDelete={() => fileActions.handleDelete(item)}
-                                isDeleting={fileActions.deletingFileId === item.path}
-                                isRestoring={fileActions.restoringFileId === item.path}
-                                showPreview={settings.showPreviews}
-                                onLongPress={() => {
-                                    setOptionsFile(item);
-                                    setOptionsModalVisible(true);
-                                }}
-                            />
-                        );
-                    }}
-                    contentContainerStyle={{ paddingBottom: 80 }}
+                    <TouchableOpacity
+                        onPress={() => setDocumentSubTab('scanner')}
+                        style={[
+                            styles.tab,
+                            { backgroundColor: colors.surfaceLight, borderColor: colors.border },
+                            documentSubTab === 'scanner' && { backgroundColor: colors.primary, borderColor: colors.primary },
+                        ]}
+                    >
+                        <Text style={[styles.tabText, { color: '#cc2f44' }, documentSubTab === 'scanner' && styles.activeTabText]}>
+                            {t('tabs.scanner')}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+            )}
+
+            {/* Main Content Area based on Tab */}
+            {currentNavTab === 'tools' ? (
+                <PdfToolsView />
+            ) : currentNavTab === 'settings' ? (
+                <SettingsView
+                    showOffice={settings.showWord}
+                    onToggleShowOffice={settings.setShowWord}
+                    openOfficeInApp={settings.openWordInApp}
+                    onToggleOpenOfficeInApp={settings.setOpenWordInApp}
+                    onOpenAbout={() => viewers.setCreditsVisible(true)}
                 />
+            ) : (
+                /* Documents / Favorites File List */
+                (fileManager.loading || fileManager.isCheckingPermissions) ? (
+                    <View style={styles.center}>
+                        <ActivityIndicator size="large" color={colors.primary} />
+                        <Text style={{ marginTop: 10, color: colors.textSecondary }}>{t('home.scanning')}</Text>
+                    </View>
+                ) : filteredFiles.length === 0 ? (
+                    <View style={styles.center}>
+                        <Icon
+                            name={
+                                searchQuery.trim().length > 0
+                                    ? 'search-off'
+                                    : currentNavTab === 'favorites'
+                                        ? 'favorite-border'
+                                        : documentSubTab === 'recent'
+                                            ? 'history'
+                                            : documentSubTab === 'scanner'
+                                                ? 'document-scanner'
+                                                : 'folder-open'
+                            }
+                            size={48}
+                            color={colors.textSecondary}
+                        />
+                        <Text style={{ marginTop: 10, color: colors.textSecondary, textAlign: 'center', paddingHorizontal: 32 }}>
+                            {searchQuery.trim().length > 0
+                                ? currentNavTab === 'favorites'
+                                    ? t('home.noSearchFavorites')
+                                    : documentSubTab === 'recent'
+                                        ? t('home.noSearchRecent')
+                                        : documentSubTab === 'scanner'
+                                            ? t('home.noSearchScanner')
+                                            : t('home.noDocuments')
+                                : currentNavTab === 'favorites'
+                                    ? t('home.noFavorites')
+                                    : documentSubTab === 'recent'
+                                        ? t('home.noRecent')
+                                        : documentSubTab === 'scanner'
+                                            ? t('home.noScanner')
+                                            : t('home.noDocuments')}
+                        </Text>
+                        {currentNavTab === 'documents' && documentSubTab === 'scanner' && searchQuery.trim().length === 0 && (
+                            <View style={styles.scanArrowContainer}>
+                                <Icon name="arrow-downward" size={48} color={colors.primary} />
+                            </View>
+                        )}
+                    </View>
+                ) : (
+                    <FlatList
+                        refreshing={fileManager.refreshing}
+                        onRefresh={fileManager.handleRefresh}
+                        key={settings.isGridView ? 'grid' : 'list'}
+                        data={displayList}
+                        keyExtractor={(item) => item.path || item.id}
+                        numColumns={1}
+                        initialNumToRender={settings.isGridView ? 4 : 8}
+                        maxToRenderPerBatch={settings.isGridView ? 2 : 10}
+                        windowSize={settings.isGridView ? 3 : 11}
+                        removeClippedSubviews={true}
+                        renderItem={({ item }) => {
+                            if (settings.isGridView) {
+                                if (item.type === 'row') {
+                                    return (
+                                        <View style={{ flexDirection: 'row', paddingHorizontal: 16, justifyContent: 'space-between' }}>
+                                            {item.items.map((file: LocalFile) => (
+                                                <View key={file.path} style={{ width: '48%' }}>
+                                                    <PdfGridItem
+                                                        file={file}
+                                                        onPress={() => handleFilePress(file)}
+                                                        onMore={() => {
+                                                            setOptionsFile(file);
+                                                            setOptionsModalVisible(true);
+                                                        }}
+                                                        isFavorite={fileManager.favorites.includes(file.path)}
+                                                        showPreview={settings.showPreviews}
+                                                        isDeleting={fileActions.deletingFileId === file.path}
+                                                        isRestoring={fileActions.restoringFileId === file.path}
+                                                    />
+                                                </View>
+                                            ))}
+                                            {/* Spacer for odd number of items */}
+                                            {item.items.length === 1 && <View style={{ width: '48%' }} />}
+                                        </View>
+                                    );
+                                }
+                                return null;
+                            }
+
+                            return (
+                                <PdfItem
+                                    file={item}
+                                    onPress={() => handleFilePress(item)}
+                                    onShare={() => fileActions.handleShare(item)}
+                                    onFavorite={() => fileActions.handleFavorite(item)}
+                                    isFavorite={fileManager.favorites.includes(item.path)}
+                                    onRename={() => {
+                                        fileActions.setFileToRename(item);
+                                        fileActions.setRenameModalVisible(true);
+                                    }}
+                                    onDelete={() => fileActions.handleDelete(item)}
+                                    isDeleting={fileActions.deletingFileId === item.path}
+                                    isRestoring={fileActions.restoringFileId === item.path}
+                                    showPreview={settings.showPreviews}
+                                    onLongPress={() => {
+                                        setOptionsFile(item);
+                                        setOptionsModalVisible(true);
+                                    }}
+                                />
+                            );
+                        }}
+                        contentContainerStyle={{ paddingBottom: 110 }}
+                    />
+                )
             )}
 
             {fileActions.fileToRename && (
@@ -617,16 +725,10 @@ export const HomeScreen = () => {
             <SettingsModal
                 visible={viewers.settingsVisible}
                 onClose={() => viewers.setSettingsVisible(false)}
-                showPreviews={settings.showPreviews}
-                onTogglePreviews={settings.setShowPreviews}
-                showWord={settings.showWord}
-                onToggleShowWord={settings.setShowWord}
-                openWordInApp={settings.openWordInApp}
-                onToggleOpenWordInApp={settings.setOpenWordInApp}
-                startupViewMode={settings.startupViewMode}
-                onToggleStartupViewMode={settings.setStartupViewMode}
-                showODF={settings.showODF}
-                onToggleShowODF={settings.setShowODF}
+                showOffice={settings.showWord}
+                onToggleShowOffice={settings.setShowWord}
+                openOfficeInApp={settings.openWordInApp}
+                onToggleOpenOfficeInApp={settings.setOpenWordInApp}
                 onOpenAbout={() => {
                     viewers.setSettingsVisible(false);
                     setTimeout(() => {
@@ -638,6 +740,11 @@ export const HomeScreen = () => {
             <CreditsModal
                 visible={viewers.creditsVisible}
                 onClose={() => viewers.setCreditsVisible(false)}
+            />
+
+            <PrivacyConsentModal
+                visible={privacyModalVisible}
+                onAccept={() => setPrivacyModalVisible(false)}
             />
 
             <ConfirmModal
@@ -652,6 +759,14 @@ export const HomeScreen = () => {
                 confirmText={t('delete.confirm')}
                 cancelText={t('delete.cancel')}
                 confirmColor={colors.error}
+            />
+
+            {/* Bottom Navigation Bar */}
+            <BottomNavBar
+                activeTab={currentNavTab}
+                onTabChange={setCurrentNavTab}
+                onScanPress={handleScanDocument}
+                isScanning={isScanning}
             />
         </View>
     );
@@ -691,41 +806,23 @@ const styles = StyleSheet.create({
     },
     header: {
         flexDirection: 'row',
-        justifyContent: 'center',
+        justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: 16,
+        paddingHorizontal: 20,
         paddingVertical: 12,
-        position: 'relative',
+        minHeight: 52,
     },
     headerTitle: {
-        fontSize: 24,
+        fontSize: 22,
         fontWeight: 'bold',
-        textAlign: 'center',
     },
-    settingsButton: {
-        position: 'absolute',
-        right: 16,
-    },
-    actionButtonsContainer: {
+    headerActions: {
         flexDirection: 'row',
-        justifyContent: 'space-around',
         alignItems: 'center',
-        paddingHorizontal: 24,
-        paddingVertical: 12,
-        marginBottom: 8,
+        gap: 14,
     },
-    actionCircleButton: {
-        width: 56,
-        height: 56,
-        borderRadius: 28,
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1,
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
+    headerIconButton: {
+        padding: 4,
     },
     searchContainer: {
         flexDirection: 'row',
@@ -734,8 +831,11 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         borderRadius: 12,
         height: 48,
-        marginBottom: 16,
+        marginBottom: 12,
         borderWidth: 1,
+    },
+    searchFilterBtn: {
+        marginRight: 8,
     },
     searchInput: {
         flex: 1,
@@ -744,7 +844,7 @@ const styles = StyleSheet.create({
     tabsContainer: {
         flexDirection: 'row',
         paddingHorizontal: 16,
-        marginBottom: 16,
+        marginBottom: 12,
         gap: 8,
     },
     tab: {
@@ -754,8 +854,8 @@ const styles = StyleSheet.create({
         borderWidth: 1,
     },
     tabText: {
-        fontSize: 14,
-        fontWeight: '500',
+        fontSize: 13,
+        fontWeight: '600',
     },
     activeTabText: {
         color: '#fff',
@@ -765,19 +865,9 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-    scanActionButton: {
-        flexDirection: 'row',
+    scanArrowContainer: {
+        marginTop: 24,
         alignItems: 'center',
         justifyContent: 'center',
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-        borderRadius: 24,
-        marginTop: 18,
-        elevation: 2,
     },
-    scanActionButtonText: {
-        color: '#fff',
-        fontWeight: 'bold',
-        fontSize: 15,
-    }
 });

@@ -313,3 +313,53 @@ export const getThumbnail = async (filePath: string): Promise<string | null> => 
     }
     return null;
 };
+
+export interface LocalImage {
+    name: string;
+    path: string;
+    uri: string;
+    size: number;
+    date: Date;
+}
+
+export const scanDeviceImages = async (): Promise<LocalImage[]> => {
+    const images: LocalImage[] = [];
+    const validExtensions = ['.png', '.jpg', '.jpeg', '.webp'];
+    const seenPaths = new Set<string>();
+
+    const targetDirs = [
+        `${RNFS.ExternalStorageDirectoryPath}/Pictures`,
+        `${RNFS.ExternalStorageDirectoryPath}/DCIM/Camera`,
+        `${RNFS.ExternalStorageDirectoryPath}/DCIM`,
+        `${RNFS.ExternalStorageDirectoryPath}/Download`,
+        RNFS.DownloadDirectoryPath,
+    ];
+
+    for (const dir of targetDirs) {
+        try {
+            if (await RNFS.exists(dir)) {
+                const items = await RNFS.readDir(dir);
+                for (const item of items) {
+                    if (item.isFile() && !seenPaths.has(item.path)) {
+                        const lower = item.name.toLowerCase();
+                        if (validExtensions.some((ext) => lower.endsWith(ext))) {
+                            seenPaths.add(item.path);
+                            images.push({
+                                name: item.name,
+                                path: item.path,
+                                uri: `file://${item.path}`,
+                                size: item.size,
+                                date: item.mtime || new Date(),
+                            });
+                        }
+                    }
+                }
+            }
+        } catch (e) {
+            // Ignore dir read errors
+        }
+    }
+
+    return images.sort((a, b) => b.date.getTime() - a.date.getTime());
+};
+

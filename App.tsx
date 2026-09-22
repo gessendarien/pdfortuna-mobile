@@ -3,13 +3,15 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { PdfViewerScreen } from './src/screens/PdfViewerScreen';
+import { PdfToolScreen } from './src/screens/PdfToolScreen';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 import './src/i18n'; // Initialize i18n
 
 export type RootStackParamList = {
   Home: undefined;
-  PdfViewer: { uri: string; name: string };
+  PdfViewer: { uri: string; name: string; isExternal?: boolean };
+  PdfTool: { toolId: string; initialPdfUri?: string; initialPdfName?: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -90,6 +92,11 @@ function AppContent(): React.JSX.Element {
             name="PdfViewer"
             component={PdfViewerScreen}
             options={({ route }) => ({ title: route.params.name, headerShown: true, headerTintColor: colors.primary })}
+          />
+          <Stack.Screen
+            name="PdfTool"
+            component={PdfToolScreen}
+            options={{ headerShown: false }}
           />
         </Stack.Navigator>
       </NavigationContainer>

@@ -1,40 +1,27 @@
 import React from 'react';
 import { View, Text, Modal, TouchableOpacity, StyleSheet, Switch } from 'react-native';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
-import { theme } from '../theme';
 import { useTheme } from '../theme/ThemeContext';
 import { t } from '../i18n';
 
 interface Props {
     visible: boolean;
     onClose: () => void;
-    showPreviews: boolean;
-    onTogglePreviews: (value: boolean) => void;
-    showWord: boolean;
-    onToggleShowWord: (value: boolean) => void;
-    openWordInApp: boolean;
-    onToggleOpenWordInApp: (value: boolean) => void;
-    startupViewMode: boolean;
-    onToggleStartupViewMode: (value: boolean) => void;
-    showODF: boolean;
-    onToggleShowODF: (value: boolean) => void;
+    showOffice: boolean;
+    onToggleShowOffice: (value: boolean) => void;
+    openOfficeInApp: boolean;
+    onToggleOpenOfficeInApp: (value: boolean) => void;
     onOpenAbout?: () => void;
 }
 
 export const SettingsModal = ({
     visible,
     onClose,
-    showPreviews,
-    onTogglePreviews,
-    showWord,
-    onToggleShowWord,
-    openWordInApp,
-    onToggleOpenWordInApp,
-    startupViewMode,
-    onToggleStartupViewMode,
-    showODF,
-    onToggleShowODF,
-    onOpenAbout
+    showOffice,
+    onToggleShowOffice,
+    openOfficeInApp,
+    onToggleOpenOfficeInApp,
+    onOpenAbout,
 }: Props) => {
     const { colors, isDarkMode, toggleDarkMode } = useTheme();
 
@@ -45,8 +32,8 @@ export const SettingsModal = ({
                 {description && <Text style={[styles.optionDescription, { color: colors.textSecondary }]}>{description}</Text>}
             </View>
             <Switch
-                trackColor={{ false: colors.border, true: "#a5b4fc" }}
-                thumbColor={value ? colors.primary : "#f4f3f4"}
+                trackColor={{ false: colors.border, true: isDarkMode ? 'rgba(221, 31, 71, 0.45)' : '#fca5a5' }}
+                thumbColor={value ? colors.primary : '#f4f3f4'}
                 ios_backgroundColor="#3e3e3e"
                 onValueChange={onValueChange}
                 value={value}
@@ -72,45 +59,24 @@ export const SettingsModal = ({
 
                     <View style={styles.content}>
                         {renderSwitch(
-                            t('settings.gridView'),
-                            startupViewMode,
-                            onToggleStartupViewMode,
-                            t('settings.gridViewDesc')
-                        )}
-
-                        {renderSwitch(
-                            t('settings.previews'),
-                            showPreviews,
-                            onTogglePreviews,
-                            t('settings.previewsDesc')
-                        )}
-
-                        {renderSwitch(
-                            t('settings.showWord'),
-                            showWord,
-                            onToggleShowWord,
-                            t('settings.showWordDesc')
-                        )}
-
-                        {showWord && renderSwitch(
-                            t('settings.openWordInApp'),
-                            openWordInApp,
-                            onToggleOpenWordInApp,
-                            t('settings.openWordInAppDesc')
-                        )}
-
-                        {renderSwitch(
-                            t('settings.showODF'),
-                            showODF,
-                            onToggleShowODF,
-                            t('settings.showODFDesc')
-                        )}
-
-                        {renderSwitch(
                             t('settings.darkMode'),
                             isDarkMode,
                             toggleDarkMode,
                             t('settings.darkModeDesc')
+                        )}
+
+                        {renderSwitch(
+                            t('settings.showOffice'),
+                            showOffice,
+                            onToggleShowOffice,
+                            t('settings.showOfficeDesc')
+                        )}
+
+                        {showOffice && renderSwitch(
+                            t('settings.openOfficeInApp'),
+                            openOfficeInApp,
+                            onToggleOpenOfficeInApp,
+                            t('settings.openOfficeInAppDesc')
                         )}
 
                         {onOpenAbout && (
@@ -170,7 +136,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 24,
+        marginBottom: 20,
     },
     textContainer: {
         flex: 1,
@@ -183,18 +149,19 @@ const styles = StyleSheet.create({
     },
     optionDescription: {
         fontSize: 12,
+        lineHeight: 16,
     },
     aboutContainer: {
         alignItems: 'center',
         justifyContent: 'center',
-        marginTop: 8,
+        marginTop: 12,
     },
     aboutButton: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
         paddingVertical: 10,
-        paddingHorizontal: 20,
+        paddingHorizontal: 24,
         borderRadius: 20,
         borderWidth: 1,
     },
