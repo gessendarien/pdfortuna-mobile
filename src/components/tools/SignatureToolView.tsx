@@ -12,6 +12,8 @@ import {
     Image,
     Dimensions,
     ActivityIndicator,
+    TextInput,
+    LayoutAnimation,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -20,6 +22,9 @@ import RNFS from 'react-native-fs';
 import { useTheme } from '../../theme/ThemeContext';
 import { SignaturePlacement, PdfToolsService } from '../../services/PdfToolsService';
 import { LocalImage, scanDeviceImages } from '../../services/FileService';
+import { ConfirmModal } from '../ConfirmModal';
+import { SaveModeModal } from './shared/SaveModeModal';
+import { PageJumpBalloon } from './shared/PageJumpBalloon';
 
 interface Props {
     totalPages: number;
@@ -33,6 +38,33 @@ const CANVAS_WIDTH = SCREEN_WIDTH - 32;
 const CANVAS_HEIGHT = 160;
 const SIGNATURE_ASPECT_RATIO = 2.4; // width / height
 
+const parsePageRangeString = (input: string, totalPages: number): number[] => {
+    const pagesSet = new Set<number>();
+    const parts = input.split(',').map((p) => p.trim()).filter(Boolean);
+
+    for (const part of parts) {
+        if (part.includes('-')) {
+            const [startStr, endStr] = part.split('-').map((s) => s.trim());
+            const start = parseInt(startStr, 10);
+            const end = parseInt(endStr, 10);
+            if (!isNaN(start) && !isNaN(end)) {
+                const min = Math.max(1, Math.min(start, end));
+                const max = Math.min(totalPages, Math.max(start, end));
+                for (let p = min; p <= max; p++) {
+                    pagesSet.add(p);
+                }
+            }
+        } else {
+            const single = parseInt(part, 10);
+            if (!isNaN(single) && single >= 1 && single <= totalPages) {
+                pagesSet.add(single);
+            }
+        }
+    }
+
+    return Array.from(pagesSet).sort((a, b) => a - b);
+};
+
 export const SignatureToolView: React.FC<Props> = ({
     totalPages,
     sourcePath,
@@ -43,6 +75,13 @@ export const SignatureToolView: React.FC<Props> = ({
 
     // Steps: 'create' -> 'place'
     const [step, setStep] = useState<'create' | 'place'>('create');
+
+    // Page scope state: 'single' | 'multiple'
+    const [pageScope, setPageScope] = useState<'single' | 'multiple'>('single');
+    const [customPagesInput, setCustomPagesInput] = useState<string>('');
+
+    // Rotation state: 0, 90, 180, 270
+    const [rotationDeg, setRotationDeg] = useState<number>(0);
 
     // Drawing state
     const [paths, setPaths] = useState<string[]>([]);
@@ -57,8 +96,35 @@ export const SignatureToolView: React.FC<Props> = ({
 
     // Placement state in PDF reader
     const [currentPage, setCurrentPage] = useState(1);
+    const [pageJumpVisible, setPageJumpVisible] = useState(false);
+    const pdfRef = useRef<any>(null);
     const [pdfDimensions, setPdfDimensions] = useState<{ width: number; height: number }>({ width: 595, height: 842 });
-    const [viewerLayout, setViewerLayout] = useState<{ width: number; height: number }>({ width: SCREEN_WIDTH, height: 400 });
+    const [viewerLayout, setViewerLayout] = useState<{ width: number; height: number }>({ width: SCREEN_WIDTH, height: 500 });
+    const viewerLayoutRef = useRef<{ width: number; height: number }>({ width: SCREEN_WIDTH, height: 500 });
+    viewerLayoutRef.current = viewerLayout;
+
+    // Rotation slider refs and updater
+    const rotSliderWidthRef = useRef<number>(200);
+    const rotSliderContainerRef = useRef<View>(null);
+    const rotSliderPageXRef = useRef<number>(0);
+
+    const updateRotationTouch = (pageX: number) => {
+        const trackWidth = Math.max(80, rotSliderWidthRef.current);
+        const relativeX = pageX - rotSliderPageXRef.current;
+        const pct = Math.max(0, Math.min(1.0, relativeX / trackWidth));
+        const deg = Math.round(pct * 360);
+        setRotationDeg(deg);
+    };
+
+    const handlePageChange = (page: number) => {
+        const clamped = Math.max(1, Math.min(totalPages, page));
+        setCurrentPage(clamped);
+        try {
+            pdfRef.current?.setPage(clamped);
+        } catch (e) {
+            // ignore
+        }
+    };
 
     // Draggable box state
     const [boxWidth, setBoxWidth] = useState(160);
@@ -68,19 +134,48 @@ export const SignatureToolView: React.FC<Props> = ({
 
     // Confirmation modal state
     const [confirmModalVisible, setConfirmModalVisible] = useState(false);
+    const [showClearConfirm, setShowClearConfirm] = useState(false);
 
-    // Drawing PanResponder
+    // Canvas measurement & layout
+    const canvasViewRef = useRef<View>(null);
+    const canvasLayoutRef = useRef<{ pageX: number; pageY: number }>({ pageX: 0, pageY: 0 });
+
+    const updateCanvasLayout = () => {
+        canvasViewRef.current?.measure((_x, _y, _w, _h, pageX, pageY) => {
+            if (pageX !== undefined && pageY !== undefined) {
+                canvasLayoutRef.current = { pageX, pageY };
+            }
+        });
+    };
+
+    // Drawing PanResponder (accurate start coordinate, never jumps to 0,0)
     const drawPanResponder = useRef(
         PanResponder.create({
             onStartShouldSetPanResponder: () => true,
             onMoveShouldSetPanResponder: () => true,
             onPanResponderGrant: (evt) => {
-                const { locationX, locationY } = evt.nativeEvent;
-                setCurrentPath(`M ${locationX.toFixed(1)},${locationY.toFixed(1)}`);
+                const { locationX, locationY, pageX, pageY } = evt.nativeEvent;
+                let x = locationX;
+                let y = locationY;
+                if (canvasLayoutRef.current.pageX > 0 && pageX !== undefined && pageY !== undefined) {
+                    x = pageX - canvasLayoutRef.current.pageX;
+                    y = pageY - canvasLayoutRef.current.pageY;
+                }
+                x = Math.max(0, Math.min(CANVAS_WIDTH, x));
+                y = Math.max(0, Math.min(CANVAS_HEIGHT, y));
+                setCurrentPath(`M ${x.toFixed(1)},${y.toFixed(1)}`);
             },
             onPanResponderMove: (evt) => {
-                const { locationX, locationY } = evt.nativeEvent;
-                setCurrentPath((prev) => `${prev} L ${locationX.toFixed(1)},${locationY.toFixed(1)}`);
+                const { locationX, locationY, pageX, pageY } = evt.nativeEvent;
+                let x = locationX;
+                let y = locationY;
+                if (canvasLayoutRef.current.pageX > 0 && pageX !== undefined && pageY !== undefined) {
+                    x = pageX - canvasLayoutRef.current.pageX;
+                    y = pageY - canvasLayoutRef.current.pageY;
+                }
+                x = Math.max(0, Math.min(CANVAS_WIDTH, x));
+                y = Math.max(0, Math.min(CANVAS_HEIGHT, y));
+                setCurrentPath((prev) => `${prev} L ${x.toFixed(1)},${y.toFixed(1)}`);
             },
             onPanResponderRelease: () => {
                 setCurrentPath((prev) => {
@@ -93,23 +188,81 @@ export const SignatureToolView: React.FC<Props> = ({
         })
     ).current;
 
-    // Draggable signature box PanResponder
+    // Draggable & pinch-resizable signature box PanResponder
+    const dragStartPos = useRef({ x: (SCREEN_WIDTH - 160) / 2, y: 150 });
+    const initialPinchDistance = useRef<number | null>(null);
+    const initialBoxWidth = useRef(160);
+    const initialBoxCenter = useRef({ x: (SCREEN_WIDTH - 160) / 2 + 80, y: 150 + 40 });
+    const boxWidthRef = useRef(160);
+    boxWidthRef.current = boxWidth;
+
     const dragPanResponder = useRef(
         PanResponder.create({
             onStartShouldSetPanResponder: () => true,
             onMoveShouldSetPanResponder: () => true,
-            onPanResponderGrant: () => {},
-            onPanResponderMove: (_, gestureState) => {
-                const newX = Math.max(0, Math.min(viewerLayout.width - boxWidth, boxPosRef.current.x + gestureState.dx));
-                const boxHeight = boxWidth / SIGNATURE_ASPECT_RATIO;
-                const newY = Math.max(0, Math.min(viewerLayout.height - boxHeight, boxPosRef.current.y + gestureState.dy));
+            onPanResponderTerminationRequest: () => false,
+            onPanResponderGrant: (evt) => {
+                dragStartPos.current = { x: boxPosRef.current.x, y: boxPosRef.current.y };
+                const curW = boxWidthRef.current;
+                const curH = curW / SIGNATURE_ASPECT_RATIO;
+                initialBoxCenter.current = { x: boxPosRef.current.x + curW / 2, y: boxPosRef.current.y + curH / 2 };
+                if (evt.nativeEvent.touches && evt.nativeEvent.touches.length >= 2) {
+                    const t1 = evt.nativeEvent.touches[0];
+                    const t2 = evt.nativeEvent.touches[1];
+                    initialPinchDistance.current = Math.hypot(t1.pageX - t2.pageX, t1.pageY - t2.pageY);
+                    initialBoxWidth.current = curW;
+                } else {
+                    initialPinchDistance.current = null;
+                }
+            },
+            onPanResponderMove: (evt, gestureState) => {
+                const vWidth = viewerLayoutRef.current.width || SCREEN_WIDTH;
+                const vHeight = viewerLayoutRef.current.height || 500;
+
+                // Two-finger pinch to resize signature box symmetrically from center
+                if (evt.nativeEvent.touches && evt.nativeEvent.touches.length >= 2) {
+                    const t1 = evt.nativeEvent.touches[0];
+                    const t2 = evt.nativeEvent.touches[1];
+                    const distance = Math.hypot(t1.pageX - t2.pageX, t1.pageY - t2.pageY);
+                    if (initialPinchDistance.current && initialPinchDistance.current > 10) {
+                        const scale = distance / initialPinchDistance.current;
+                        const newWidth = Math.round(
+                            Math.max(60, Math.min(vWidth * 0.95, initialBoxWidth.current * scale))
+                        );
+                        const newHeight = newWidth / SIGNATURE_ASPECT_RATIO;
+                        const newX = Math.round(initialBoxCenter.current.x - newWidth / 2);
+                        const newY = Math.round(initialBoxCenter.current.y - newHeight / 2);
+
+                        setBoxWidth(newWidth);
+                        setBoxPos({
+                            x: Math.max(-newWidth + 20, Math.min(vWidth - 20, newX)),
+                            y: Math.max(-newHeight + 20, Math.min(vHeight - 20, newY)),
+                        });
+                    } else {
+                        initialPinchDistance.current = distance;
+                        initialBoxWidth.current = boxWidthRef.current;
+                        const curW = boxWidthRef.current;
+                        const curH = curW / SIGNATURE_ASPECT_RATIO;
+                        initialBoxCenter.current = { x: boxPosRef.current.x + curW / 2, y: boxPosRef.current.y + curH / 2 };
+                    }
+                    return;
+                }
+
+                // Single finger drag without restrictive limits (allows placing anywhere on the document)
+                const currentWidth = boxWidthRef.current;
+                const currentHeight = currentWidth / SIGNATURE_ASPECT_RATIO;
+                const newX = Math.max(
+                    -currentWidth + 20,
+                    Math.min(vWidth - 20, dragStartPos.current.x + gestureState.dx)
+                );
+                const newY = Math.max(
+                    -currentHeight + 20,
+                    Math.min(vHeight - 20, dragStartPos.current.y + gestureState.dy)
+                );
                 setBoxPos({ x: newX, y: newY });
             },
-            onPanResponderRelease: (_, gestureState) => {
-                const newX = Math.max(0, Math.min(viewerLayout.width - boxWidth, boxPosRef.current.x + gestureState.dx));
-                const boxHeight = boxWidth / SIGNATURE_ASPECT_RATIO;
-                const newY = Math.max(0, Math.min(viewerLayout.height - boxHeight, boxPosRef.current.y + gestureState.dy));
-                setBoxPos({ x: newX, y: newY });
+            onPanResponderRelease: () => {
+                initialPinchDistance.current = null;
             },
         })
     ).current;
@@ -154,20 +307,39 @@ export const SignatureToolView: React.FC<Props> = ({
     };
 
     const handleClearSignature = () => {
-        setPaths([]);
-        setCurrentPath('');
-        setSelectedImage(null);
+        if (paths.length === 0 && currentPath.length === 0 && !selectedImage) return;
+        setShowClearConfirm(true);
     };
 
     const hasSignature = paths.length > 0 || currentPath.length > 0 || selectedImage !== null;
 
-    // Resize controls
+    // Resize controls: step-by-step natural zoom from center
     const handleZoomIn = () => {
-        setBoxWidth((prev) => Math.min(280, prev + 25));
+        const vWidth = viewerLayoutRef.current.width || SCREEN_WIDTH;
+        const vHeight = viewerLayoutRef.current.height || 500;
+        const curW = boxWidthRef.current;
+        const newW = Math.min(vWidth * 0.95, curW + 20);
+        const deltaW = newW - curW;
+        const deltaH = deltaW / SIGNATURE_ASPECT_RATIO;
+        setBoxWidth(newW);
+        setBoxPos((prev) => ({
+            x: Math.max(-newW + 20, Math.min(vWidth - 20, prev.x - deltaW / 2)),
+            y: Math.max(-((newW / SIGNATURE_ASPECT_RATIO)) + 20, Math.min(vHeight - 20, prev.y - deltaH / 2)),
+        }));
     };
 
     const handleZoomOut = () => {
-        setBoxWidth((prev) => Math.max(80, prev - 25));
+        const vWidth = viewerLayoutRef.current.width || SCREEN_WIDTH;
+        const vHeight = viewerLayoutRef.current.height || 500;
+        const curW = boxWidthRef.current;
+        const newW = Math.max(60, curW - 20);
+        const deltaW = newW - curW;
+        const deltaH = deltaW / SIGNATURE_ASPECT_RATIO;
+        setBoxWidth(newW);
+        setBoxPos((prev) => ({
+            x: Math.max(-newW + 20, Math.min(vWidth - 20, prev.x - deltaW / 2)),
+            y: Math.max(-((newW / SIGNATURE_ASPECT_RATIO)) + 20, Math.min(vHeight - 20, prev.y - deltaH / 2)),
+        }));
     };
 
     // Calculate PDF coordinates and trigger placement
@@ -197,18 +369,25 @@ export const SignatureToolView: React.FC<Props> = ({
 
         const boxHeight = boxWidth / SIGNATURE_ASPECT_RATIO;
 
-        // Relative coordinates on the rendered page (0.0 to 1.0)
-        const relX = Math.max(0, Math.min(1, (boxPos.x - offsetX) / renderedW));
-        const relY = Math.max(0, Math.min(1, (boxPos.y - offsetY) / renderedH));
+        // Relative coordinates on the rendered page
+        const relX = (boxPos.x - offsetX) / renderedW;
+        const relY = (boxPos.y - offsetY) / renderedH;
         const relW = boxWidth / renderedW;
         const relH = boxHeight / renderedH;
 
-        // Map to PDF point coordinates
-        const pdfPtX = relX * pdfDimensions.width;
+        // Map to PDF point coordinates (in PDF coordinates, 0 is at bottom)
+        const pdfPtX = Math.max(0, Math.min(pdfDimensions.width - 10, relX * pdfDimensions.width));
         const pdfPtW = relW * pdfDimensions.width;
         const pdfPtH = relH * pdfDimensions.height;
-        // In PDF coordinates, 0 is at the bottom:
-        const pdfPtY = pdfDimensions.height - (relY * pdfDimensions.height) - pdfPtH;
+        const pdfPtY = Math.max(0, Math.min(pdfDimensions.height - pdfPtH, pdfDimensions.height - (relY * pdfDimensions.height) - pdfPtH));
+
+        let targetPages: number[] = [currentPage - 1];
+        if (pageScope === 'multiple') {
+            const parsed = parsePageRangeString(customPagesInput, totalPages);
+            if (parsed.length > 0) {
+                targetPages = parsed.map((p) => p - 1);
+            }
+        }
 
         let placement: SignaturePlacement;
 
@@ -216,6 +395,8 @@ export const SignatureToolView: React.FC<Props> = ({
             const base64 = await RNFS.readFile(selectedImage.path, 'base64');
             placement = {
                 pageIndex: currentPage - 1,
+                pages: targetPages,
+                rotationDeg,
                 signatureBase64: base64,
                 x: pdfPtX,
                 y: pdfPtY,
@@ -233,6 +414,8 @@ export const SignatureToolView: React.FC<Props> = ({
 
             placement = {
                 pageIndex: currentPage - 1,
+                pages: targetPages,
+                rotationDeg,
                 svgPaths: paths,
                 strokeColor: strokeRgb,
                 canvasWidth: CANVAS_WIDTH,
@@ -247,104 +430,243 @@ export const SignatureToolView: React.FC<Props> = ({
         onProcess(placement, saveMode);
     };
 
+    const handleProceedToPlace = () => {
+        if (!hasSignature) {
+            Alert.alert('Atención', 'Dibuja tu firma o selecciona una imagen antes de continuar.');
+            return;
+        }
+        if (pageScope === 'multiple') {
+            const parsed = parsePageRangeString(customPagesInput, totalPages);
+            if (parsed.length === 0) {
+                Alert.alert(
+                    'Páginas requeridas',
+                    'Escribe las páginas que deseas firmar (ej: 1-3, 5) o pulsa "Firmar todas las páginas".'
+                );
+                return;
+            }
+        }
+        setStep('place');
+    };
+
     // ==========================================
     // STEP 1: CREATE SIGNATURE (DRAW OR PICK IMAGE)
     // ==========================================
     if (step === 'create') {
         return (
-            <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>Escribe tu firma con el dedo</Text>
+            <View style={styles.container}>
+                <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Escribe tu firma con el dedo</Text>
 
-                {/* Finger Drawing Canvas */}
-                <View
-                    style={[
-                        styles.canvasContainer,
-                        {
-                            backgroundColor: '#ffffff',
-                            borderColor: colors.border,
-                        },
-                    ]}
-                    {...drawPanResponder.panHandlers}
-                >
-                    {selectedImage ? (
-                        <Image source={{ uri: selectedImage.uri }} style={styles.imagePreview} resizeMode="contain" />
-                    ) : (
-                        <Svg style={StyleSheet.absoluteFill}>
-                            {paths.map((p, i) => (
-                                <Path key={i} d={p} stroke={color} strokeWidth={3} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                    {/* Finger Drawing Canvas */}
+                    <View
+                        ref={canvasViewRef}
+                        onLayout={updateCanvasLayout}
+                        style={[
+                            styles.canvasContainer,
+                            {
+                                backgroundColor: '#ffffff',
+                                borderColor: colors.border,
+                            },
+                        ]}
+                        {...drawPanResponder.panHandlers}
+                    >
+                        {selectedImage ? (
+                            <Image source={{ uri: selectedImage.uri }} style={styles.imagePreview} resizeMode="contain" />
+                        ) : (
+                            <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
+                                {paths.map((p, i) => (
+                                    <Path key={i} d={p} stroke={color} strokeWidth={3} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                                ))}
+                                {currentPath ? (
+                                    <Path d={currentPath} stroke={color} strokeWidth={3} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                                ) : null}
+                            </Svg>
+                        )}
+
+                        {!hasSignature && (
+                            <Text style={styles.canvasPlaceholder} pointerEvents="none">Firma aquí con tu dedo</Text>
+                        )}
+                    </View>
+
+                    {/* Controls: Color & Clear */}
+                    <View style={styles.canvasActions}>
+                        <View style={styles.colorRow}>
+                            {['#000000', '#2563eb', '#dd1f47'].map((c) => (
+                                <TouchableOpacity
+                                    key={c}
+                                    style={[
+                                        styles.colorBtn,
+                                        {
+                                            backgroundColor: c,
+                                            borderColor: color === c ? colors.primary : 'transparent',
+                                            borderWidth: color === c ? 2 : 0,
+                                        },
+                                    ]}
+                                    onPress={() => {
+                                        setColor(c);
+                                        if (selectedImage) setSelectedImage(null);
+                                    }}
+                                />
                             ))}
-                            {currentPath ? (
-                                <Path d={currentPath} stroke={color} strokeWidth={3} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                            ) : null}
-                        </Svg>
-                    )}
+                        </View>
 
-                    {!hasSignature && (
-                        <Text style={styles.canvasPlaceholder}>Firma aquí con tu dedo</Text>
-                    )}
-                </View>
+                        {hasSignature && (
+                            <TouchableOpacity style={styles.clearBtn} onPress={handleClearSignature}>
+                                <Icon name="delete-outline" size={18} color="#ef4444" style={{ marginRight: 4 }} />
+                                <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: 'bold' }}>Borrar firma</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
 
-                {/* Controls: Color & Clear */}
-                <View style={styles.canvasActions}>
-                    <View style={styles.colorRow}>
-                        {['#000000', '#2563eb', '#dd1f47'].map((c) => (
-                            <TouchableOpacity
-                                key={c}
+                    {/* Pick from images option */}
+                    <TouchableOpacity
+                        style={[styles.pickImageBtn, { backgroundColor: colors.surfaceLight, borderColor: colors.border }]}
+                        onPress={handleOpenImagePicker}
+                        activeOpacity={0.8}
+                    >
+                        <Icon name="photo-library" size={20} color={colors.primary} style={{ marginRight: 8 }} />
+                        <Text style={[styles.pickImageText, { color: colors.text }]}>Elegir desde mis imágenes</Text>
+                    </TouchableOpacity>
+
+                    {/* Page Scope Selection */}
+                    <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 22 }]}>
+                        ¿Dónde deseas estampar la firma?
+                    </Text>
+
+                    {/* Option 1: Firmar una sola página */}
+                    <TouchableOpacity
+                        style={[
+                            styles.scopeOptionCard,
+                            {
+                                backgroundColor: colors.surfaceLight,
+                                borderColor: pageScope === 'single' ? colors.primary : colors.border,
+                                borderWidth: pageScope === 'single' ? 2 : 1,
+                            },
+                        ]}
+                        onPress={() => {
+                            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                            setPageScope('single');
+                        }}
+                        activeOpacity={0.8}
+                    >
+                        <Icon
+                            name={pageScope === 'single' ? 'radio-button-checked' : 'radio-button-unchecked'}
+                            size={20}
+                            color={pageScope === 'single' ? colors.primary : colors.textSecondary}
+                        />
+                        <View style={{ flex: 1, marginLeft: 10 }}>
+                            <Text style={[styles.scopeOptionTitle, { color: colors.text }]}>Firmar una página</Text>
+                            <Text style={[styles.scopeOptionDesc, { color: colors.textSecondary }]}>
+                                Elige la página específica donde colocarás la firma
+                            </Text>
+                        </View>
+                    </TouchableOpacity>
+
+                    {/* Option 2: Firmar en varias páginas */}
+                    <TouchableOpacity
+                        style={[
+                            styles.scopeOptionCard,
+                            {
+                                backgroundColor: colors.surfaceLight,
+                                borderColor: pageScope === 'multiple' ? colors.primary : colors.border,
+                                borderWidth: pageScope === 'multiple' ? 2 : 1,
+                                marginTop: 10,
+                            },
+                        ]}
+                        onPress={() => {
+                            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                            setPageScope('multiple');
+                        }}
+                        activeOpacity={0.8}
+                    >
+                        <Icon
+                            name={pageScope === 'multiple' ? 'radio-button-checked' : 'radio-button-unchecked'}
+                            size={20}
+                            color={pageScope === 'multiple' ? colors.primary : colors.textSecondary}
+                        />
+                        <View style={{ flex: 1, marginLeft: 10 }}>
+                            <Text style={[styles.scopeOptionTitle, { color: colors.text }]}>Firmar en varias páginas</Text>
+                            <Text style={[styles.scopeOptionDesc, { color: colors.textSecondary }]}>
+                                Aplica la firma en la misma posición en todas las páginas elegidas
+                            </Text>
+                        </View>
+                    </TouchableOpacity>
+
+                    {/* If multiple, range input and all pages quick button */}
+                    {pageScope === 'multiple' && (
+                        <View
+                            style={[
+                                styles.customRangeBox,
+                                { backgroundColor: colors.surfaceLight, borderColor: colors.border },
+                            ]}
+                        >
+                            <Text style={[styles.customRangeHint, { color: colors.textSecondary }]}>
+                                {"Escribe las páginas separadas por guión (-) para rangos y coma (,) para páginas sueltas.\nEj: 1-3, 5"}
+                            </Text>
+                            <TextInput
                                 style={[
-                                    styles.colorBtn,
+                                    styles.customRangeInput,
                                     {
-                                        backgroundColor: c,
-                                        borderColor: color === c ? colors.primary : 'transparent',
-                                        borderWidth: color === c ? 2 : 0,
+                                        backgroundColor: colors.backgroundLight,
+                                        borderColor: colors.border,
+                                        color: colors.text,
+                                    },
+                                ]}
+                                value={customPagesInput}
+                                onChangeText={setCustomPagesInput}
+                                keyboardType="numbers-and-punctuation"
+                                autoCapitalize="none"
+                                autoCorrect={false}
+                            />
+                            <TouchableOpacity
+                                style={[
+                                    styles.allPagesBtn,
+                                    {
+                                        backgroundColor: customPagesInput === `1-${totalPages}` ? colors.primary : colors.backgroundLight,
+                                        borderColor: customPagesInput === `1-${totalPages}` ? colors.primary : colors.border,
                                     },
                                 ]}
                                 onPress={() => {
-                                    setColor(c);
-                                    if (selectedImage) setSelectedImage(null);
+                                    setCustomPagesInput(`1-${totalPages}`);
                                 }}
-                            />
-                        ))}
-                    </View>
-
-                    {hasSignature && (
-                        <TouchableOpacity style={styles.clearBtn} onPress={handleClearSignature}>
-                            <Icon name="delete-outline" size={18} color="#ef4444" style={{ marginRight: 4 }} />
-                            <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: 'bold' }}>Borrar firma</Text>
-                        </TouchableOpacity>
+                                activeOpacity={0.8}
+                            >
+                                <Icon
+                                    name="done-all"
+                                    size={16}
+                                    color={customPagesInput === `1-${totalPages}` ? '#ffffff' : colors.primary}
+                                    style={{ marginRight: 6 }}
+                                />
+                                <Text
+                                    style={[
+                                        styles.allPagesBtnText,
+                                        { color: customPagesInput === `1-${totalPages}` ? '#ffffff' : colors.text },
+                                    ]}
+                                >
+                                    Firmar todas las páginas ({totalPages})
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
                     )}
+                </ScrollView>
+
+                {/* Fixed bottom bar for continue button */}
+                <View style={[styles.bottomBar, { backgroundColor: colors.surfaceLight, borderTopColor: colors.border }]}>
+                    <TouchableOpacity
+                        style={[
+                            styles.continueBtn,
+                            {
+                                backgroundColor: hasSignature ? colors.primary : 'rgba(221, 31, 71, 0.4)',
+                            },
+                        ]}
+                        onPress={handleProceedToPlace}
+                        disabled={!hasSignature || isProcessing}
+                        activeOpacity={0.8}
+                    >
+                        <Icon name="arrow-forward" size={20} color="#ffffff" style={{ marginRight: 8 }} />
+                        <Text style={styles.continueBtnText}>Continuar a colocar firma</Text>
+                    </TouchableOpacity>
                 </View>
-
-                {/* Pick from images option */}
-                <TouchableOpacity
-                    style={[styles.pickImageBtn, { backgroundColor: colors.surfaceLight, borderColor: colors.border }]}
-                    onPress={handleOpenImagePicker}
-                    activeOpacity={0.8}
-                >
-                    <Icon name="photo-library" size={20} color={colors.primary} style={{ marginRight: 8 }} />
-                    <Text style={[styles.pickImageText, { color: colors.text }]}>Elegir desde mis imágenes</Text>
-                </TouchableOpacity>
-
-                {/* Continue button */}
-                <TouchableOpacity
-                    style={[
-                        styles.continueBtn,
-                        {
-                            backgroundColor: hasSignature ? colors.primary : 'rgba(221, 31, 71, 0.4)',
-                        },
-                    ]}
-                    onPress={() => {
-                        if (!hasSignature) {
-                            Alert.alert('Atención', 'Dibuja tu firma o selecciona una imagen antes de continuar.');
-                            return;
-                        }
-                        setStep('place');
-                    }}
-                    disabled={!hasSignature || isProcessing}
-                    activeOpacity={0.8}
-                >
-                    <Icon name="arrow-forward" size={20} color="#ffffff" style={{ marginRight: 8 }} />
-                    <Text style={styles.continueBtnText}>Continuar a colocar firma</Text>
-                </TouchableOpacity>
 
                 {/* Image Picker Modal */}
                 <Modal visible={imagePickerVisible} animationType="slide" transparent>
@@ -383,7 +705,24 @@ export const SignatureToolView: React.FC<Props> = ({
                         </View>
                     </View>
                 </Modal>
-            </ScrollView>
+
+                {/* Clear Signature Modal */}
+                <ConfirmModal
+                    visible={showClearConfirm}
+                    title="Borrar firma"
+                    message="¿Estás seguro de que deseas borrar la firma?"
+                    confirmText="Borrar"
+                    cancelText="Cancelar"
+                    confirmColor="#ef4444"
+                    onConfirm={() => {
+                        setPaths([]);
+                        setCurrentPath('');
+                        setSelectedImage(null);
+                        setShowClearConfirm(false);
+                    }}
+                    onCancel={() => setShowClearConfirm(false)}
+                />
+            </View>
         );
     }
 
@@ -391,6 +730,7 @@ export const SignatureToolView: React.FC<Props> = ({
     // STEP 2: INTERACTIVE PDF PLACEMENT
     // ==========================================
     const boxHeight = boxWidth / SIGNATURE_ASPECT_RATIO;
+    const multiPagesCount = pageScope === 'multiple' ? parsePageRangeString(customPagesInput, totalPages).length : 1;
 
     return (
         <View style={styles.placementContainer}>
@@ -407,21 +747,41 @@ export const SignatureToolView: React.FC<Props> = ({
 
                 {/* Page Jump / Navigator */}
                 <View style={styles.pageNavigator}>
+                    {pageScope === 'multiple' && (
+                        <View style={[styles.multiPagesBadge, { backgroundColor: colors.primary }]}>
+                            <Text style={styles.multiPagesBadgeText}>
+                                {multiPagesCount} {multiPagesCount === 1 ? 'pág' : 'págs'}
+                            </Text>
+                        </View>
+                    )}
                     <TouchableOpacity
                         disabled={currentPage <= 1}
-                        onPress={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                        onPress={() => handlePageChange(currentPage - 1)}
                         style={[styles.pageNavBtn, { opacity: currentPage <= 1 ? 0.3 : 1 }]}
                     >
                         <Icon name="chevron-left" size={22} color={colors.text} />
                     </TouchableOpacity>
 
-                    <Text style={[styles.pageIndicatorText, { color: colors.text }]}>
-                        Pág. <Text style={{ fontWeight: 'bold' }}>{currentPage}</Text> de {totalPages}
-                    </Text>
+                    <TouchableOpacity
+                        onPress={() => setPageJumpVisible(true)}
+                        activeOpacity={0.7}
+                        style={[
+                            styles.pageSelectorPill,
+                            {
+                                backgroundColor: colors.backgroundLight,
+                                borderColor: pageJumpVisible ? colors.primary : colors.border,
+                            },
+                        ]}
+                    >
+                        <Text style={[styles.pageIndicatorText, { color: colors.text }]}>
+                            Pág. <Text style={{ fontWeight: 'bold', color: colors.primary }}>{currentPage}</Text> de {totalPages}
+                        </Text>
+                        <Icon name="arrow-drop-down" size={16} color={colors.primary} />
+                    </TouchableOpacity>
 
                     <TouchableOpacity
                         disabled={currentPage >= totalPages}
-                        onPress={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                        onPress={() => handlePageChange(currentPage + 1)}
                         style={[styles.pageNavBtn, { opacity: currentPage >= totalPages ? 0.3 : 1 }]}
                     >
                         <Icon name="chevron-right" size={22} color={colors.text} />
@@ -429,15 +789,82 @@ export const SignatureToolView: React.FC<Props> = ({
                 </View>
             </View>
 
+            {/* Rotation Slider Bar */}
+            <View style={[styles.quickControlsBar, { backgroundColor: colors.surfaceLight, borderBottomColor: colors.border }]}>
+                <Icon name="rotate-right" size={18} color={colors.primary} style={{ marginRight: 6 }} />
+                <Text style={[styles.quickControlsLabel, { color: colors.textSecondary }]}>Giro:</Text>
+
+                <View
+                    ref={rotSliderContainerRef}
+                    style={styles.quickSliderTouchWrapper}
+                    onLayout={() => {
+                        rotSliderContainerRef.current?.measure((_x, _y, width, _h, pageX) => {
+                            if (width) rotSliderWidthRef.current = width;
+                            if (pageX !== undefined) rotSliderPageXRef.current = pageX;
+                        });
+                    }}
+                    onStartShouldSetResponder={() => true}
+                    onMoveShouldSetResponder={() => true}
+                    onResponderGrant={(evt) => {
+                        rotSliderContainerRef.current?.measure((_x, _y, width, _h, pageX) => {
+                            if (width) rotSliderWidthRef.current = width;
+                            if (pageX !== undefined) rotSliderPageXRef.current = pageX;
+                            updateRotationTouch(evt.nativeEvent.pageX);
+                        });
+                    }}
+                    onResponderMove={(evt) => {
+                        updateRotationTouch(evt.nativeEvent.pageX);
+                    }}
+                >
+                    <View style={[styles.sliderTrack, { backgroundColor: colors.border }]} pointerEvents="none">
+                        <View
+                            style={[
+                                styles.sliderFill,
+                                {
+                                    width: `${(rotationDeg / 360) * 100}%`,
+                                    backgroundColor: colors.primary,
+                                },
+                            ]}
+                        />
+                        <View
+                            style={[
+                                styles.sliderThumb,
+                                {
+                                    left: `${Math.max(0, Math.min(96, (rotationDeg / 360) * 100 - 3))}%`,
+                                    backgroundColor: colors.primary,
+                                },
+                            ]}
+                        />
+                    </View>
+                </View>
+
+                <Text style={[styles.quickSliderValueText, { color: colors.primary }]}>
+                    {rotationDeg}°
+                </Text>
+            </View>
+
+            {/* Page Jump Balloon for direct page input */}
+            <PageJumpBalloon
+                visible={pageJumpVisible}
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
+                onClose={() => setPageJumpVisible(false)}
+                topOffset={46}
+                rightOffset={16}
+            />
+
             {/* Interactive PDF Reader with floating signature box */}
             <View
                 style={styles.pdfWrapper}
                 onLayout={(e) => {
                     const { width, height } = e.nativeEvent.layout;
+                    viewerLayoutRef.current = { width, height };
                     setViewerLayout({ width, height });
                 }}
             >
                 <Pdf
+                    ref={pdfRef}
                     source={{ uri: sourcePath.startsWith('file://') ? sourcePath : `file://${sourcePath}` }}
                     page={currentPage}
                     singlePage={true}
@@ -461,42 +888,82 @@ export const SignatureToolView: React.FC<Props> = ({
                         {
                             width: boxWidth,
                             height: boxHeight,
-                            transform: [{ translateX: boxPos.x }, { translateY: boxPos.y }],
+                            left: boxPos.x,
+                            top: boxPos.y,
                             borderColor: colors.primary,
                         },
                     ]}
                     {...dragPanResponder.panHandlers}
                 >
-                    {/* Render Signature Inside Box */}
-                    {selectedImage ? (
-                        <Image source={{ uri: selectedImage.uri }} style={styles.boxInnerImage} resizeMode="contain" />
-                    ) : (
-                        <Svg
-                            style={StyleSheet.absoluteFill}
-                            viewBox={`0 0 ${CANVAS_WIDTH} ${CANVAS_HEIGHT}`}
-                            preserveAspectRatio="xMidYMid meet"
-                        >
-                            {paths.map((p, i) => (
-                                <Path key={i} d={p} stroke={color} strokeWidth={3} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                            ))}
-                        </Svg>
-                    )}
-
-                    {/* Resizing controls pill at top-right of box */}
-                    <View style={styles.resizeControlsPill}>
-                        <TouchableOpacity onPress={handleZoomOut} style={styles.resizeBtn} activeOpacity={0.7}>
-                            <Icon name="remove" size={14} color="#ffffff" />
-                        </TouchableOpacity>
-                        <View style={styles.resizeDivider} />
-                        <TouchableOpacity onPress={handleZoomIn} style={styles.resizeBtn} activeOpacity={0.7}>
-                            <Icon name="add" size={14} color="#ffffff" />
-                        </TouchableOpacity>
+                    {/* Render Signature Inside Box with rotation */}
+                    <View
+                        style={[
+                            StyleSheet.absoluteFill,
+                            {
+                                transform: [{ rotate: `${rotationDeg}deg` }],
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                            },
+                        ]}
+                        pointerEvents="none"
+                    >
+                        {selectedImage ? (
+                            <Image source={{ uri: selectedImage.uri }} style={styles.boxInnerImage} resizeMode="contain" />
+                        ) : (
+                            <Svg
+                                style={StyleSheet.absoluteFill}
+                                viewBox={`0 0 ${CANVAS_WIDTH} ${CANVAS_HEIGHT}`}
+                                preserveAspectRatio="xMidYMid meet"
+                            >
+                                {paths.map((p, i) => (
+                                    <Path key={i} d={p} stroke={color} strokeWidth={3} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                                ))}
+                            </Svg>
+                        )}
                     </View>
 
                     {/* Move indicator */}
-                    <View style={styles.moveIndicator}>
+                    <View style={styles.moveIndicator} pointerEvents="none">
                         <Icon name="open-with" size={14} color="rgba(221, 31, 71, 0.7)" />
                     </View>
+                </View>
+
+                {/* Resizing and rotating controls pill outside draggableBox so touches always fire */}
+                <View
+                    style={[
+                        styles.resizeControlsPill,
+                        {
+                            left: Math.max(10, Math.min(viewerLayout.width - 105, boxPos.x + boxWidth / 2 - 50)),
+                            top: boxPos.y > 44 ? boxPos.y - 36 : boxPos.y + boxHeight + 8,
+                        },
+                    ]}
+                >
+                    <TouchableOpacity
+                        onPress={handleZoomOut}
+                        style={styles.resizeBtn}
+                        activeOpacity={0.6}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                        <Icon name="remove" size={15} color="#ffffff" />
+                    </TouchableOpacity>
+                    <View style={styles.resizeDivider} />
+                    <TouchableOpacity
+                        onPress={handleZoomIn}
+                        style={styles.resizeBtn}
+                        activeOpacity={0.6}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                        <Icon name="add" size={15} color="#ffffff" />
+                    </TouchableOpacity>
+                    <View style={styles.resizeDivider} />
+                    <TouchableOpacity
+                        onPress={() => setRotationDeg((prev) => (prev + 90) % 360)}
+                        style={styles.resizeBtn}
+                        activeOpacity={0.6}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                        <Icon name="rotate-right" size={15} color="#ffffff" />
+                    </TouchableOpacity>
                 </View>
             </View>
 
@@ -513,54 +980,16 @@ export const SignatureToolView: React.FC<Props> = ({
             </View>
 
             {/* Confirmation Modal: Original vs Copy */}
-            <Modal visible={confirmModalVisible} transparent animationType="fade">
-                <View style={styles.modalBackdrop}>
-                    <View style={[styles.confirmCard, { backgroundColor: colors.surfaceLight }]}>
-                        <Text style={[styles.confirmTitle, { color: colors.text }]}>¿Cómo deseas guardar el PDF?</Text>
-                        <Text style={[styles.confirmSubtitle, { color: colors.textSecondary }]}>
-                            Selecciona una opción para aplicar tu firma:
-                        </Text>
-
-                        {/* Option A: Make a copy */}
-                        <TouchableOpacity
-                            style={[styles.confirmOption, { backgroundColor: colors.backgroundLight, borderColor: colors.primary }]}
-                            onPress={() => handleConfirmPlacement('copy')}
-                            activeOpacity={0.8}
-                        >
-                            <Icon name="file-copy" size={22} color={colors.primary} style={{ marginRight: 12 }} />
-                            <View style={{ flex: 1 }}>
-                                <Text style={[styles.optionMainText, { color: colors.text }]}>Hacer una copia y firmar</Text>
-                                <Text style={[styles.optionSubText, { color: colors.textSecondary }]}>
-                                    Crea un nuevo archivo con el sufijo "_firmado"
-                                </Text>
-                            </View>
-                        </TouchableOpacity>
-
-                        {/* Option B: Sign original */}
-                        <TouchableOpacity
-                            style={[styles.confirmOption, { backgroundColor: colors.backgroundLight, borderColor: colors.border }]}
-                            onPress={() => handleConfirmPlacement('original')}
-                            activeOpacity={0.8}
-                        >
-                            <Icon name="save" size={22} color={colors.text} style={{ marginRight: 12 }} />
-                            <View style={{ flex: 1 }}>
-                                <Text style={[styles.optionMainText, { color: colors.text }]}>Firmar en el documento original</Text>
-                                <Text style={[styles.optionSubText, { color: colors.textSecondary }]}>
-                                    Sobrescribe directamente el archivo original
-                                </Text>
-                            </View>
-                        </TouchableOpacity>
-
-                        {/* Cancel */}
-                        <TouchableOpacity
-                            style={styles.cancelBtn}
-                            onPress={() => setConfirmModalVisible(false)}
-                        >
-                            <Text style={[styles.cancelBtnText, { color: colors.textSecondary }]}>Cancelar</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </Modal>
+            <SaveModeModal
+                visible={confirmModalVisible}
+                onClose={() => setConfirmModalVisible(false)}
+                onConfirm={(saveMode) => {
+                    setConfirmModalVisible(false);
+                    handleConfirmPlacement(saveMode);
+                }}
+                title="¿Cómo deseas guardar el PDF?"
+                description="Selecciona una opción para aplicar tu firma:"
+            />
         </View>
     );
 };
@@ -634,12 +1063,69 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
-        marginTop: 24,
         elevation: 4,
     },
     continueBtnText: {
         color: '#ffffff',
         fontSize: 15,
+        fontWeight: 'bold',
+    },
+    scopeOptionCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 12,
+        borderRadius: 12,
+    },
+    scopeOptionTitle: {
+        fontSize: 13,
+        fontWeight: 'bold',
+    },
+    scopeOptionDesc: {
+        fontSize: 11,
+        marginTop: 2,
+    },
+    customRangeBox: {
+        marginTop: 10,
+        padding: 12,
+        borderRadius: 12,
+        borderWidth: 1,
+    },
+    customRangeHint: {
+        fontSize: 11,
+        lineHeight: 16,
+        marginBottom: 8,
+    },
+    customRangeInput: {
+        height: 42,
+        borderRadius: 8,
+        borderWidth: 1,
+        paddingHorizontal: 12,
+        fontSize: 14,
+        fontWeight: '500',
+    },
+    allPagesBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+        borderWidth: 1,
+        marginTop: 8,
+    },
+    allPagesBtnText: {
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    multiPagesBadge: {
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 6,
+        marginRight: 4,
+    },
+    multiPagesBadgeText: {
+        color: '#ffffff',
+        fontSize: 11,
         fontWeight: 'bold',
     },
     // Placement view
@@ -671,6 +1157,15 @@ const styles = StyleSheet.create({
     pageNavBtn: {
         padding: 4,
     },
+    pageSelectorPill: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 8,
+        borderWidth: 1,
+        gap: 2,
+    },
     pageIndicatorText: {
         fontSize: 12,
     },
@@ -700,18 +1195,18 @@ const styles = StyleSheet.create({
     },
     resizeControlsPill: {
         position: 'absolute',
-        top: -14,
-        right: -8,
         flexDirection: 'row',
         backgroundColor: '#1e293b',
-        borderRadius: 12,
-        paddingHorizontal: 4,
-        paddingVertical: 2,
-        elevation: 6,
+        borderRadius: 14,
+        paddingHorizontal: 6,
+        paddingVertical: 3,
+        elevation: 8,
+        zIndex: 99,
         alignItems: 'center',
     },
     resizeBtn: {
-        padding: 4,
+        paddingHorizontal: 5,
+        paddingVertical: 3,
     },
     resizeDivider: {
         width: 1,
@@ -819,5 +1314,75 @@ const styles = StyleSheet.create({
     cancelBtnText: {
         fontSize: 13,
         fontWeight: '600',
+    },
+    confirmButtonsRow: {
+        marginTop: 14,
+        gap: 8,
+    },
+    confirmContinueBtn: {
+        height: 44,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    confirmContinueBtnText: {
+        color: '#ffffff',
+        fontSize: 14,
+        fontWeight: 'bold',
+    },
+    confirmCancelBtn: {
+        height: 40,
+        borderRadius: 12,
+        borderWidth: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    quickControlsBar: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderBottomWidth: 1,
+    },
+    quickControlsLabel: {
+        fontSize: 12,
+        fontWeight: '600',
+        marginRight: 6,
+    },
+    quickSliderTouchWrapper: {
+        flex: 1,
+        height: 32,
+        justifyContent: 'center',
+        paddingHorizontal: 4,
+    },
+    quickSliderValueText: {
+        fontSize: 13,
+        fontWeight: 'bold',
+        marginLeft: 8,
+        minWidth: 38,
+        textAlign: 'right',
+    },
+    sliderTrack: {
+        height: 6,
+        borderRadius: 3,
+        width: '100%',
+        position: 'relative',
+        justifyContent: 'center',
+    },
+    sliderFill: {
+        height: '100%',
+        borderRadius: 3,
+    },
+    sliderThumb: {
+        position: 'absolute',
+        width: 18,
+        height: 18,
+        borderRadius: 9,
+        top: -6,
+        elevation: 3,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.25,
+        shadowRadius: 2,
     },
 });

@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useTheme } from '../../../theme/ThemeContext';
+import { ConfirmModal } from '../../ConfirmModal';
 
 interface Props {
     resultPaths: string[];
@@ -17,6 +18,7 @@ export const ToolResultBar: React.FC<Props> = ({
     onReset,
 }) => {
     const { colors } = useTheme();
+    const [showResetConfirm, setShowResetConfirm] = useState(false);
 
     if (!resultPaths || resultPaths.length === 0) return null;
 
@@ -64,12 +66,26 @@ export const ToolResultBar: React.FC<Props> = ({
 
                 <TouchableOpacity
                     style={[styles.secondaryButton, { borderColor: colors.border, backgroundColor: colors.surfaceLight }]}
-                    onPress={onReset}
+                    onPress={() => setShowResetConfirm(true)}
                     activeOpacity={0.8}
                 >
                     <Icon name="refresh" size={20} color={colors.text} />
                 </TouchableOpacity>
             </View>
+
+            <ConfirmModal
+                visible={showResetConfirm}
+                title="Reiniciar"
+                message="¿Estás seguro de que deseas salir del resultado y volver a iniciar?"
+                confirmText="Aceptar"
+                cancelText="Cancelar"
+                confirmColor={colors.primary}
+                onConfirm={() => {
+                    setShowResetConfirm(false);
+                    onReset();
+                }}
+                onCancel={() => setShowResetConfirm(false)}
+            />
         </View>
     );
 };
@@ -92,40 +108,38 @@ const styles = StyleSheet.create({
         marginBottom: 12,
     },
     successBadge: {
-        width: 26,
-        height: 26,
-        borderRadius: 13,
+        width: 24,
+        height: 24,
+        borderRadius: 12,
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 10,
+        marginRight: 8,
     },
     title: {
         fontSize: 14,
-        fontWeight: '700',
+        fontWeight: 'bold',
     },
     actions: {
         flexDirection: 'row',
         gap: 10,
-        alignItems: 'center',
     },
     primaryButton: {
         flex: 1,
-        height: 46,
-        borderRadius: 12,
+        height: 44,
+        borderRadius: 10,
         flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
-        paddingHorizontal: 16,
     },
     primaryButtonText: {
         color: '#ffffff',
-        fontWeight: '700',
         fontSize: 14,
+        fontWeight: 'bold',
     },
     secondaryButton: {
-        width: 46,
-        height: 46,
-        borderRadius: 12,
+        width: 44,
+        height: 44,
+        borderRadius: 10,
         borderWidth: 1,
         justifyContent: 'center',
         alignItems: 'center',

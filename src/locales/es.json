@@ -6,7 +6,7 @@
         "button": "Permitir acceso"
     },
     "home": {
-        "scanning": "Escaneando archivos...",
+        "scanning": "Buscando documentos...",
         "noDocuments": "No se encontraron documentos",
         "noFavorites": "No hay favoritos aún",
         "noRecent": "No hay documentos recientes",
@@ -60,7 +60,7 @@
         "openOfficeInAppDesc": "Usa el visor rápido integrado en lugar de abrir una app externa. Esta opción es solo una vista rápida, no se garantiza compatibilidad total con los documentos.",
         "darkMode": "Modo oscuro",
         "darkModeDesc": "Cambia la apariencia de la app",
-        "about": "Acerca de PDFortuna"
+        "about": "PDFortuna"
     },
     "fileOptions": {
         "addFavorite": "Añadir a favoritos",
@@ -97,9 +97,12 @@
     "credits": {
         "credits": "Créditos",
         "developedBy": "Desarrollado por Gessén Darién 💚",
-        "privacyTitle": "Privacidad y Código fuente",
-        "privacyText": "Esta app no envía ninguna información a servidores externos y todos los datos permanecen en tu dispositivo por lo que tu privacidad está protegida. Si quieres ver más incluído el código fuente, visita el ",
-        "website": "sitio web"
+        "privacyTitle": "Privacidad",
+        "privacyText": "Esta app no envía ninguna información a servidores externos y todos los datos permanecen en tu dispositivo por lo que tu privacidad está protegida.",
+        "websiteTitle": "Sitio web",
+        "websitePre": "Visita el ",
+        "websiteLink": "sitio web",
+        "websitePost": " para consultar nuestras políticas de privacidad y el código fuente."
     },
     "viewer": {
         "document": "Documento",

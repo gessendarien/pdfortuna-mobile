@@ -82,7 +82,7 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
     return (
         <View style={[styles.wrapper, { paddingBottom: 0 }]} pointerEvents="box-none">
             {/* SVG Background Bar with Bezier Notch */}
-            <View style={styles.svgContainer}>
+            <View style={styles.svgContainer} pointerEvents="none">
                 <Svg width={W} height={H}>
                     <Path
                         d={path}
@@ -102,6 +102,7 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
                         backgroundColor: colors.surfaceLight,
                     },
                 ]}
+                pointerEvents="none"
             />
 
             {/* Navigation Tabs Overlay */}

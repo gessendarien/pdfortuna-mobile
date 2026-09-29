@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useTheme } from '../../theme/ThemeContext';
 import { PageThumbnailGrid } from './shared/PageThumbnailGrid';
+import { ConfirmModal } from '../ConfirmModal';
 
 interface Props {
     totalPages: number;
@@ -13,11 +14,19 @@ interface Props {
 
 export const DeletePagesToolView: React.FC<Props> = ({
     totalPages,
+    sourcePath,
     onProcess,
     isProcessing,
 }) => {
     const { colors } = useTheme();
     const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set());
+    const [alertModal, setAlertModal] = useState<{
+        visible: boolean;
+        title: string;
+        message: string;
+        singleButton?: boolean;
+        onConfirm?: () => void;
+    } | null>(null);
 
     const handleToggleSelect = (pageNum: number) => {
         setSelectedPages((prev) => {
@@ -41,26 +50,34 @@ export const DeletePagesToolView: React.FC<Props> = ({
 
     const handleDelete = () => {
         if (selectedPages.size === 0) {
-            Alert.alert('Atención', 'Selecciona al menos una página para eliminar.');
+            setAlertModal({
+                visible: true,
+                title: 'Atención',
+                message: 'Selecciona al menos una página para eliminar.',
+                singleButton: true,
+            });
             return;
         }
         if (selectedPages.size >= totalPages) {
-            Alert.alert('Error', 'No puedes eliminar todas las páginas del documento.');
+            setAlertModal({
+                visible: true,
+                title: 'Atención',
+                message: 'No puedes eliminar todas las páginas del documento. Debe quedar al menos una página.',
+                singleButton: true,
+            });
             return;
         }
 
-        Alert.alert(
-            'Confirmar eliminación',
-            `¿Estás seguro de que deseas eliminar ${selectedPages.size} página(s)?`,
-            [
-                { text: 'Cancelar', style: 'cancel' },
-                {
-                    text: 'Eliminar',
-                    style: 'destructive',
-                    onPress: () => onProcess(Array.from(selectedPages)),
-                },
-            ]
-        );
+        setAlertModal({
+            visible: true,
+            title: 'Confirmar eliminación',
+            message: `¿Estás seguro de que deseas eliminar ${selectedPages.size} página(s)?`,
+            singleButton: false,
+            onConfirm: () => {
+                setAlertModal(null);
+                onProcess(Array.from(selectedPages));
+            },
+        });
     };
 
     return (
@@ -82,6 +99,7 @@ export const DeletePagesToolView: React.FC<Props> = ({
             <View style={{ flex: 1 }}>
                 <PageThumbnailGrid
                     totalPages={totalPages}
+                    sourcePath={sourcePath}
                     selectedPages={selectedPages}
                     onToggleSelect={handleToggleSelect}
                     mode="select"
@@ -104,6 +122,25 @@ export const DeletePagesToolView: React.FC<Props> = ({
                     Eliminar {selectedPages.size} página(s)
                 </Text>
             </TouchableOpacity>
+            {alertModal && (
+                <ConfirmModal
+                    visible={alertModal.visible}
+                    title={alertModal.title}
+                    message={alertModal.message}
+                    singleButton={alertModal.singleButton}
+                    confirmText={alertModal.singleButton ? 'Entendido' : 'Eliminar'}
+                    cancelText="Cancelar"
+                    confirmColor="#ef4444"
+                    onConfirm={() => {
+                        if (alertModal.onConfirm) {
+                            alertModal.onConfirm();
+                        } else {
+                            setAlertModal(null);
+                        }
+                    }}
+                    onCancel={() => setAlertModal(null)}
+                />
+            )}
         </View>
     );
 };

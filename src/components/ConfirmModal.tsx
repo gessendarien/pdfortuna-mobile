@@ -9,10 +9,11 @@ interface Props {
     title: string;
     message: string;
     onConfirm: () => void;
-    onCancel: () => void;
+    onCancel?: () => void;
     confirmText?: string;
     cancelText?: string;
     confirmColor?: string;
+    singleButton?: boolean;
 }
 
 export const ConfirmModal = ({
@@ -23,32 +24,40 @@ export const ConfirmModal = ({
     onCancel,
     confirmText,
     cancelText,
-    confirmColor
+    confirmColor,
+    singleButton = false,
 }: Props) => {
     const { colors } = useTheme();
     const resolvedConfirmColor = confirmColor || colors.primary;
-    const resolvedConfirmText = confirmText || t('confirm.confirm');
+    const resolvedConfirmText = confirmText || (singleButton ? 'Entendido' : t('confirm.confirm'));
     const resolvedCancelText = cancelText || t('confirm.cancel');
+    const handleClose = onCancel || onConfirm;
 
     return (
         <Modal
             transparent
             visible={visible}
             animationType="fade"
-            onRequestClose={onCancel}
+            onRequestClose={handleClose}
         >
             <View style={styles.overlay}>
                 <View style={[styles.content, { backgroundColor: colors.surfaceLight }]}>
                     <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
                     <Text style={[styles.message, { color: colors.textSecondary }]}>{message}</Text>
 
-                    <View style={styles.buttonsContainer}>
-                        <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
-                            <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>{resolvedCancelText}</Text>
-                        </TouchableOpacity>
+                    <View style={[styles.buttonsContainer, singleButton && { justifyContent: 'center' }]}>
+                        {!singleButton && onCancel && (
+                            <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
+                                <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>{resolvedCancelText}</Text>
+                            </TouchableOpacity>
+                        )}
 
                         <TouchableOpacity
-                            style={[styles.confirmButton, { backgroundColor: resolvedConfirmColor }]}
+                            style={[
+                                styles.confirmButton,
+                                { backgroundColor: resolvedConfirmColor },
+                                singleButton && { minWidth: 120, alignItems: 'center' },
+                            ]}
                             onPress={onConfirm}
                         >
                             <Text style={styles.confirmButtonText}>{resolvedConfirmText}</Text>

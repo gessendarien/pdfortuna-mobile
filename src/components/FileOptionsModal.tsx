@@ -14,6 +14,7 @@ import { format } from 'date-fns';
 import Svg, { Path, Defs, LinearGradient, Stop } from 'react-native-svg';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from '@react-native-community/blur';
 import { useTheme } from '../theme/ThemeContext';
 import { LocalFile } from '../services/FileService';
 import { MarqueeText } from './MarqueeText';
@@ -141,42 +142,43 @@ export const FileOptionsModal = ({
 
     // Order: bottom-left → mid-left → mid-upper → top-right
     // Placed along the sector curve of menu-sostenido.png
+    // Inverted order per user request: Eliminar at bottom-left, Compartir at top-right
     const buttons = [
         {
-            id: 'share',
-            label: t('fileOptions.share') || 'Compartir',
+            id: 'delete',
+            label: t('fileOptions.delete') || 'Eliminar',
             baseX: 90,
             baseY: 275,
-            color: '#3b82f6',
-            icon: 'share-social-outline',
-            onPress: onShare,
-        },
-        {
-            id: 'favorite',
-            label: isFavorite ? 'Quitar fav' : 'Favorito',
-            baseX: 140,
-            baseY: 195,
-            color: '#ec4899',
-            icon: isFavorite ? 'heart' : 'heart-outline',
-            onPress: onFavorite,
+            color: '#ef4444',
+            icon: 'trash-outline',
+            onPress: onDelete,
         },
         {
             id: 'rename',
             label: t('fileOptions.rename') || 'Renombrar',
-            baseX: 215,
-            baseY: 130,
+            baseX: 140,
+            baseY: 195,
             color: '#8b5cf6',
             icon: 'pencil-outline',
             onPress: onRename,
         },
         {
-            id: 'delete',
-            label: t('fileOptions.delete') || 'Eliminar',
+            id: 'favorite',
+            label: isFavorite ? 'Quitar fav' : 'Favorito',
+            baseX: 215,
+            baseY: 130,
+            color: '#ec4899',
+            icon: isFavorite ? 'heart' : 'heart-outline',
+            onPress: onFavorite,
+        },
+        {
+            id: 'share',
+            label: t('fileOptions.share') || 'Compartir',
             baseX: 305,
             baseY: 90,
-            color: '#ef4444',
-            icon: 'trash-outline',
-            onPress: onDelete,
+            color: '#3b82f6',
+            icon: 'share-social-outline',
+            onPress: onShare,
         },
     ];
 
@@ -188,19 +190,24 @@ export const FileOptionsModal = ({
             onRequestClose={() => handleClose()}
         >
             <View style={styles.modalRoot}>
-                {/* Backdrop overlay with dimming */}
+                {/* Backdrop overlay with blur */}
                 <TouchableWithoutFeedback onPress={() => handleClose()}>
                     <Animated.View
                         style={[
                             styles.backdrop,
                             {
-                                opacity: anim.interpolate({
-                                    inputRange: [0, 1],
-                                    outputRange: [0, 0.55],
-                                }),
+                                opacity: anim,
                             },
                         ]}
-                    />
+                    >
+                        <BlurView
+                            style={StyleSheet.absoluteFill}
+                            blurType={isDarkMode ? 'dark' : 'light'}
+                            blurAmount={20}
+                            overlayColor={isDarkMode ? 'rgba(15, 23, 42, 0.65)' : 'rgba(255, 255, 255, 0.45)'}
+                            reducedTransparencyFallbackColor={isDarkMode ? 'rgba(15, 23, 42, 0.85)' : 'rgba(255, 255, 255, 0.85)'}
+                        />
+                    </Animated.View>
                 </TouchableWithoutFeedback>
 
                 {/* File summary card centered prominently */}
@@ -448,7 +455,6 @@ const styles = StyleSheet.create({
     },
     backdrop: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: '#000000',
     },
     fileCard: {
         position: 'absolute',

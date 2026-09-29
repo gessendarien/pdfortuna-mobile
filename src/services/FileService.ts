@@ -329,10 +329,13 @@ export const scanDeviceImages = async (): Promise<LocalImage[]> => {
 
     const targetDirs = [
         `${RNFS.ExternalStorageDirectoryPath}/Pictures`,
+        `${RNFS.ExternalStorageDirectoryPath}/Pictures/Screenshots`,
         `${RNFS.ExternalStorageDirectoryPath}/DCIM/Camera`,
         `${RNFS.ExternalStorageDirectoryPath}/DCIM`,
         `${RNFS.ExternalStorageDirectoryPath}/Download`,
+        `${RNFS.ExternalStorageDirectoryPath}/Documents`,
         RNFS.DownloadDirectoryPath,
+        RNFS.DocumentDirectoryPath,
     ];
 
     for (const dir of targetDirs) {

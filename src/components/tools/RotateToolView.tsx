@@ -3,22 +3,27 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useTheme } from '../../theme/ThemeContext';
 import { PageThumbnailGrid } from './shared/PageThumbnailGrid';
+import { ConfirmModal } from '../ConfirmModal';
+import { SaveModeModal } from './shared/SaveModeModal';
 
 interface Props {
     totalPages: number;
     sourcePath: string;
-    onProcess: (rotations: Record<number, number>) => Promise<void>;
+    onProcess: (rotations: Record<number, number>, saveMode?: 'original' | 'copy') => Promise<void>;
     isProcessing: boolean;
 }
 
 export const RotateToolView: React.FC<Props> = ({
     totalPages,
+    sourcePath,
     onProcess,
     isProcessing,
 }) => {
     const { colors } = useTheme();
     // Record of pageNum (1-indexed) -> added degrees (90, 180, 270)
     const [rotations, setRotations] = useState<Record<number, number>>({});
+    const [showResetConfirm, setShowResetConfirm] = useState(false);
+    const [showSaveModal, setShowSaveModal] = useState(false);
 
     const handleRotateSingle = (pageNum: number) => {
         setRotations((prev) => {
@@ -48,17 +53,18 @@ export const RotateToolView: React.FC<Props> = ({
         });
     };
 
-    const handleReset = () => {
-        setRotations({});
-    };
-
-    const handleSave = () => {
+    const handlePressSave = () => {
         const count = Object.keys(rotations).length;
         if (count === 0) {
             Alert.alert('Atención', 'No has girado ninguna página todavía.');
             return;
         }
-        onProcess(rotations);
+        setShowSaveModal(true);
+    };
+
+    const handleConfirmSave = (saveMode: 'original' | 'copy') => {
+        setShowSaveModal(false);
+        onProcess(rotations, saveMode);
     };
 
     const rotatedCount = Object.keys(rotations).length;
@@ -76,28 +82,28 @@ export const RotateToolView: React.FC<Props> = ({
                         onPress={handleRotateAll}
                     >
                         <Icon name="rotate-right" size={16} color={colors.primary} style={{ marginRight: 4 }} />
-                        <Text style={[styles.smallBtnText, { color: colors.primary }]}>Todas 90°</Text>
+                        <Text style={[styles.smallBtnText, { color: colors.text }]}>Girar todas +90°</Text>
                     </TouchableOpacity>
 
                     {rotatedCount > 0 && (
                         <TouchableOpacity
-                            style={[styles.smallBtn, { borderColor: colors.border }]}
-                            onPress={handleReset}
+                            style={[styles.smallBtn, { backgroundColor: colors.surfaceLight, borderColor: '#ef4444' }]}
+                            onPress={() => setShowResetConfirm(true)}
                         >
-                            <Text style={[styles.smallBtnText, { color: colors.textSecondary }]}>Restablecer</Text>
+                            <Icon name="restore" size={16} color="#ef4444" style={{ marginRight: 4 }} />
+                            <Text style={[styles.smallBtnText, { color: '#ef4444' }]}>Restablecer</Text>
                         </TouchableOpacity>
                     )}
                 </View>
             </View>
 
-            <View style={{ flex: 1 }}>
-                <PageThumbnailGrid
-                    totalPages={totalPages}
-                    rotations={rotations}
-                    onRotatePage={handleRotateSingle}
-                    mode="rotate"
-                />
-            </View>
+            <PageThumbnailGrid
+                totalPages={totalPages}
+                sourcePath={sourcePath}
+                mode="rotate"
+                rotations={rotations}
+                onRotatePage={handleRotateSingle}
+            />
 
             <TouchableOpacity
                 style={[
@@ -106,15 +112,41 @@ export const RotateToolView: React.FC<Props> = ({
                         backgroundColor: rotatedCount > 0 ? colors.primary : 'rgba(221, 31, 71, 0.4)',
                     },
                 ]}
-                onPress={handleSave}
+                onPress={handlePressSave}
                 disabled={rotatedCount === 0 || isProcessing}
-                activeOpacity={0.8}
+                activeOpacity={0.85}
             >
-                <Icon name="rotate-right" size={20} color="#ffffff" style={{ marginRight: 8 }} />
+                <Icon name="check" size={20} color="#ffffff" style={{ marginRight: 8 }} />
                 <Text style={styles.actionBtnText}>
-                    Guardar ({rotatedCount} página(s) giradas)
+                    {rotatedCount === 0
+                        ? 'Guardar páginas giradas'
+                        : `Guardar (${rotatedCount} ${rotatedCount === 1 ? 'página girada' : 'páginas giradas'})`}
                 </Text>
             </TouchableOpacity>
+
+            {/* SaveModeModal */}
+            <SaveModeModal
+                visible={showSaveModal}
+                onClose={() => setShowSaveModal(false)}
+                onConfirm={handleConfirmSave}
+                title="¿Cómo deseas guardar el PDF?"
+                description="Selecciona una opción para aplicar los giros de páginas:"
+            />
+
+            {/* Reset confirmation modal */}
+            <ConfirmModal
+                visible={showResetConfirm}
+                title="Restablecer documento"
+                message="¿Estás seguro de que deseas restablecer el documento editado a su forma original?"
+                confirmText="Restablecer"
+                cancelText="Cancelar"
+                confirmColor="#ef4444"
+                onConfirm={() => {
+                    setRotations({});
+                    setShowResetConfirm(false);
+                }}
+                onCancel={() => setShowResetConfirm(false)}
+            />
         </View>
     );
 };

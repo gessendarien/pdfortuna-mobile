@@ -3,16 +3,19 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useTheme } from '../../theme/ThemeContext';
 import { PageThumbnailGrid } from './shared/PageThumbnailGrid';
+import { ConfirmModal } from '../ConfirmModal';
+import { SaveModeModal } from './shared/SaveModeModal';
 
 interface Props {
     totalPages: number;
     sourcePath: string;
-    onProcess: (newOrder: number[]) => Promise<void>;
+    onProcess: (newOrder: number[], saveMode?: 'original' | 'copy') => Promise<void>;
     isProcessing: boolean;
 }
 
 export const ReorderPagesToolView: React.FC<Props> = ({
     totalPages,
+    sourcePath,
     onProcess,
     isProcessing,
 }) => {
@@ -21,6 +24,8 @@ export const ReorderPagesToolView: React.FC<Props> = ({
     const [pageOrder, setPageOrder] = useState<number[]>(
         Array.from({ length: totalPages }, (_, i) => i + 1)
     );
+    const [showResetConfirm, setShowResetConfirm] = useState(false);
+    const [showSaveModal, setShowSaveModal] = useState(false);
 
     const handleMove = (fromIndex: number, toIndex: number) => {
         if (toIndex < 0 || toIndex >= pageOrder.length) return;
@@ -34,19 +39,20 @@ export const ReorderPagesToolView: React.FC<Props> = ({
         setPageOrder([...pageOrder].reverse());
     };
 
-    const handleReset = () => {
-        setPageOrder(Array.from({ length: totalPages }, (_, i) => i + 1));
-    };
-
     // Check if order has changed
     const hasChanged = pageOrder.some((p, i) => p !== i + 1);
 
-    const handleSave = () => {
+    const handlePressSave = () => {
         if (!hasChanged) {
             Alert.alert('Atención', 'El orden de las páginas no ha sido modificado.');
             return;
         }
-        onProcess(pageOrder);
+        setShowSaveModal(true);
+    };
+
+    const handleConfirmSave = (saveMode: 'original' | 'copy') => {
+        setShowSaveModal(false);
+        onProcess(pageOrder, saveMode);
     };
 
     return (
@@ -67,10 +73,11 @@ export const ReorderPagesToolView: React.FC<Props> = ({
 
                     {hasChanged && (
                         <TouchableOpacity
-                            style={[styles.smallBtn, { borderColor: colors.border }]}
-                            onPress={handleReset}
+                            style={[styles.smallBtn, { borderColor: '#ef4444' }]}
+                            onPress={() => setShowResetConfirm(true)}
                         >
-                            <Text style={[styles.smallBtnText, { color: colors.textSecondary }]}>Restablecer</Text>
+                            <Icon name="restore" size={16} color="#ef4444" style={{ marginRight: 4 }} />
+                            <Text style={[styles.smallBtnText, { color: '#ef4444' }]}>Restablecer</Text>
                         </TouchableOpacity>
                     )}
                 </View>
@@ -79,6 +86,7 @@ export const ReorderPagesToolView: React.FC<Props> = ({
             <View style={{ flex: 1 }}>
                 <PageThumbnailGrid
                     totalPages={totalPages}
+                    sourcePath={sourcePath}
                     pageOrder={pageOrder}
                     onMovePage={handleMove}
                     mode="reorder"
@@ -92,13 +100,39 @@ export const ReorderPagesToolView: React.FC<Props> = ({
                         backgroundColor: hasChanged ? colors.primary : 'rgba(221, 31, 71, 0.4)',
                     },
                 ]}
-                onPress={handleSave}
+                onPress={handlePressSave}
                 disabled={!hasChanged || isProcessing}
-                activeOpacity={0.8}
+                activeOpacity={0.85}
             >
                 <Icon name="check" size={20} color="#ffffff" style={{ marginRight: 8 }} />
-                <Text style={styles.actionBtnText}>Guardar nuevo orden</Text>
+                <Text style={styles.actionBtnText}>
+                    {hasChanged ? 'Guardar nuevo orden' : 'Reordena las páginas para continuar'}
+                </Text>
             </TouchableOpacity>
+
+            {/* SaveModeModal */}
+            <SaveModeModal
+                visible={showSaveModal}
+                onClose={() => setShowSaveModal(false)}
+                onConfirm={handleConfirmSave}
+                title="¿Cómo deseas guardar el PDF?"
+                description="Selecciona una opción para aplicar el nuevo orden de páginas:"
+            />
+
+            {/* Reset confirmation modal */}
+            <ConfirmModal
+                visible={showResetConfirm}
+                title="Restablecer documento"
+                message="¿Estás seguro de que deseas restablecer el documento editado a su forma original?"
+                confirmText="Restablecer"
+                cancelText="Cancelar"
+                confirmColor="#ef4444"
+                onConfirm={() => {
+                    setPageOrder(Array.from({ length: totalPages }, (_, i) => i + 1));
+                    setShowResetConfirm(false);
+                }}
+                onCancel={() => setShowResetConfirm(false)}
+            />
         </View>
     );
 };

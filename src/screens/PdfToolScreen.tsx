@@ -1,13 +1,17 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, Alert, BackHandler } from 'react-native';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, Alert, BackHandler, Modal, ScrollView } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Share from 'react-native-share';
+import Pdf from 'react-native-pdf';
 import { useTheme } from '../theme/ThemeContext';
 import { t } from '../i18n';
-import { LocalFile, scanDocuments } from '../services/FileService';
-import { PdfToolsService, WatermarkOptions, SignaturePlacement, RedactionBox } from '../services/PdfToolsService';
+import { LocalFile, scanDocuments, renameFile } from '../services/FileService';
+import { RenameModal } from '../components/RenameModal';
+import { MarqueeText } from '../components/MarqueeText';
+import { PdfToolsService, WatermarkOptions, SignaturePlacement, RedactionBox, DocumentEditItem } from '../services/PdfToolsService';
+import { PageJumpBalloon } from '../components/tools/shared/PageJumpBalloon';
 
 // Tool Components
 import { MergeToolView } from '../components/tools/MergeToolView';
@@ -19,11 +23,10 @@ import { WatermarkToolView } from '../components/tools/WatermarkToolView';
 import { SignatureToolView } from '../components/tools/SignatureToolView';
 import { RedactToolView } from '../components/tools/RedactToolView';
 import { FillFormToolView } from '../components/tools/FillFormToolView';
-import { EditAnnotationsView } from '../components/tools/EditAnnotationsView';
+import { PdfInlineEditorView } from '../components/tools/PdfInlineEditorView';
 
 // Shared
 import { ToolProgressModal } from '../components/tools/shared/ToolProgressModal';
-import { ToolResultBar } from '../components/tools/shared/ToolResultBar';
 
 export const PdfToolScreen: React.FC = () => {
     const navigation = useNavigation<any>();
@@ -44,16 +47,36 @@ export const PdfToolScreen: React.FC = () => {
     const [processMessage, setProcessMessage] = useState('Procesando documento...');
     const [resultPaths, setResultPaths] = useState<string[]>([]);
 
+    // Rename & Preview Modal states for result documents
+    const [renamingFilePath, setRenamingFilePath] = useState<string | null>(null);
+    const [previewModalPath, setPreviewModalPath] = useState<string | null>(null);
+    const [previewPageCount, setPreviewPageCount] = useState<number>(0);
+    const [previewCurrentPage, setPreviewCurrentPage] = useState<number>(1);
+    const [previewPageJumpVisible, setPreviewPageJumpVisible] = useState(false);
+    const previewPdfRef = useRef<any>(null);
+
+    const handleJumpToPreviewPage = (p: number) => {
+        if (p >= 1 && p <= previewPageCount) {
+            previewPdfRef.current?.setPage(p);
+            setPreviewCurrentPage(p);
+        }
+    };
+
     // Title from i18n
     const toolTitle = useMemo(() => {
         return t(`tools.${toolId}`) || 'Herramienta PDF';
     }, [toolId]);
 
+    const handleAcceptReturnHome = () => {
+        setResultPaths([]);
+        navigation.navigate('Home', { targetTab: 'documents', targetSubTab: 'all' });
+    };
+
     // Back handler
     useEffect(() => {
         const onBack = () => {
             if (resultPaths.length > 0) {
-                setResultPaths([]);
+                handleAcceptReturnHome();
                 return true;
             }
             if (selectedFile && !initialPdfUri && toolId !== 'merge') {
@@ -129,17 +152,40 @@ export const PdfToolScreen: React.FC = () => {
         }
     };
 
-    const handleSplit = async (ranges: string) => {
+    const handleSplit = async (ranges: string, outputName?: string) => {
         if (!selectedFile) return;
         setIsProcessing(true);
         setProcessMessage('Dividiendo documento...');
         try {
-            const outs = await PdfToolsService.splitFile(selectedFile.path, ranges);
+            const defaultBase = selectedFile.name.replace(/\.pdf$/i, '') + '_dividido';
+            const outs = await PdfToolsService.splitFile(selectedFile.path, ranges, outputName || defaultBase);
             setResultPaths(outs);
         } catch (e: any) {
             Alert.alert('Error', e.message || 'No se pudo dividir el documento.');
         } finally {
             setIsProcessing(false);
+        }
+    };
+
+    const handleExecuteRename = async (newName: string) => {
+        if (!renamingFilePath) return;
+        const oldPath = renamingFilePath;
+        setRenamingFilePath(null);
+
+        const cleanNewName = newName.trim();
+        if (!cleanNewName) return;
+
+        const finalName = cleanNewName.toLowerCase().endsWith('.pdf') ? cleanNewName : `${cleanNewName}.pdf`;
+        const success = await renameFile(oldPath, finalName);
+        if (success) {
+            const lastSlash = oldPath.lastIndexOf('/');
+            const newPath = oldPath.substring(0, lastSlash + 1) + finalName;
+            setResultPaths((prev) => prev.map((p) => (p === oldPath ? newPath : p)));
+            if (previewModalPath === oldPath) {
+                setPreviewModalPath(newPath);
+            }
+        } else {
+            Alert.alert('Error', 'No se pudo renombrar el archivo.');
         }
     };
 
@@ -157,12 +203,12 @@ export const PdfToolScreen: React.FC = () => {
         }
     };
 
-    const handleRotatePages = async (rotations: Record<number, number>) => {
+    const handleRotatePages = async (rotations: Record<number, number>, saveMode: 'original' | 'copy' = 'copy') => {
         if (!selectedFile) return;
         setIsProcessing(true);
         setProcessMessage('Girando páginas...');
         try {
-            const out = await PdfToolsService.rotatePages(selectedFile.path, rotations);
+            const out = await PdfToolsService.rotatePages(selectedFile.path, rotations, saveMode);
             setResultPaths([out]);
         } catch (e: any) {
             Alert.alert('Error', e.message || 'No se pudo girar las páginas.');
@@ -171,12 +217,12 @@ export const PdfToolScreen: React.FC = () => {
         }
     };
 
-    const handleReorderPages = async (newOrder: number[]) => {
+    const handleReorderPages = async (newOrder: number[], saveMode: 'original' | 'copy' = 'copy') => {
         if (!selectedFile) return;
         setIsProcessing(true);
         setProcessMessage('Reordenando páginas...');
         try {
-            const out = await PdfToolsService.reorderPages(selectedFile.path, newOrder);
+            const out = await PdfToolsService.reorderPages(selectedFile.path, newOrder, saveMode);
             setResultPaths([out]);
         } catch (e: any) {
             Alert.alert('Error', e.message || 'No se pudo reordenar las páginas.');
@@ -199,6 +245,20 @@ export const PdfToolScreen: React.FC = () => {
         }
     };
 
+    const handleEditDocument = async (edits: DocumentEditItem[], saveMode: 'original' | 'copy' = 'copy') => {
+        if (!selectedFile) return;
+        setIsProcessing(true);
+        setProcessMessage('Guardando ediciones en el documento...');
+        try {
+            const out = await PdfToolsService.applyDocumentEdits(selectedFile.path, edits, saveMode);
+            setResultPaths([out]);
+        } catch (e: any) {
+            Alert.alert('Error', e.message || 'No se pudieron guardar las modificaciones.');
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
     const handleSignature = async (placement: SignaturePlacement, saveMode: 'original' | 'copy' = 'copy') => {
         if (!selectedFile) return;
         setIsProcessing(true);
@@ -213,12 +273,12 @@ export const PdfToolScreen: React.FC = () => {
         }
     };
 
-    const handleRedact = async (boxes: RedactionBox[]) => {
+    const handleRedact = async (boxes: RedactionBox[], saveMode: 'original' | 'copy' = 'copy') => {
         if (!selectedFile) return;
         setIsProcessing(true);
         setProcessMessage('Censurando información...');
         try {
-            const out = await PdfToolsService.redactDocument(selectedFile.path, boxes);
+            const out = await PdfToolsService.redactDocument(selectedFile.path, boxes, saveMode);
             setResultPaths([out]);
         } catch (e: any) {
             Alert.alert('Error', e.message || 'No se pudo censurar el documento.');
@@ -227,12 +287,12 @@ export const PdfToolScreen: React.FC = () => {
         }
     };
 
-    const handleFillForm = async (values: Record<string, string | boolean>, flatten: boolean) => {
+    const handleFillForm = async (values: Record<string, string | boolean>, flatten: boolean, saveMode: 'original' | 'copy' = 'copy') => {
         if (!selectedFile) return;
         setIsProcessing(true);
         setProcessMessage('Completando formulario...');
         try {
-            const out = await PdfToolsService.fillForm(selectedFile.path, values, flatten);
+            const out = await PdfToolsService.fillForm(selectedFile.path, values, flatten, saveMode);
             setResultPaths([out]);
         } catch (e: any) {
             Alert.alert('Error', e.message || 'No se pudo rellenar el formulario.');
@@ -246,7 +306,7 @@ export const PdfToolScreen: React.FC = () => {
         navigation.navigate('PdfViewer', {
             uri: `file://${filePath}`,
             name: fileName,
-            isExternal: true,
+            isExternal: false,
         });
     };
 
@@ -265,22 +325,27 @@ export const PdfToolScreen: React.FC = () => {
         <View style={[styles.safeArea, { backgroundColor: colors.backgroundLight, paddingTop: insets.top }]}>
             {/* Header */}
             <View style={[styles.navHeader, { backgroundColor: colors.surfaceLight, borderBottomColor: colors.border }]}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                    <Icon name="arrow-back" size={24} color={colors.text} />
-                </TouchableOpacity>
+                {resultPaths.length === 0 && (
+                    <TouchableOpacity
+                        onPress={() => navigation.goBack()}
+                        style={styles.backBtn}
+                    >
+                        <Icon name="arrow-back" size={24} color={colors.text} />
+                    </TouchableOpacity>
+                )}
 
                 <View style={styles.titleContainer}>
                     <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
-                        {toolTitle}
+                        {resultPaths.length > 0 ? '' : toolTitle}
                     </Text>
-                    {selectedFile && toolId !== 'merge' && (
+                    {resultPaths.length === 0 && selectedFile && toolId !== 'merge' && (
                         <Text style={[styles.headerSub, { color: colors.textSecondary }]} numberOfLines={1}>
                             {selectedFile.name}
                         </Text>
                     )}
                 </View>
 
-                {selectedFile && !initialPdfUri && toolId !== 'merge' && (
+                {resultPaths.length === 0 && selectedFile && !initialPdfUri && toolId !== 'merge' && !['sign', 'watermark', 'redact', 'edit'].includes(toolId) && (
                     <TouchableOpacity onPress={() => setSelectedFile(null)} style={styles.changeFileBtn}>
                         <Icon name="swap-horiz" size={22} color={colors.primary} />
                     </TouchableOpacity>
@@ -289,11 +354,112 @@ export const PdfToolScreen: React.FC = () => {
 
             {/* Content Body */}
             <View style={styles.body}>
-                {toolId === 'merge' ? (
+                {resultPaths.length > 0 ? (
+                    <View style={styles.successScreen}>
+                        <View style={[styles.successCard, { backgroundColor: colors.surfaceLight, borderColor: colors.border }]}>
+                            <View style={[styles.successIconBadge, { backgroundColor: 'rgba(16, 185, 129, 0.12)' }]}>
+                                <Icon name="check-circle" size={56} color="#10b981" />
+                            </View>
+
+                            <Text style={[styles.successTitle, { color: colors.text }]}>
+                                {resultPaths.length > 1
+                                    ? `¡${resultPaths.length} documentos generados!`
+                                    : '¡Documento generado con éxito!'}
+                            </Text>
+
+                            {/* Nested list container for generated PDF(s) (approx. 3.5 items visible) */}
+                            <View style={styles.filesNestedContainer}>
+                                <ScrollView
+                                    style={styles.filesScrollView}
+                                    contentContainerStyle={styles.filesScrollContent}
+                                    nestedScrollEnabled={true}
+                                    showsVerticalScrollIndicator={true}
+                                    persistentScrollbar={true}
+                                >
+                                    {resultPaths.map((filePath, index) => {
+                                        const fileName = filePath.split('/').pop() || 'documento.pdf';
+                                        return (
+                                            <TouchableOpacity
+                                                key={`${filePath}_${index}`}
+                                                style={[
+                                                    styles.successFilePill,
+                                                    {
+                                                        backgroundColor: colors.backgroundLight,
+                                                        borderColor: colors.border,
+                                                    },
+                                                ]}
+                                                onPress={() => {
+                                                    setPreviewPageCount(0);
+                                                    setPreviewCurrentPage(1);
+                                                    setPreviewModalPath(filePath);
+                                                }}
+                                                activeOpacity={0.7}
+                                            >
+                                                <Icon name="picture-as-pdf" size={26} color="#ef4444" style={{ marginRight: 12 }} />
+                                                <View style={{ flex: 1 }}>
+                                                    <View style={{ height: 22, justifyContent: 'center' }}>
+                                                        <MarqueeText
+                                                            text={fileName}
+                                                            style={[styles.successFileName, { color: colors.text }]}
+                                                        />
+                                                    </View>
+
+                                                    {/* Enlace abajo del nombre del documento para Renombrar */}
+                                                    <TouchableOpacity
+                                                        onPress={() => setRenamingFilePath(filePath)}
+                                                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                                        style={styles.renameLinkBtn}
+                                                        activeOpacity={0.7}
+                                                    >
+                                                        <Icon name="edit" size={13} color={colors.primary} style={{ marginRight: 4 }} />
+                                                        <Text style={[styles.renameLinkText, { color: colors.primary }]}>
+                                                            Renombrar
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                </View>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                </ScrollView>
+                            </View>
+
+                            {/* Action Buttons: Abrir & Compartir */}
+                            <View style={styles.successActionsRow}>
+                                <TouchableOpacity
+                                    style={[styles.successPrimaryBtn, { backgroundColor: colors.primary }]}
+                                    onPress={() => handleOpenResult(resultPaths[0])}
+                                    activeOpacity={0.8}
+                                >
+                                    <Icon name="visibility" size={20} color="#ffffff" style={{ marginRight: 6 }} />
+                                    <Text style={styles.successPrimaryBtnText}>Abrir</Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={[styles.successSecondaryBtn, { borderColor: colors.border, backgroundColor: colors.surfaceLight }]}
+                                    onPress={() => handleShareResult(resultPaths[0])}
+                                    activeOpacity={0.8}
+                                >
+                                    <Icon name="share" size={20} color={colors.text} style={{ marginRight: 6 }} />
+                                    <Text style={[styles.successSecondaryBtnText, { color: colors.text }]}>Compartir</Text>
+                                </TouchableOpacity>
+                            </View>
+
+                            {/* Botón mediano de Aceptar que regresa a Documentos general */}
+                            <TouchableOpacity
+                                style={[styles.acceptBtn, { borderColor: colors.primary, backgroundColor: colors.surfaceLight }]}
+                                onPress={handleAcceptReturnHome}
+                                activeOpacity={0.8}
+                            >
+                                <Text style={[styles.acceptBtnText, { color: colors.primary }]}>Aceptar</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                ) : toolId === 'merge' ? (
                     <MergeToolView
                         availableFiles={availableFiles}
                         onProcess={handleMerge}
                         isProcessing={isProcessing}
+                        initialFile={selectedFile}
                     />
                 ) : !selectedFile ? (
                     /* Document picker for single-document tools */
@@ -406,15 +572,16 @@ export const PdfToolScreen: React.FC = () => {
                         {toolId === 'form' && (
                             <FillFormToolView
                                 sourcePath={selectedFile.path}
+                                totalPages={totalPages}
                                 onProcess={handleFillForm}
                                 isProcessing={isProcessing}
                             />
                         )}
                         {toolId === 'edit' && (
-                            <EditAnnotationsView
+                            <PdfInlineEditorView
                                 totalPages={totalPages}
                                 sourcePath={selectedFile.path}
-                                onProcess={handleWatermark}
+                                onProcess={handleEditDocument}
                                 isProcessing={isProcessing}
                             />
                         )}
@@ -422,18 +589,135 @@ export const PdfToolScreen: React.FC = () => {
                 )}
             </View>
 
-            {/* Bottom Result Bar */}
-            <ToolResultBar
-                resultPaths={resultPaths}
-                onOpen={handleOpenResult}
-                onShare={handleShareResult}
-                onReset={() => setResultPaths([])}
-            />
-
             {/* Progress Modal */}
             <ToolProgressModal
                 visible={isProcessing}
                 message={processMessage}
+            />
+
+            {/* Modal Preview for generated document */}
+            <Modal
+                visible={!!previewModalPath}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setPreviewModalPath(null)}
+            >
+                <View style={styles.modalBackdrop}>
+                    <View
+                        style={[
+                            styles.previewModalBox,
+                            {
+                                backgroundColor: colors.surfaceLight,
+                                borderColor: colors.border,
+                            },
+                        ]}
+                    >
+                        {/* Header */}
+                        <View style={[styles.previewModalHeader, { borderBottomColor: colors.border }]}>
+                            <Icon name="picture-as-pdf" size={24} color="#ef4444" style={{ marginRight: 8 }} />
+                            <View style={{ flex: 1 }}>
+                                <Text style={[styles.previewModalTitle, { color: colors.text }]} numberOfLines={1}>
+                                    {previewModalPath ? previewModalPath.split('/').pop() : ''}
+                                </Text>
+                                {previewPageCount > 0 && (
+                                    <TouchableOpacity
+                                        onPress={() => setPreviewPageJumpVisible(true)}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Text style={[styles.previewModalPageInfo, { color: colors.textSecondary }]}>
+                                            Página <Text style={{ color: colors.primary, fontWeight: 'bold' }}>{previewCurrentPage}</Text> de {previewPageCount}
+                                        </Text>
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+                            <TouchableOpacity
+                                onPress={() => setPreviewModalPath(null)}
+                                style={styles.previewModalCloseBtn}
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            >
+                                <Icon name="close" size={22} color={colors.text} />
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Page Jump Balloon */}
+                        <PageJumpBalloon
+                            visible={previewPageJumpVisible}
+                            currentPage={previewCurrentPage}
+                            totalPages={previewPageCount}
+                            onPageChange={handleJumpToPreviewPage}
+                            onClose={() => setPreviewPageJumpVisible(false)}
+                            topOffset={52}
+                        />
+
+                        {/* PDF Content */}
+                        <View style={styles.previewModalContent}>
+                            {previewModalPath && (
+                                <Pdf
+                                    ref={previewPdfRef}
+                                    source={{
+                                        uri: previewModalPath.startsWith('file://')
+                                            ? previewModalPath
+                                            : `file://${previewModalPath}`,
+                                        cache: true,
+                                    }}
+                                    style={styles.previewPdfView}
+                                    fitPolicy={2}
+                                    spacing={6}
+                                    minScale={1.0}
+                                    maxScale={5.0}
+                                    enablePaging={true}
+                                    enableDoubleTapZoom={true}
+                                    onLoadComplete={(numberOfPages) => {
+                                        setPreviewPageCount(numberOfPages);
+                                        setPreviewCurrentPage(1);
+                                    }}
+                                    onPageChanged={(page) => {
+                                        setPreviewCurrentPage(page);
+                                    }}
+                                    onError={(error) => {
+                                        console.warn('Pdf modal preview error:', error);
+                                    }}
+                                />
+                            )}
+                        </View>
+
+                        {/* Footer (Centered Buttons) */}
+                        <View style={[styles.previewModalFooter, { borderTopColor: colors.border }]}>
+                            <TouchableOpacity
+                                style={[styles.previewModalOpenBtn, { backgroundColor: colors.primary }]}
+                                onPress={() => {
+                                    const path = previewModalPath;
+                                    setPreviewModalPath(null);
+                                    if (path) handleOpenResult(path);
+                                }}
+                                activeOpacity={0.8}
+                            >
+                                <Icon name="visibility" size={18} color="#ffffff" style={{ marginRight: 6 }} />
+                                <Text style={styles.previewModalOpenBtnText}>Abrir completo</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={[styles.previewModalDismissBtn, { borderColor: colors.border }]}
+                                onPress={() => setPreviewModalPath(null)}
+                                activeOpacity={0.8}
+                            >
+                                <Text style={[styles.previewModalDismissBtnText, { color: colors.textSecondary }]}>
+                                    Cerrar
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Rename Modal on Success Screen */}
+            <RenameModal
+                visible={!!renamingFilePath}
+                currentName={renamingFilePath ? renamingFilePath.split('/').pop() || 'documento.pdf' : 'documento.pdf'}
+                onClose={() => setRenamingFilePath(null)}
+                onRename={handleExecuteRename}
+                title="Renombrar documento"
+                saveLabel="Guardar"
             />
         </View>
     );
@@ -505,5 +789,210 @@ const styles = StyleSheet.create({
     fileMeta: {
         fontSize: 11,
         marginTop: 2,
+    },
+    successScreen: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 16,
+    },
+    successCard: {
+        width: '100%',
+        maxWidth: 420,
+        borderRadius: 22,
+        paddingHorizontal: 20,
+        paddingTop: 24,
+        paddingBottom: 20,
+        alignItems: 'center',
+        borderWidth: 1,
+        elevation: 6,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 10,
+    },
+    successIconBadge: {
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 10,
+        marginTop: 4,
+    },
+    successTitle: {
+        fontSize: 17,
+        fontWeight: 'bold',
+        textAlign: 'center',
+        marginBottom: 10,
+    },
+    filesNestedContainer: {
+        width: '100%',
+        maxHeight: 220,
+        marginVertical: 10,
+    },
+    filesScrollView: {
+        width: '100%',
+    },
+    filesScrollContent: {
+        paddingRight: 4,
+    },
+    successFilePill: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        width: '100%',
+        paddingVertical: 12,
+        paddingHorizontal: 14,
+        borderRadius: 14,
+        borderWidth: 1,
+        marginBottom: 10,
+    },
+    successFileName: {
+        fontSize: 14,
+        fontWeight: '700',
+    },
+    successFilePath: {
+        fontSize: 11,
+        marginTop: 4,
+    },
+    renameLinkBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        alignSelf: 'flex-start',
+        paddingVertical: 3,
+        paddingHorizontal: 0,
+        marginVertical: 3,
+    },
+    renameLinkText: {
+        fontSize: 13,
+        fontWeight: 'bold',
+    },
+    successActionsRow: {
+        flexDirection: 'row',
+        width: '100%',
+        gap: 12,
+        marginBottom: 16,
+    },
+    successPrimaryBtn: {
+        flex: 1,
+        height: 46,
+        borderRadius: 12,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        elevation: 2,
+    },
+    successPrimaryBtnText: {
+        color: '#ffffff',
+        fontSize: 14,
+        fontWeight: 'bold',
+    },
+    successSecondaryBtn: {
+        flex: 1,
+        height: 46,
+        borderRadius: 12,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+    },
+    successSecondaryBtnText: {
+        fontSize: 14,
+        fontWeight: 'bold',
+    },
+    acceptBtn: {
+        minWidth: 150,
+        height: 42,
+        paddingHorizontal: 28,
+        borderRadius: 21,
+        borderWidth: 1.5,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    acceptBtnText: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        includeFontPadding: false,
+        textAlignVertical: 'center',
+    },
+    modalBackdrop: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.65)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 16,
+    },
+    previewModalBox: {
+        width: '100%',
+        height: '80%',
+        maxWidth: 420,
+        borderRadius: 20,
+        borderWidth: 1,
+        overflow: 'hidden',
+        elevation: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 12,
+    },
+    previewModalHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+    },
+    previewModalTitle: {
+        fontSize: 14,
+        fontWeight: 'bold',
+    },
+    previewModalPageInfo: {
+        fontSize: 11,
+        marginTop: 2,
+    },
+    previewModalCloseBtn: {
+        padding: 4,
+        marginLeft: 8,
+    },
+    previewModalContent: {
+        flex: 1,
+        backgroundColor: '#1e293b',
+    },
+    previewPdfView: {
+        flex: 1,
+        width: '100%',
+        backgroundColor: 'transparent',
+    },
+    previewModalFooter: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderTopWidth: 1,
+    },
+    previewModalOpenBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderRadius: 10,
+    },
+    previewModalOpenBtnText: {
+        color: '#ffffff',
+        fontSize: 13,
+        fontWeight: 'bold',
+    },
+    previewModalDismissBtn: {
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderRadius: 10,
+        borderWidth: 1,
+    },
+    previewModalDismissBtnText: {
+        fontSize: 13,
+        fontWeight: '600',
     },
 });

@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { View, Text, FlatList, TextInput, TouchableOpacity, ActivityIndicator, StyleSheet, Linking, BackHandler } from 'react-native';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { LocalFile, openFileInExternalApp, renameFile } from '../services/FileService';
 import { theme } from '../theme';
@@ -63,6 +63,17 @@ export const HomeScreen = () => {
     const [optionsModalVisible, setOptionsModalVisible] = useState(false);
     const [privacyAccepted, setPrivacyAccepted] = useState<boolean | null>(null);
     const [privacyModalVisible, setPrivacyModalVisible] = useState(false);
+    const route = useRoute<any>();
+
+    // Switch tabs if navigated with targetTab param (e.g. from Tools success screen)
+    useEffect(() => {
+        if (route.params?.targetTab) {
+            setCurrentNavTab(route.params.targetTab);
+            if (route.params?.targetSubTab) {
+                setDocumentSubTab(route.params.targetSubTab);
+            }
+        }
+    }, [route.params?.targetTab, route.params?.targetSubTab]);
 
     // Check if privacy policy has been accepted
     useEffect(() => {
@@ -281,10 +292,28 @@ export const HomeScreen = () => {
                 result = result.filter(f => {
                     const lowerPath = f.path.toLowerCase();
                     const lowerName = f.name.toLowerCase();
+
+                    // Documents created by tools belong to 'all' (Todos), NOT to 'scanner' (Escáner)
+                    const isToolDoc = (
+                        lowerPath.includes('/download/pdfortuna/') ||
+                        lowerPath.includes('/editados/') ||
+                        lowerPath.includes('/herramientas/') ||
+                        lowerName.includes('unido') ||
+                        lowerName.includes('dividido') ||
+                        lowerName.includes('parte_') ||
+                        lowerName.includes('rotado') ||
+                        lowerName.includes('reordenado') ||
+                        lowerName.includes('marca_de_agua') ||
+                        lowerName.includes('censurado') ||
+                        lowerName.includes('firmado') ||
+                        lowerName.includes('formulario') ||
+                        lowerName.includes('paginas_eliminadas')
+                    );
+
+                    if (isToolDoc) return false;
+
                     return (
-                        lowerPath.includes('/pdfortuna/') ||
-                        lowerPath.includes('scan') ||
-                        lowerPath.includes('escan') ||
+                        lowerPath.includes('/documents/pdfortuna/') ||
                         lowerPath.includes('camscanner') ||
                         lowerName.startsWith('escaneo_') ||
                         lowerName.startsWith('scan_') ||

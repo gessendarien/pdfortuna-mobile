@@ -4,10 +4,12 @@ import { Text, ScrollView, Animated, StyleProp, TextStyle } from 'react-native';
 interface MarqueeTextProps {
     text: string;
     style?: StyleProp<TextStyle>;
+    speed?: number; // ms per pixel, lower is faster
+    delay?: number; // initial delay in ms
 }
 
 /** Marquee text: auto-scrolls smoothly if text overflows its container */
-export const MarqueeText = ({ text, style }: MarqueeTextProps) => {
+export const MarqueeText = ({ text, style, speed = 22, delay = 700 }: MarqueeTextProps) => {
     const scrollRef = useRef<ScrollView>(null);
     const animValue = useRef(new Animated.Value(0)).current;
     const [contentW, setContentW] = useState(0);
@@ -32,24 +34,24 @@ export const MarqueeText = ({ text, style }: MarqueeTextProps) => {
         if (needsScroll) {
             animRef.current = Animated.loop(
                 Animated.sequence([
-                    // Pause at start (1.5s)
-                    Animated.delay(1500),
-                    // Scroll forward slowly (~40ms per pixel = smooth reading speed)
+                    // Pause at start
+                    Animated.delay(delay),
+                    // Scroll forward at a brisk, legible speed
                     Animated.timing(animValue, {
                         toValue: overflow,
-                        duration: overflow * 40,
+                        duration: Math.max(300, overflow * speed),
                         useNativeDriver: false,
                     }),
-                    // Stay at end for 4 seconds
-                    Animated.delay(4000),
+                    // Stay at end briefly
+                    Animated.delay(1200),
                     // Return quickly
                     Animated.timing(animValue, {
                         toValue: 0,
-                        duration: 400,
+                        duration: 350,
                         useNativeDriver: false,
                     }),
                     // Brief pause before restarting
-                    Animated.delay(800),
+                    Animated.delay(500),
                 ])
             );
             animRef.current.start();
@@ -58,7 +60,7 @@ export const MarqueeText = ({ text, style }: MarqueeTextProps) => {
         return () => {
             if (animRef.current) animRef.current.stop();
         };
-    }, [needsScroll, overflow]);
+    }, [needsScroll, overflow, speed, delay]);
 
     return (
         <ScrollView

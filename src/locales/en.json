@@ -6,7 +6,7 @@
         "button": "Allow access"
     },
     "home": {
-        "scanning": "Scanning files...",
+        "scanning": "Searching for documents...",
         "noDocuments": "No documents found",
         "noFavorites": "No favorites yet",
         "noRecent": "No recent documents",
@@ -60,7 +60,7 @@
         "openOfficeInAppDesc": "Use the built-in quick viewer instead of opening an external app. This option is a quick viewer only, full document compatibility is not guaranteed.",
         "darkMode": "Dark mode",
         "darkModeDesc": "Change the app appearance",
-        "about": "About PDFortuna"
+        "about": "PDFortuna"
     },
     "fileOptions": {
         "addFavorite": "Add to favorites",
@@ -97,9 +97,12 @@
     "credits": {
         "credits": "Credits",
         "developedBy": "Developed by Gessén Darién 💚",
-        "privacyTitle": "Privacy and Source code",
-        "privacyText": "This app does not send any information to external servers and all data remains on your device so your privacy is protected. If you want to see more including the source code, visit the ",
-        "website": "website"
+        "privacyTitle": "Privacy",
+        "privacyText": "This app does not send any information to external servers and all data remains on your device so your privacy is protected.",
+        "websiteTitle": "Website",
+        "websitePre": "Visit the ",
+        "websiteLink": "website",
+        "websitePost": " to consult our privacy policy and source code."
     },
     "viewer": {
         "document": "Document",

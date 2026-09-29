@@ -36,7 +36,7 @@ export const CreditsModal = ({ visible, onClose }: Props) => {
                     <View style={styles.content}>
                         <View style={styles.logoContainer}>
                             <Text style={[styles.appName, { color: colors.primary }]}>PDFortuna</Text>
-                            <Text style={[styles.version, { color: colors.textSecondary }]}>v0.1.3</Text>
+                            <Text style={[styles.version, { color: colors.textSecondary }]}>0.1.3</Text>
                         </View>
 
                         <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('credits.credits')}</Text>
@@ -47,10 +47,15 @@ export const CreditsModal = ({ visible, onClose }: Props) => {
                         <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('credits.privacyTitle')}</Text>
                         <Text style={[styles.text, { color: colors.textSecondary }]}>
                             {t('credits.privacyText')}
+                        </Text>
+
+                        <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('credits.websiteTitle')}</Text>
+                        <Text style={[styles.text, { color: colors.textSecondary }]}>
+                            {t('credits.websitePre')}
                             <Text style={{ color: colors.primary, fontWeight: 'bold', textDecorationLine: 'underline' }} onPress={handleLink}>
-                                {t('credits.website')}
+                                {t('credits.websiteLink')}
                             </Text>
-                            .
+                            {t('credits.websitePost')}
                         </Text>
 
                     </View>

@@ -21,7 +21,8 @@ export const PdfViewerScreen = () => {
     const insets = useSafeAreaInsets();
 
     const isContentUri = uri.startsWith('content://');
-    const showSaveButton = isExternal || isContentUri;
+    const isAlreadySaved = uri.includes('PDFortuna') || !isExternal;
+    const showSaveButton = Boolean((isExternal || isContentUri) && !isAlreadySaved);
 
     // Toast state
     const [toastVisible, setToastVisible] = useState(false);

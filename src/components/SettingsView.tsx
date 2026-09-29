@@ -99,7 +99,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     t('settings.openOfficeInAppDesc')
                 )}
 
-            {/* Simple rounded About/Credits button from previous version */}
+            {/* Simple rounded PDFortuna button */}
             <View style={styles.aboutContainer}>
                 <TouchableOpacity
                     style={[
@@ -116,13 +116,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         {t('settings.about')}
                     </Text>
                 </TouchableOpacity>
-            </View>
-
-            {/* Footer version */}
-            <View style={styles.footer}>
-                <Text style={[styles.versionText, { color: colors.textSecondary }]}>
-                    PDFortuna v0.1.3
-                </Text>
             </View>
         </ScrollView>
     );

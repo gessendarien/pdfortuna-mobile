@@ -1,105 +1,91 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import {
+    View,
+    Text,
+    StyleSheet,
+    ScrollView,
+    TouchableOpacity,
+    Image,
+    Platform,
+    ImageSourcePropType,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useTheme } from '../theme/ThemeContext';
 import { t } from '../i18n';
 
 interface ToolItem {
     id: string;
-    icon: string;
+    image: ImageSourcePropType;
     titleKey: string;
     descKey: string;
-    iconColor?: string;
-    bgColor?: string;
 }
 
 const TOOLS: ToolItem[] = [
     {
         id: 'sign',
-        icon: 'history-edu',
+        image: require('../assets/tools/sign.png'),
         titleKey: 'tools.sign',
         descKey: 'tools.signDesc',
-        iconColor: '#3b82f6',
-        bgColor: 'rgba(59, 130, 246, 0.1)',
     },
     {
         id: 'merge',
-        icon: 'layers',
+        image: require('../assets/tools/merge.png'),
         titleKey: 'tools.merge',
         descKey: 'tools.mergeDesc',
-        iconColor: '#10b981',
-        bgColor: 'rgba(16, 185, 129, 0.1)',
     },
     {
         id: 'split',
-        icon: 'content-cut',
+        image: require('../assets/tools/split.png'),
         titleKey: 'tools.split',
         descKey: 'tools.splitDesc',
-        iconColor: '#f59e0b',
-        bgColor: 'rgba(245, 158, 11, 0.1)',
     },
     {
         id: 'deletePages',
-        icon: 'auto-delete',
+        image: require('../assets/tools/delete_pages.png'),
         titleKey: 'tools.deletePages',
         descKey: 'tools.deletePagesDesc',
-        iconColor: '#ef4444',
-        bgColor: 'rgba(239, 68, 68, 0.1)',
-    },
-    {
-        id: 'reorder',
-        icon: 'swap-vert',
-        titleKey: 'tools.reorder',
-        descKey: 'tools.reorderDesc',
-        iconColor: '#8b5cf6',
-        bgColor: 'rgba(139, 92, 246, 0.1)',
     },
     {
         id: 'rotate',
-        icon: 'crop-rotate',
+        image: require('../assets/tools/rotate.png'),
         titleKey: 'tools.rotate',
         descKey: 'tools.rotateDesc',
-        iconColor: '#06b6d4',
-        bgColor: 'rgba(6, 182, 212, 0.1)',
     },
     {
         id: 'edit',
-        icon: 'edit-note',
+        image: require('../assets/tools/edit.png'),
         titleKey: 'tools.edit',
         descKey: 'tools.editDesc',
-        iconColor: '#ec4899',
-        bgColor: 'rgba(236, 72, 153, 0.1)',
+    },
+    {
+        id: 'reorder',
+        image: require('../assets/tools/reorder.png'),
+        titleKey: 'tools.reorder',
+        descKey: 'tools.reorderDesc',
     },
     {
         id: 'form',
-        icon: 'fact-check',
+        image: require('../assets/tools/form.png'),
         titleKey: 'tools.form',
         descKey: 'tools.formDesc',
-        iconColor: '#14b8a6',
-        bgColor: 'rgba(20, 184, 166, 0.1)',
-    },
-    {
-        id: 'watermark',
-        icon: 'verified',
-        titleKey: 'tools.watermark',
-        descKey: 'tools.watermarkDesc',
-        iconColor: '#6366f1',
-        bgColor: 'rgba(99, 102, 241, 0.1)',
     },
     {
         id: 'redact',
-        icon: 'security',
+        image: require('../assets/tools/redact.png'),
         titleKey: 'tools.redact',
         descKey: 'tools.redactDesc',
-        iconColor: '#64748b',
-        bgColor: 'rgba(100, 116, 139, 0.15)',
+    },
+    {
+        id: 'watermark',
+        image: require('../assets/tools/watermark.png'),
+        titleKey: 'tools.watermark',
+        descKey: 'tools.watermarkDesc',
     },
 ];
 
 export const PdfToolsView: React.FC = () => {
     const navigation = useNavigation<any>();
-    const { colors, isDarkMode } = useTheme();
+    const { colors } = useTheme();
 
     const handleToolPress = (tool: ToolItem) => {
         navigation.navigate('PdfTool', { toolId: tool.id });
@@ -127,35 +113,21 @@ export const PdfToolsView: React.FC = () => {
                         onPress={() => handleToolPress(tool)}
                         activeOpacity={0.7}
                     >
-                        {/* Top row: Icon & Action arrow */}
-                        <View style={styles.cardHeader}>
-                            <View
-                                style={[
-                                    styles.iconBadge,
-                                    {
-                                        backgroundColor: tool.bgColor || 'rgba(0, 0, 0, 0.05)',
-                                    },
-                                ]}
-                            >
-                                <Icon name={tool.icon} size={24} color={tool.iconColor || colors.primary} />
-                            </View>
-
-                            <View
-                                style={[
-                                    styles.activeBadge,
-                                    {
-                                        backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.04)',
-                                    },
-                                ]}
-                            >
-                                <Icon name="arrow-forward" size={14} color={colors.textSecondary} />
-                            </View>
+                        {/* 1. Arriba: Ícono */}
+                        <View style={styles.iconContainer}>
+                            <Image
+                                source={tool.image}
+                                style={styles.toolIconImage}
+                                resizeMode="contain"
+                            />
                         </View>
 
-                        {/* Title and Description */}
+                        {/* 2. Abajo: Título (fuente más grande y destacada) */}
                         <Text style={[styles.toolTitle, { color: colors.text }]}>
                             {t(tool.titleKey)}
                         </Text>
+
+                        {/* 3. Abajo: Descripción (fuente más chica y diferente tipografía) */}
                         <Text style={[styles.toolDesc, { color: colors.textSecondary }]}>
                             {t(tool.descKey)}
                         </Text>
@@ -190,36 +162,32 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.06,
         shadowRadius: 3,
-        justifyContent: 'space-between',
-        minHeight: 125,
+        minHeight: 145,
     },
-    cardHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
+    iconContainer: {
+        width: '100%',
+        height: 56,
         alignItems: 'center',
+        justifyContent: 'center',
         marginBottom: 10,
     },
-    iconBadge: {
-        width: 42,
-        height: 42,
-        borderRadius: 12,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    activeBadge: {
-        width: 28,
-        height: 28,
-        borderRadius: 14,
-        alignItems: 'center',
-        justifyContent: 'center',
+    toolIconImage: {
+        width: 52,
+        height: 52,
     },
     toolTitle: {
-        fontSize: 14,
+        fontSize: 15,
         fontWeight: 'bold',
+        fontFamily: Platform.select({ ios: 'System', android: 'sans-serif-medium' }),
         marginBottom: 4,
+        textAlign: 'center',
     },
     toolDesc: {
-        fontSize: 11,
-        lineHeight: 15,
+        fontSize: 11.5,
+        fontWeight: 'normal',
+        fontFamily: Platform.select({ ios: 'HelveticaNeue', android: 'sans-serif' }),
+        lineHeight: 16,
+        textAlign: 'center',
     },
 });
+

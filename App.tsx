@@ -9,7 +9,7 @@ import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 import './src/i18n'; // Initialize i18n
 
 export type RootStackParamList = {
-  Home: undefined;
+  Home: { targetTab?: 'documents' | 'favorites' | 'tools' | 'settings'; targetSubTab?: 'all' | 'recent' | 'scanner' } | undefined;
   PdfViewer: { uri: string; name: string; isExternal?: boolean };
   PdfTool: { toolId: string; initialPdfUri?: string; initialPdfName?: string };
 };
