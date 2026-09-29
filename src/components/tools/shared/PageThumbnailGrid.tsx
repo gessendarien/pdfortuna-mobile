@@ -300,7 +300,7 @@ export const PageThumbnailGrid: React.FC<Props> = ({
                                 disabled={(previewModalPage || 1) <= 1}
                                 onPress={() => setPreviewModalPage((p) => Math.max(1, (p || 1) - 1))}
                             >
-                                <Icon name="chevron-left" size={20} color={colors.text} />
+                                <Icon name="chevron-left" size={17} color={colors.text} />
                                 <Text style={[styles.modalNavText, { color: colors.text }]}>Anterior</Text>
                             </TouchableOpacity>
 
@@ -324,7 +324,7 @@ export const PageThumbnailGrid: React.FC<Props> = ({
                                 onPress={() => setPreviewModalPage((p) => Math.min(totalPages, (p || 1) + 1))}
                             >
                                 <Text style={[styles.modalNavText, { color: colors.text }]}>Siguiente</Text>
-                                <Icon name="chevron-right" size={20} color={colors.text} />
+                                <Icon name="chevron-right" size={17} color={colors.text} />
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -529,31 +529,32 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
         borderTopWidth: 1,
+        gap: 8,
     },
     modalNavBtn: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 8,
-        paddingHorizontal: 12,
-        borderRadius: 10,
+        paddingVertical: 6,
+        paddingHorizontal: 9,
+        borderRadius: 8,
         borderWidth: 1,
-        gap: 4,
+        gap: 3,
     },
     modalNavText: {
-        fontSize: 12,
+        fontSize: 11,
         fontWeight: '600',
     },
     modalCloseMainBtn: {
-        paddingVertical: 8,
-        paddingHorizontal: 20,
-        borderRadius: 10,
+        paddingVertical: 6,
+        paddingHorizontal: 14,
+        borderRadius: 8,
     },
     modalCloseMainText: {
         color: '#ffffff',
-        fontSize: 13,
+        fontSize: 12,
         fontWeight: 'bold',
     },
 });

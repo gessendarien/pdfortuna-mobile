@@ -72,11 +72,57 @@
             background-color: rgba(79, 149, 149, 0.1);
         }
 
-        /* Selector de idioma */
-        .lang-btn.active {
-            background-color: rgba(79, 149, 149, 0.2);
-            color: #4f9595;
+        /* Selector de idioma (Switch Segmentado) */
+        .lang-switch {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px;
+            border-radius: 9999px;
+            background-color: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
+        }
+
+        .dark .lang-switch {
+            background-color: rgba(30, 41, 59, 0.8);
+            border-color: rgba(51, 65, 85, 0.8);
+        }
+
+        .lang-btn {
+            padding: 5px 14px;
+            font-size: 0.8125rem;
             font-weight: 600;
+            border-radius: 9999px;
+            color: #64748b;
+            transition: all 0.2s ease-in-out;
+            border: none;
+            cursor: pointer;
+            background: transparent;
+        }
+
+        .dark .lang-btn {
+            color: #94a3b8;
+        }
+
+        .lang-btn:hover {
+            color: #0f172a;
+        }
+
+        .dark .lang-btn:hover {
+            color: #f8fafc;
+        }
+
+        .lang-btn.active {
+            background-color: #ffffff;
+            color: #4f9595;
+            font-weight: 700;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .dark .lang-btn.active {
+            background-color: #334155;
+            color: #ffffff;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3);
         }
 
         /* Ocultar scrollbar en carrusel de screenshots */
@@ -105,7 +151,15 @@
                         PDFortuna</h2>
                 </div>
 
-
+                <!-- SWITCH DE IDIOMA ARRIBA A LA DERECHA -->
+                <div class="lang-switch" role="group" aria-label="Language selector">
+                    <button id="lang-es" onclick="changeLanguage('es')" class="lang-btn active">
+                        Español
+                    </button>
+                    <button id="lang-en" onclick="changeLanguage('en')" class="lang-btn">
+                        English
+                    </button>
+                </div>
             </div>
         </header>
 
@@ -299,30 +353,25 @@
 
         <!-- FOOTER -->
         <footer class="bg-slate-50 dark:bg-slate-900 border-t border-primary/10 py-16 px-6 md:px-20">
-            <!-- Enlace discreto de Política de Privacidad -->
+            <!-- Enlace de Política de Privacidad -->
             <div class="max-w-7xl mx-auto mb-8 text-center">
                 <a href="#policy" onclick="event.preventDefault(); togglePrivacy();"
-                    class="text-xs text-slate-400 hover:text-primary transition-colors cursor-pointer"
+                    class="text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-primary dark:hover:text-primary transition-colors cursor-pointer underline underline-offset-4 decoration-slate-300 dark:decoration-slate-700 hover:decoration-primary"
                     data-i18n="privacy_title">Política de Privacidad</a>
             </div>
             <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-10">
-                <div class="flex flex-col items-center md:items-start gap-4">
-                    <div class="flex items-center gap-3">
-                        <img src="icon.png" alt="PDFortuna icon" class="size-8 rounded">
-                        <h2 class="text-lg font-extrabold tracking-tight text-slate-900 dark:text-white">PDFortuna</h2>
-                    </div>
-                    <p class="text-sm text-slate-500" data-i18n="copyright">© 2026 Cassca Studio</p>
+                <div class="flex items-center gap-3">
+                    <img src="icon.png" alt="PDFortuna icon" class="size-8 rounded">
+                    <h2 class="text-lg font-extrabold tracking-tight text-slate-900 dark:text-white">PDFortuna</h2>
                 </div>
-                <div class="flex items-center gap-4">
-
-                </div>
+                <p class="text-sm text-slate-500" data-i18n="copyright">© 2026 Cassca Studio</p>
             </div>
         </footer>
     </div>
 
     <!-- JAVASCRIPT PARA FUNCIONALIDADES -->
     <script>
-        const APP_VERSION = '0.1.3';
+        const APP_VERSION = '1.0.0';
         const translations = {
             es: {
                 'app_name': 'PDFortuna',
@@ -342,7 +391,7 @@
                 'free_badge': 'Gratuita',
                 'free_title': 'PDFortuna',
                 'free_description': 'Elige tu camino',
-                'free_download_label': `Disponible ${APP_VERSION}`,
+                'free_download_label': `Disponible v${APP_VERSION}`,
             },
             en: {
                 'app_name': 'PDFortuna',
@@ -362,23 +411,21 @@
                 'free_badge': 'Free',
                 'free_title': 'PDFortuna',
                 'free_description': 'Choose your path',
-                'free_download_label': `Available ${APP_VERSION}`,
+                'free_download_label': `Available v${APP_VERSION}`,
             }
         };
 
         // Función para cambiar idioma
         function changeLanguage(lang) {
-            // Actualizar botones activos del header
-            document.querySelectorAll('.lang-btn').forEach(btn => {
-                btn.classList.remove('active', 'bg-primary/20', 'text-primary');
-            });
-            document.getElementById(`lang-${lang}`)?.classList.add('active', 'bg-primary/20', 'text-primary');
+            try {
+                localStorage.setItem('pdfortuna_lang', lang);
+            } catch (e) {}
 
-            // Actualizar botones activos del footer
-            document.querySelectorAll('.lang-footer-btn').forEach(btn => {
-                btn.classList.remove('active', 'bg-primary/20', 'text-primary');
+            // Actualizar botones activos del switch de idioma en el header
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.classList.remove('active');
             });
-            document.getElementById(`footer-lang-${lang}`)?.classList.add('active', 'bg-primary/20', 'text-primary');
+            document.getElementById(`lang-${lang}`)?.classList.add('active');
 
             // Traducir todos los elementos con data-i18n
             document.querySelectorAll('[data-i18n]').forEach(el => {
@@ -387,6 +434,15 @@
                     el.innerHTML = translations[lang][key];
                 }
             });
+
+            // Sincronizar las pestañas de política de privacidad
+            showPrivacyTab(lang);
+
+            // Actualizar atributo lang y título de la ventana
+            document.documentElement.lang = lang;
+            document.title = lang === 'es'
+                ? 'PDFortuna - Ve y comparte todos tus PDFs en una app'
+                : 'PDFortuna - View and share all your PDFs in one app';
         }
 
         // Función para mostrar pestañas de privacidad
@@ -394,12 +450,12 @@
             document.querySelectorAll('.privacy-tab-btn').forEach(btn => {
                 btn.classList.remove('active');
             });
-            document.getElementById(`tab-${lang}-btn`).classList.add('active');
+            document.getElementById(`tab-${lang}-btn`)?.classList.add('active');
 
             document.querySelectorAll('.privacy-content').forEach(content => {
                 content.classList.remove('active');
             });
-            document.getElementById(`content-${lang}`).classList.add('active');
+            document.getElementById(`content-${lang}`)?.classList.add('active');
         }
 
         // Función para expandir/colapsar política de privacidad con animación
@@ -415,10 +471,13 @@
             }
         }
 
-        // Inicializar: español por defecto
+        // Inicializar: cargar idioma guardado o español por defecto
         window.onload = function () {
-            changeLanguage('es');
-            showPrivacyTab('es');
+            let savedLang = 'es';
+            try {
+                savedLang = localStorage.getItem('pdfortuna_lang') || 'es';
+            } catch (e) {}
+            changeLanguage(savedLang);
 
             // Si hay #policy en URL, abrir panel y hacer scroll
             if (window.location.hash === '#policy') {

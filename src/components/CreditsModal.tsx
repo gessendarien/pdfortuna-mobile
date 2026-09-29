@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, Modal, TouchableOpacity, StyleSheet, Linking } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, StyleSheet, Linking, Image } from 'react-native';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
+import packageJson from '../../package.json';
 import { theme } from '../theme';
 import { useTheme } from '../theme/ThemeContext';
 import { t } from '../i18n';
@@ -35,8 +36,13 @@ export const CreditsModal = ({ visible, onClose }: Props) => {
 
                     <View style={styles.content}>
                         <View style={styles.logoContainer}>
+                            <Image
+                                source={require('../assets/icon.png')}
+                                style={styles.appIcon}
+                                resizeMode="cover"
+                            />
                             <Text style={[styles.appName, { color: colors.primary }]}>PDFortuna</Text>
-                            <Text style={[styles.version, { color: colors.textSecondary }]}>0.1.3</Text>
+                            <Text style={[styles.version, { color: colors.textSecondary }]}>{packageJson.version}</Text>
                         </View>
 
                         <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('credits.credits')}</Text>
@@ -99,10 +105,16 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: 24,
     },
+    appIcon: {
+        width: 75,
+        height: 75,
+        borderRadius: 14,
+        overflow: 'hidden',
+    },
     appName: {
         fontSize: 24,
         fontWeight: 'bold',
-        marginTop: 8,
+        marginTop: 10,
     },
     version: {
         fontSize: 14,

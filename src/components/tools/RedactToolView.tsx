@@ -73,14 +73,26 @@ const samplePoints = (pts: Point[], minGap: number): Point[] => {
     return res;
 };
 
+const BLUR_PALETTE = [
+    '#94a3b8', // slate-400
+    '#cbd5e1', // slate-300
+    '#e2e8f0', // slate-200
+    '#64748b', // slate-500
+    '#f1f5f9', // slate-100
+    '#475569', // slate-600
+    '#d1d5db', // gray-300
+    '#9ca3af', // gray-400
+    '#e5e7eb', // gray-200
+];
+
 const getMosaicRects = (points: Point[], strokeWidth: number): MosaicTile[] => {
     if (points.length === 0) return [];
-    const tileSize = Math.max(3, Math.round(strokeWidth / 2.2));
+    const tileSize = Math.max(4, Math.min(10, Math.round(strokeWidth / 2.2)));
     const radius = strokeWidth / 2;
     const tiles: MosaicTile[] = [];
     const visited = new Set<string>();
 
-    const sampled = samplePoints(points, tileSize * 0.6);
+    const sampled = samplePoints(points, tileSize * 0.5);
 
     for (let i = 0; i < sampled.length; i++) {
         const pt = sampled[i];
@@ -97,15 +109,13 @@ const getMosaicRects = (points: Point[], strokeWidth: number): MosaicTile[] => {
                     const key = `${tx}_${ty}`;
                     if (!visited.has(key)) {
                         visited.add(key);
-                        const seed = (Math.abs(Math.sin(tx * 12.9898 + ty * 78.233)) * 43758.5453) % 1;
-                        // Translucent frosted crystal facet tints
-                        const opacity = (0.28 + seed * 0.22).toFixed(2);
-                        const blueTint = Math.floor(245 + seed * 10);
+                        const seed = (Math.abs(Math.sin(tx * 12.9898 + ty * 78.233)) * 43758.5453);
+                        const colorIdx = Math.floor(seed) % BLUR_PALETTE.length;
                         tiles.push({
                             x: tx,
                             y: ty,
                             size: tileSize,
-                            fill: `rgba(235, 242, ${blueTint}, ${opacity})`,
+                            fill: BLUR_PALETTE[colorIdx],
                         });
                     }
                 }
@@ -700,25 +710,17 @@ export const RedactToolView: React.FC<Props> = ({
                             if (s.isBlur) {
                                 return (
                                     <G key={s.id}>
-                                        {/* Layer 1: Frosted glass translucent base */}
+                                        {/* Layer 1: Solid opaque slate base that completely hides text */}
                                         <Path
                                             d={pointsToSvgPath(s.points)}
-                                            stroke="rgba(255, 255, 255, 0.65)"
+                                            stroke="#94a3b8"
                                             strokeWidth={s.strokeWidth}
                                             strokeLinecap="round"
                                             strokeLinejoin="round"
                                             fill="none"
+                                            opacity={1.0}
                                         />
-                                        {/* Layer 2: Ice crystal tint */}
-                                        <Path
-                                            d={pointsToSvgPath(s.points)}
-                                            stroke="rgba(210, 230, 255, 0.45)"
-                                            strokeWidth={s.strokeWidth * 0.85}
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            fill="none"
-                                        />
-                                        {/* Layer 3: Crystal glass facets/tiles */}
+                                        {/* Layer 2: Opaque pixelated blur mosaic tiles */}
                                         {s.mosaicTiles && s.mosaicTiles.map((tile, tIdx) => (
                                             <Rect
                                                 key={tIdx}
@@ -727,14 +729,14 @@ export const RedactToolView: React.FC<Props> = ({
                                                 width={tile.size}
                                                 height={tile.size}
                                                 fill={tile.fill}
-                                                stroke="rgba(255, 255, 255, 0.55)"
-                                                strokeWidth={0.35}
+                                                stroke="rgba(255, 255, 255, 0.45)"
+                                                strokeWidth={0.4}
                                             />
                                         ))}
-                                        {/* Layer 4: Frosted core highlight */}
+                                        {/* Layer 3: Soft feathered core highlight */}
                                         <Path
                                             d={pointsToSvgPath(s.points)}
-                                            stroke="rgba(255, 255, 255, 0.40)"
+                                            stroke="rgba(255, 255, 255, 0.35)"
                                             strokeWidth={s.strokeWidth * 0.35}
                                             strokeLinecap="round"
                                             strokeLinejoin="round"
@@ -757,31 +759,34 @@ export const RedactToolView: React.FC<Props> = ({
                             );
                         })}
 
-                        {/* Current in-progress stroke: multi-pass frosted glass paths for instant 60 FPS drawing */}
+                        {/* Current in-progress stroke: multi-pass opaque textured blur for instant 60 FPS drawing */}
                         {currentStroke.length > 0 && brushMode === 'blur' && (
-                            <G opacity={0.92}>
+                            <G opacity={1.0}>
                                 <Path
                                     d={pointsToSvgPath(currentStroke)}
-                                    stroke="rgba(255, 255, 255, 0.65)"
+                                    stroke="#94a3b8"
                                     strokeWidth={brushSize}
                                     strokeLinecap="round"
                                     strokeLinejoin="round"
                                     fill="none"
+                                    opacity={1.0}
                                 />
                                 <Path
                                     d={pointsToSvgPath(currentStroke)}
-                                    stroke="rgba(210, 230, 255, 0.45)"
-                                    strokeWidth={brushSize * 0.85}
+                                    stroke="#cbd5e1"
+                                    strokeWidth={brushSize * 0.75}
                                     strokeLinecap="round"
                                     strokeLinejoin="round"
+                                    strokeDasharray="4, 4"
                                     fill="none"
                                 />
                                 <Path
                                     d={pointsToSvgPath(currentStroke)}
-                                    stroke="rgba(255, 255, 255, 0.45)"
-                                    strokeWidth={brushSize * 0.35}
+                                    stroke="#f1f5f9"
+                                    strokeWidth={brushSize * 0.4}
                                     strokeLinecap="round"
                                     strokeLinejoin="round"
+                                    strokeDasharray="2, 3"
                                     fill="none"
                                 />
                             </G>

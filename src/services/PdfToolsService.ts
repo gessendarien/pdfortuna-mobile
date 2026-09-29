@@ -484,54 +484,54 @@ export class PdfToolsService {
             if (box.pageIndex >= 0 && box.pageIndex < pages.length) {
                 const page = pages[box.pageIndex];
                 if (box.isBlur) {
-                    // Translucent frosted glass blur effect (crystal frost instead of opaque cement gray)
-                    // Layer 1: Semi-translucent frosted glass base wash
+                    // Opaque pixelated blur / mosaic censorship (100% blocks text)
+                    // Layer 1: Solid opaque slate base to completely obscure underlying content
                     page.drawRectangle({
                         x: box.x,
                         y: box.y,
                         width: box.width,
                         height: box.height,
-                        color: rgb(0.96, 0.97, 1.0),
-                        opacity: 0.65,
+                        color: rgb(0.58, 0.64, 0.72),
+                        opacity: 1.0,
                     });
 
-                    // Layer 2: Translucent crystal micro-facets (blur diffusion)
+                    // Layer 2: Opaque mosaic pixel tiles
                     const blockSize = Math.max(3, Math.min(6, Math.min(box.width, box.height) / 2));
                     const cols = Math.max(1, Math.ceil(box.width / blockSize));
                     const rows = Math.max(1, Math.ceil(box.height / blockSize));
                     const stepW = box.width / cols;
                     const stepH = box.height / rows;
 
+                    const MOSAIC_PALETTE = [
+                        rgb(0.58, 0.64, 0.72),
+                        rgb(0.79, 0.83, 0.88),
+                        rgb(0.88, 0.91, 0.94),
+                        rgb(0.40, 0.46, 0.55),
+                        rgb(0.94, 0.96, 0.98),
+                        rgb(0.48, 0.54, 0.62),
+                        rgb(0.70, 0.75, 0.82),
+                        rgb(0.82, 0.85, 0.89),
+                    ];
+
                     for (let c = 0; c < cols; c++) {
                         for (let r = 0; r < rows; r++) {
-                            const seed = (c * 19 + r * 37) % 5;
-                            const shade = 0.92 + seed * 0.015;
-                            const blueTint = 0.97 + seed * 0.007;
-                            const tileOpacity = 0.25 + seed * 0.07;
+                            const hash = Math.abs(Math.sin((box.x + c * stepW) * 12.9898 + (box.y + r * stepH) * 78.233) * 43758.5453);
+                            const palIdx = Math.floor(hash) % MOSAIC_PALETTE.length;
+                            const tileColor = MOSAIC_PALETTE[palIdx];
 
                             page.drawRectangle({
                                 x: box.x + c * stepW,
                                 y: box.y + r * stepH,
                                 width: stepW,
                                 height: stepH,
-                                color: rgb(shade, shade, blueTint),
-                                opacity: tileOpacity,
-                                borderColor: rgb(1, 1, 1),
-                                borderWidth: 0.25,
-                                borderOpacity: 0.35,
+                                color: tileColor,
+                                opacity: 1.0,
+                                borderColor: rgb(0.92, 0.94, 0.96),
+                                borderWidth: 0.3,
+                                borderOpacity: 0.6,
                             });
                         }
                     }
-
-                    // Layer 3: Soft top sheen
-                    page.drawRectangle({
-                        x: box.x,
-                        y: box.y,
-                        width: box.width,
-                        height: box.height,
-                        color: rgb(1.0, 1.0, 1.0),
-                        opacity: 0.15,
-                    });
                 } else {
                     const rectColor = box.color
                         ? rgb(box.color.r, box.color.g, box.color.b)
