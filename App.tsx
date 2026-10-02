@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { PdfViewerScreen } from './src/screens/PdfViewerScreen';
@@ -17,56 +17,79 @@ export type RootStackParamList = {
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 import { useRef, useEffect } from 'react';
-import { handleIncomingIntent, resolveContentUriName } from './src/utils/FileOpenerUtils';
+import { handleIncomingIntent, resolveIncomingFile } from './src/utils/FileOpenerUtils';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Linking } from 'react-native';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 
+const navigationRef = createNavigationContainerRef<any>();
+
 function AppContent(): React.JSX.Element {
-  const navigationRef = useRef<any>(null);
   const { colors } = useTheme();
 
+  const initialHandledRef = useRef(false);
+  const pendingNavigationRef = useRef<any>(null);
+
+  const navigateToViewer = (fileInfo: any) => {
+    if (navigationRef.isReady()) {
+      console.log("Navigator is ready, navigating to PdfViewer:", fileInfo);
+      navigationRef.navigate('PdfViewer', fileInfo);
+    } else {
+      console.log("Navigator not ready yet, queuing navigation for onReady:", fileInfo);
+      pendingNavigationRef.current = fileInfo;
+    }
+  };
+
+  // Smart handler: caches content:// URIs safely and resolves the real filename
+  const handleUrl = async (url: string | null) => {
+    if (!url) return;
+    try {
+      console.log("Incoming URL:", url);
+      const fileInfo = await resolveIncomingFile(url);
+      navigateToViewer(fileInfo);
+    } catch (e) {
+      console.warn('Error handling incoming URL:', e);
+    }
+  };
+
+  const checkInitialIntent = async () => {
+    if (initialHandledRef.current) return;
+    try {
+      // 1. Try native IntentReader
+      const fileInfo = await handleIncomingIntent();
+      if (fileInfo) {
+        initialHandledRef.current = true;
+        console.log("Opening via handleIncomingIntent:", fileInfo);
+        navigateToViewer(fileInfo);
+        return;
+      }
+
+      // 2. Fallback: Check Linking.getInitialURL
+      const url = await Linking.getInitialURL();
+      if (url) {
+        initialHandledRef.current = true;
+        await handleUrl(url);
+      }
+    } catch (e) {
+      console.warn('Error during cold start intent handling:', e);
+    }
+  };
+
+  const onNavigationReady = () => {
+    console.log("NavigationContainer onReady fired!");
+    if (pendingNavigationRef.current) {
+      const fileInfo = pendingNavigationRef.current;
+      pendingNavigationRef.current = null;
+      console.log("Executing queued navigation on ready:", fileInfo);
+      navigationRef.navigate('PdfViewer', fileInfo);
+    } else {
+      checkInitialIntent();
+    }
+  };
+
   useEffect(() => {
-    // Smart handler: resolves the real filename via native ContentUriHelper
-    const handleUrl = async (url: string | null) => {
-      if (!url) return;
-      try {
-        console.log("Incoming URL:", url);
-
-        let decodedUrl = decodeURIComponent(url);
-
-        // Resolve real name using native ContentResolver (pass both decoded and original)
-        let name = await resolveContentUriName(decodedUrl, url);
-
-        if (navigationRef.current) {
-          console.log("Navigating to viewer with:", decodedUrl, "name:", name);
-          navigationRef.current.navigate('PdfViewer', { uri: decodedUrl, name, isExternal: true });
-        }
-      } catch (e) {
-        console.warn('Error handling incoming URL:', e);
-      }
-    };
-
-    // Cold Start: always try handleIncomingIntent first (has full name resolution)
-    setTimeout(async () => {
-      try {
-        // 1. Try handleIncomingIntent (uses SendIntentAndroid + ContentUriHelper)
-        const fileInfo = await handleIncomingIntent();
-        if (fileInfo && navigationRef.current) {
-          console.log("Opening via handleIncomingIntent:", fileInfo);
-          navigationRef.current.navigate('PdfViewer', fileInfo);
-          return;
-        }
-
-        // 2. Fallback: Check Linking.getInitialURL (handles some intents SendIntent misses)
-        const url = await Linking.getInitialURL();
-        if (url) {
-          await handleUrl(url);
-        }
-      } catch (e) {
-        console.warn('Error during cold start intent handling:', e);
-      }
-    }, 1000);
+    // Check initial intent as soon as component mounts
+    checkInitialIntent();
 
     // Warm Start: Listen for new intents while app is in background/foreground
     const subscription = Linking.addEventListener('url', ({ url }) => {
@@ -80,7 +103,7 @@ function AppContent(): React.JSX.Element {
 
   return (
     <SafeAreaProvider>
-      <NavigationContainer ref={navigationRef}>
+      <NavigationContainer ref={navigationRef} onReady={onNavigationReady}>
         <Stack.Navigator screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: colors.backgroundLight },

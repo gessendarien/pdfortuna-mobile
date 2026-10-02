@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { StorageService } from '../services/StorageService';
 
 export const useSettings = () => {
-    const [isGridView, setIsGridView] = useState(false);
+    const [isGridView, setIsGridView] = useState(true);
     const [isSettingsLoaded, setIsSettingsLoaded] = useState(false);
 
     // Previews: ALWAYS true by default as requested
@@ -29,11 +29,13 @@ export const useSettings = () => {
                     : !!prefs.openWordInApp;
                 setOpenWordInApp(openOffice);
 
-                // Remember last chosen view mode (grid vs list)
+                // Remember last chosen view mode (grid vs list, default to true)
                 if (prefs.isGridView !== undefined) {
                     setIsGridView(!!prefs.isGridView);
                 } else if (prefs.startupViewMode !== undefined) {
                     setIsGridView(!!prefs.startupViewMode);
+                } else {
+                    setIsGridView(true);
                 }
             }
             setIsSettingsLoaded(true);

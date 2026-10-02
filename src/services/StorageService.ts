@@ -117,7 +117,7 @@ export const StorageService = {
             showWord: false,
             openWordInApp: false,
             showODF: false,
-            isGridView: false,
+            isGridView: true,
             showOffice: false,
             openOfficeInApp: false,
         };

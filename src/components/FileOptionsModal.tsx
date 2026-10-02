@@ -164,7 +164,9 @@ export const FileOptionsModal = ({
         },
         {
             id: 'favorite',
-            label: isFavorite ? 'Quitar fav' : 'Favorito',
+            label: isFavorite
+                ? (t('fileOptions.unfavorite') || 'Quitar fav')
+                : (t('fileOptions.favorite') || 'Favorito'),
             baseX: 215,
             baseY: 130,
             color: '#ec4899',

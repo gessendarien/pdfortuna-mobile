@@ -76,7 +76,7 @@ class ContentUriHelperModule(reactContext: ReactApplicationContext) : ReactConte
     }
 
     private fun resolveNameFromContentUri(uri: Uri): String? {
-        val resolver = reactApplicationContext.contentResolver
+        val resolver = reactApplicationContext.currentActivity?.contentResolver ?: reactApplicationContext.contentResolver
 
         try {
             val cursor: Cursor? = resolver.query(uri, null, null, null, null)

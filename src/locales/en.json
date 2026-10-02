@@ -63,6 +63,8 @@
         "about": "PDFortuna"
     },
     "fileOptions": {
+        "favorite": "Favorite",
+        "unfavorite": "Remove fav",
         "addFavorite": "Add to favorites",
         "removeFavorite": "Remove from favorites",
         "share": "Share",
@@ -114,7 +116,11 @@
         "couldNotSave": "Could not save",
         "couldNotShare": "Could not share",
         "shareTitle": "Share File",
-        "saveAs": "Save as"
+        "saveAs": "Save as",
+        "errorTitle": "Could not open document",
+        "errorMessage": "The file could not be loaded. It may be corrupted, protected, or in an unsupported format.",
+        "errorPasswordProtected": "This PDF document is password protected.",
+        "goBack": "Go back"
     },
     "errors": {
         "shareError": "Could not share the file."

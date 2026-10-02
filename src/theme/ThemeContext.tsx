@@ -14,20 +14,24 @@ interface ThemeContextType {
 }
 
 const ThemeContext = createContext<ThemeContextType>({
-    colors: lightColors,
-    isDarkMode: false,
+    colors: darkColors,
+    isDarkMode: true,
     toggleDarkMode: () => { },
 });
 
 export const useTheme = () => useContext(ThemeContext);
 
 export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
-    const [isDarkMode, setIsDarkMode] = useState(false);
+    const [isDarkMode, setIsDarkMode] = useState(true);
     const [isLoaded, setIsLoaded] = useState(false);
 
     useEffect(() => {
         AsyncStorage.getItem(DARK_MODE_KEY).then(val => {
-            if (val === 'true') setIsDarkMode(true);
+            if (val !== null) {
+                setIsDarkMode(val === 'true');
+            } else {
+                setIsDarkMode(true);
+            }
             setIsLoaded(true);
         });
     }, []);

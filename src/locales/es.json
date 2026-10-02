@@ -63,6 +63,8 @@
         "about": "PDFortuna"
     },
     "fileOptions": {
+        "favorite": "Favorito",
+        "unfavorite": "Quitar fav",
         "addFavorite": "Añadir a favoritos",
         "removeFavorite": "Quitar de favoritos",
         "share": "Compartir",
@@ -114,7 +116,11 @@
         "couldNotSave": "No se pudo guardar",
         "couldNotShare": "No se pudo compartir",
         "shareTitle": "Compartir Archivo",
-        "saveAs": "Guardar como"
+        "saveAs": "Guardar como",
+        "errorTitle": "No se pudo abrir el documento",
+        "errorMessage": "El archivo no se pudo cargar. Puede estar dañado, protegido o tener un formato incompatible.",
+        "errorPasswordProtected": "Este documento PDF está protegido con contraseña.",
+        "goBack": "Volver"
     },
     "errors": {
         "shareError": "No se pudo compartir el archivo."

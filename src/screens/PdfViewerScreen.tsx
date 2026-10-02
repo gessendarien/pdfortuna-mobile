@@ -36,6 +36,7 @@ export const PdfViewerScreen = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [loadProgress, setLoadProgress] = useState(0);
     const loadingOpacity = useRef(new Animated.Value(1)).current;
+    const [pdfError, setPdfError] = useState<string | null>(null);
 
     // Resume reading and page state
     const pdfRef = useRef<any>(null);
@@ -482,9 +483,11 @@ export const PdfViewerScreen = () => {
                             setIsHeaderVisible(prev => !prev);
                         }
                     }}
-                    onError={(error) => {
-                        console.log(error);
+                    onError={(error: any) => {
+                        console.log('PDF loading error:', error);
                         setIsLoading(false);
+                        const msg = typeof error === 'string' ? error : error?.message || error?.toString?.() || '';
+                        setPdfError(msg);
                     }}
                     onPressLink={(linkUri) => {
                         console.log(`Link pressed: ${linkUri}`);
@@ -495,6 +498,29 @@ export const PdfViewerScreen = () => {
                     enableAntialiasing={true}
                     enableAnnotationRendering={true}
                 />
+            )}
+
+            {/* Error View */}
+            {pdfError && (
+                <View style={[styles.errorContainer, { backgroundColor: colors.backgroundLight }]}>
+                    <MaterialIcon name="error-outline" size={56} color={colors.error || '#EF4444'} />
+                    <Text style={[styles.errorTitle, { color: colors.text }]}>
+                        {t('viewer.errorTitle')}
+                    </Text>
+                    <Text style={[styles.errorMessage, { color: colors.textSecondary }]}>
+                        {pdfError.toLowerCase().includes('password')
+                            ? t('viewer.errorPasswordProtected')
+                            : t('viewer.errorMessage')}
+                    </Text>
+                    <TouchableOpacity
+                        style={[styles.errorButton, { backgroundColor: colors.primary }]}
+                        onPress={() => navigation.goBack()}
+                        activeOpacity={0.8}
+                    >
+                        <MaterialIcon name="arrow-back" size={20} color="#fff" style={{ marginRight: 6 }} />
+                        <Text style={styles.errorButtonText}>{t('viewer.goBack')}</Text>
+                    </TouchableOpacity>
+                </View>
             )}
 
             {/* Loading Overlay */}
@@ -704,5 +730,39 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         padding: 0,
+    },
+    errorContainer: {
+        ...StyleSheet.absoluteFillObject,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 32,
+        zIndex: 50,
+    },
+    errorTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        marginTop: 16,
+        marginBottom: 8,
+        textAlign: 'center',
+    },
+    errorMessage: {
+        fontSize: 15,
+        textAlign: 'center',
+        lineHeight: 22,
+        marginBottom: 24,
+    },
+    errorButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 24,
+        borderRadius: 10,
+        elevation: 2,
+    },
+    errorButtonText: {
+        color: '#ffffff',
+        fontSize: 16,
+        fontWeight: '600',
     },
 });
