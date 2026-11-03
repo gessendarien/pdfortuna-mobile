@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, Alert, Modal } from 'react-native';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, Alert, Modal, TextInput } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useNavigation } from '@react-navigation/native';
 import Pdf from 'react-native-pdf';
@@ -26,6 +26,8 @@ export const MergeToolView: React.FC<Props> = ({
         return initialFile ? [initialFile] : [];
     });
     const [pickerVisible, setPickerVisible] = useState(false);
+    const [pickerSearchQuery, setPickerSearchQuery] = useState('');
+    const [pickerSortOrder, setPickerSortOrder] = useState<'asc' | 'desc'>('asc');
     const [previewFile, setPreviewFile] = useState<LocalFile | null>(null);
     const [previewPageCount, setPreviewPageCount] = useState<number>(0);
     const [previewCurrentPage, setPreviewCurrentPage] = useState<number>(1);
@@ -38,6 +40,18 @@ export const MergeToolView: React.FC<Props> = ({
             setPreviewCurrentPage(p);
         }
     };
+
+    const filteredAndSortedMergeFiles = useMemo(() => {
+        let files = availableFiles.filter((f) => f.type === 'pdf');
+        if (pickerSearchQuery.trim()) {
+            const query = pickerSearchQuery.toLowerCase().trim();
+            files = files.filter((f) => f.name.toLowerCase().includes(query));
+        }
+        return [...files].sort((a, b) => {
+            const comp = a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+            return pickerSortOrder === 'asc' ? comp : -comp;
+        });
+    }, [availableFiles, pickerSearchQuery, pickerSortOrder]);
 
     useEffect(() => {
         if (initialFile && selectedFiles.length === 0) {
@@ -193,28 +207,93 @@ export const MergeToolView: React.FC<Props> = ({
                             </TouchableOpacity>
                         </View>
 
-                        <FlatList
-                            data={availableFiles.filter((f) => f.type === 'pdf')}
-                            keyExtractor={(f) => f.path}
-                            renderItem={({ item }) => (
-                                <TouchableOpacity
-                                    style={[styles.pickerItem, { borderBottomColor: colors.border }]}
-                                    onPress={() => handleAddFile(item)}
-                                >
-                                    <Icon name="picture-as-pdf" size={24} color="#ef4444" style={{ marginRight: 12 }} />
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={[styles.pickerItemName, { color: colors.text }]} numberOfLines={1}>
-                                            {item.name}
-                                        </Text>
-                                        <Text style={[styles.pickerItemMeta, { color: colors.textSecondary }]}>
-                                            {item.pageCount ? `${item.pageCount} pág. • ` : ''}
-                                            {(item.size / 1024).toFixed(0)} KB
-                                        </Text>
-                                    </View>
-                                </TouchableOpacity>
-                            )}
-                            style={{ maxHeight: 350 }}
-                        />
+                        {/* Search and Sort Filter Header */}
+                        <View style={styles.pickerSearchRow}>
+                            <View
+                                style={[
+                                    styles.searchBarWrapper,
+                                    {
+                                        backgroundColor: colors.backgroundLight,
+                                        borderColor: colors.border,
+                                    },
+                                ]}
+                            >
+                                <Icon name="search" size={18} color={colors.textSecondary} style={{ marginRight: 6 }} />
+                                <TextInput
+                                    style={[styles.searchInput, { color: colors.text }]}
+                                    placeholder="Buscar documento..."
+                                    placeholderTextColor={colors.textSecondary}
+                                    value={pickerSearchQuery}
+                                    onChangeText={setPickerSearchQuery}
+                                    autoCorrect={false}
+                                    autoCapitalize="none"
+                                />
+                                {pickerSearchQuery.length > 0 && (
+                                    <TouchableOpacity
+                                        onPress={() => setPickerSearchQuery('')}
+                                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                    >
+                                        <Icon name="close" size={16} color={colors.textSecondary} />
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+
+                            <TouchableOpacity
+                                style={[
+                                    styles.sortFilterBtn,
+                                    {
+                                        backgroundColor: colors.backgroundLight,
+                                        borderColor: colors.border,
+                                    },
+                                ]}
+                                onPress={() => setPickerSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+                                activeOpacity={0.7}
+                                accessibilityLabel={pickerSortOrder === 'asc' ? 'Ordenar de la A a la Z' : 'Ordenar de la Z a la A'}
+                            >
+                                <Icon name="sort-by-alpha" size={18} color={colors.primary} />
+                                <Icon
+                                    name={pickerSortOrder === 'asc' ? 'arrow-upward' : 'arrow-downward'}
+                                    size={12}
+                                    color={colors.primary}
+                                    style={{ marginLeft: 2 }}
+                                />
+                            </TouchableOpacity>
+                        </View>
+
+                        {filteredAndSortedMergeFiles.length === 0 ? (
+                            <View style={styles.emptySearchContainer}>
+                                <Icon name="search-off" size={32} color={colors.textSecondary} style={{ marginBottom: 6 }} />
+                                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                                    No se encontraron documentos
+                                </Text>
+                            </View>
+                        ) : (
+                            <FlatList
+                                data={filteredAndSortedMergeFiles}
+                                keyExtractor={(f) => f.path}
+                                renderItem={({ item }) => (
+                                    <TouchableOpacity
+                                        style={[styles.pickerItem, { borderBottomColor: colors.border }]}
+                                        onPress={() => {
+                                            handleAddFile(item);
+                                            setPickerSearchQuery('');
+                                        }}
+                                    >
+                                        <Icon name="picture-as-pdf" size={24} color="#ef4444" style={{ marginRight: 12 }} />
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={[styles.pickerItemName, { color: colors.text }]} numberOfLines={1}>
+                                                {item.name}
+                                            </Text>
+                                            <Text style={[styles.pickerItemMeta, { color: colors.textSecondary }]}>
+                                                {item.pageCount ? `${item.pageCount} pág. • ` : ''}
+                                                {(item.size / 1024).toFixed(0)} KB
+                                            </Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                )}
+                                style={{ maxHeight: 350 }}
+                            />
+                        )}
                     </View>
                 </View>
             )}
@@ -457,6 +536,41 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: 12,
+    },
+    pickerSearchRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 12,
+    },
+    searchBarWrapper: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        height: 40,
+        borderRadius: 10,
+        borderWidth: 1,
+        paddingHorizontal: 10,
+    },
+    searchInput: {
+        flex: 1,
+        fontSize: 13,
+        paddingVertical: 0,
+        height: '100%',
+    },
+    sortFilterBtn: {
+        width: 44,
+        height: 40,
+        borderRadius: 10,
+        borderWidth: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    emptySearchContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 28,
     },
     pickerTitle: {
         fontSize: 16,

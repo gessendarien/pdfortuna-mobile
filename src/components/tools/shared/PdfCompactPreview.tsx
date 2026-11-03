@@ -99,6 +99,7 @@ export const PdfCompactPreview: React.FC<PdfCompactPreviewProps> = ({
                 ) : (
                     <>
                         <Pdf
+                            key={`preview-page-${activePage}`}
                             source={{ uri: pdfUri, cache: true }}
                             page={activePage}
                             singlePage={true}

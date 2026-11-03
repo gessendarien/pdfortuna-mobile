@@ -1,0 +1,23 @@
+<resources>
+    <string name="app_name">PDFortuna</string>
+    <string name="scanner_import">Importar</string>
+    <string name="scanner_add_page">Agregar página</string>
+    <string name="scanner_export">Exportar</string>
+    <string name="scanner_1_page">1 página</string>
+    <string name="scanner_n_pages">%d páginas</string>
+    <string name="scanner_filter_magic">Color Mágico</string>
+    <string name="scanner_filter_bw">B/N</string>
+    <string name="scanner_filter_grayscale">Escala de Grises</string>
+    <string name="scanner_filter_original">Original</string>
+    <string name="scanner_crop">Recortar</string>
+    <string name="scanner_crop_done">Listo</string>
+    <string name="scanner_filter_sharpen">Nítido</string>
+    <string name="scanner_filter_lighten">Aclarar</string>
+    <string name="scanner_delete_title">Eliminar página</string>
+    <string name="scanner_delete_message">¿Estás seguro de que deseas eliminar esta página?</string>
+    <string name="scanner_delete_confirm">¿Eliminar esta página?</string>
+    <string name="scanner_delete">Eliminar</string>
+    <string name="scanner_cancel">Cancelar</string>
+    <string name="scanner_exporting">Exportando PDF...</string>
+    <string name="scanner_camera_permission">Se requiere permiso de cámara para escanear</string>
+</resources>

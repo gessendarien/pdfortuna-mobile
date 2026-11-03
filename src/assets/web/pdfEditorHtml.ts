@@ -13,6 +13,8 @@
  * - Strict mutual exclusion: editing one element disables interaction with others.
  */
 
+import { PDFJS_LIB_SRC, PDFJS_WORKER_SRC } from './pdfjsBundle';
+
 export function buildPdfEditorHtml(themeColors: {
   primary: string;
   text: string;
@@ -23,7 +25,7 @@ export function buildPdfEditorHtml(themeColors: {
 }): string {
   const c = themeColors;
 
-  return `<!DOCTYPE html>
+  const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="utf-8"/>
@@ -206,12 +208,25 @@ html,body{width:100%;height:100%;overflow:hidden;background:${c.background};
   <div class="zoom-btn" id="btn-zoom-out">−</div>
 </div>
 
-<script type="module">
+<script>/*__PDFJS_LIB__*/</script>
+<script type="text/plain" id="pdfjs-worker-src">/*__PDFJS_WORKER__*/</script>
+
+<script>
 // ═══════════════════════════════════════════════════
-//  PDF.js setup
+//  PDF.js setup (embebido localmente, sin internet)
 // ═══════════════════════════════════════════════════
-import * as pdfjsLib from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.9.155/build/pdf.min.mjs';
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.9.155/build/pdf.worker.min.mjs';
+const pdfjsLib = window.pdfjsLib || window['pdfjs-dist/build/pdf'];
+try {
+  const workerCode = document.getElementById('pdfjs-worker-src').textContent;
+  pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(
+    new Blob([workerCode], { type: 'application/javascript' })
+  );
+} catch (e) {
+  window.__pdfWorkerErr = String(e);
+}
+window.addEventListener('error', function (ev) {
+  try { window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'error', message: 'JS: ' + ev.message })); } catch (e) {}
+});
 
 const COLORS = {
   black:  { r:0.07, g:0.07, b:0.10, hex:'#111827' },
@@ -1136,4 +1151,8 @@ postRN({ type:'ready' });
 </script>
 </body>
 </html>`;
+
+  return html
+    .replace('/*__PDFJS_LIB__*/', () => PDFJS_LIB_SRC)
+    .replace('/*__PDFJS_WORKER__*/', () => PDFJS_WORKER_SRC);
 }

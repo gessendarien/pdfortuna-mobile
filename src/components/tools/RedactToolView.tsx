@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
     View,
     Text,
@@ -10,6 +10,16 @@ import {
     ScrollView,
     LayoutAnimation,
 } from 'react-native';
+
+const hexToRgb = (hex: string): { r: number; g: number; b: number } => {
+    const clean = hex.replace('#', '');
+    const num = parseInt(clean, 16);
+    return {
+        r: ((num >> 16) & 255) / 255,
+        g: ((num >> 8) & 255) / 255,
+        b: (num & 255) / 255,
+    };
+};
 import Pdf from 'react-native-pdf';
 import Svg, { Path, Rect, G } from 'react-native-svg';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -193,6 +203,23 @@ export const RedactToolView: React.FC<Props> = ({
         loadInfo();
     }, [sourcePath]);
 
+    // Exact page render dimensions based on PDF aspect ratio to eliminate letterbox drift
+    const { pageRenderW, pageRenderH } = useMemo(() => {
+        const cw = Math.max(containerSize.width, 100);
+        const ch = Math.max(containerSize.height, 100);
+        const pdfAspect = pageSize.width / pageSize.height;
+
+        let w = cw;
+        let h = w / pdfAspect;
+
+        if (h > ch) {
+            h = ch;
+            w = h * pdfAspect;
+        }
+
+        return { pageRenderW: Math.round(w), pageRenderH: Math.round(h) };
+    }, [containerSize, pageSize]);
+
     const measureContainer = () => {
         if (containerRef.current) {
             containerRef.current.measure((_x, _y, _width, _height, pageX, pageY) => {
@@ -205,18 +232,21 @@ export const RedactToolView: React.FC<Props> = ({
     const getDocPoint = (pageX: number, pageY: number) => {
         const cx = containerSize.width / 2;
         const cy = containerSize.height / 2;
+        const pageOriginX = (containerSize.width - pageRenderW) / 2;
+        const pageOriginY = (containerSize.height - pageRenderH) / 2;
+
         const screenRelX = pageX - containerLayoutRef.current.pageX;
         const screenRelY = pageY - containerLayoutRef.current.pageY;
 
-        // Inverse coordinate transform:
-        // screenRelX = cx + panOffset.x + (docX - cx) * zoomScale
-        // docX = (screenRelX - cx - panOffset.x) / zoomScale + cx
-        const docX = (screenRelX - cx - panOffset.x) / zoomScale + cx;
-        const docY = (screenRelY - cy - panOffset.y) / zoomScale + cy;
+        const docContainerX = (screenRelX - cx - panOffset.x) / zoomScale + cx;
+        const docContainerY = (screenRelY - cy - panOffset.y) / zoomScale + cy;
+
+        const px = docContainerX - pageOriginX;
+        const py = docContainerY - pageOriginY;
 
         return {
-            x: Math.max(0, Math.min(containerSize.width, docX)),
-            y: Math.max(0, Math.min(containerSize.height, docY)),
+            x: Math.max(0, Math.min(pageRenderW, px)),
+            y: Math.max(0, Math.min(pageRenderH, py)),
         };
     };
 
@@ -421,17 +451,19 @@ export const RedactToolView: React.FC<Props> = ({
     const handleConfirmSaveMode = (saveMode: 'original' | 'copy') => {
         setSaveModeModalVisible(false);
 
-        const scaleX = pageSize.width / containerSize.width;
-        const scaleY = pageSize.height / containerSize.height;
+        const scaleX = pageSize.width / pageRenderW;
+        const scaleY = pageSize.height / pageRenderH;
+        const scaleAvg = (scaleX + scaleY) / 2;
 
         const allBoxes: RedactionBox[] = [];
 
         for (const stroke of strokes) {
             const pageIndex = stroke.page - 1;
-            const r = stroke.strokeWidth / 2;
-            const stepDist = Math.max(2, stroke.strokeWidth * 0.35);
 
-            let lastSampled: Point | null = null;
+            const pdfPoints = stroke.points.map((pt) => ({
+                x: pt.x * scaleX,
+                y: (pageRenderH - pt.y) * scaleY,
+            }));
 
             const colorObj = stroke.isBlur
                 ? undefined
@@ -441,33 +473,29 @@ export const RedactToolView: React.FC<Props> = ({
                       b: SOLID_COLORS.find((c) => c.hex === stroke.color)?.b ?? 0,
                   };
 
-            for (const pt of stroke.points) {
-                if (!lastSampled || Math.hypot(pt.x - lastSampled.x, pt.y - lastSampled.y) >= stepDist) {
-                    lastSampled = pt;
+            let pdfTiles: Array<{ x: number; y: number; width: number; height: number; color: { r: number; g: number; b: number } }> | undefined = undefined;
 
-                    // Screen box
-                    const screenLeft = Math.max(0, pt.x - r);
-                    const screenTop = Math.max(0, pt.y - r);
-                    const screenW = stroke.strokeWidth;
-                    const screenH = stroke.strokeWidth;
-
-                    // PDF coordinates (origin at bottom-left)
-                    const pdfX = screenLeft * scaleX;
-                    const pdfY = (containerSize.height - (screenTop + screenH)) * scaleY;
-                    const pdfW = screenW * scaleX;
-                    const pdfH = screenH * scaleY;
-
-                    allBoxes.push({
-                        pageIndex,
-                        x: pdfX,
-                        y: pdfY,
-                        width: pdfW,
-                        height: pdfH,
-                        isBlur: stroke.isBlur,
-                        color: colorObj,
-                    });
-                }
+            if (stroke.isBlur && stroke.mosaicTiles && stroke.mosaicTiles.length > 0) {
+                pdfTiles = stroke.mosaicTiles.map((tile) => {
+                    const c = hexToRgb(tile.fill);
+                    return {
+                        x: tile.x * scaleX,
+                        y: (pageRenderH - (tile.y + tile.size)) * scaleY,
+                        width: tile.size * scaleX,
+                        height: tile.size * scaleY,
+                        color: c,
+                    };
+                });
             }
+
+            allBoxes.push({
+                pageIndex,
+                points: pdfPoints,
+                strokeWidth: stroke.strokeWidth * scaleAvg,
+                isBlur: stroke.isBlur,
+                color: colorObj,
+                mosaicTiles: pdfTiles,
+            });
         }
 
         onProcess(allBoxes, saveMode);
@@ -684,6 +712,8 @@ export const RedactToolView: React.FC<Props> = ({
                     style={[
                         styles.zoomContentWrapper,
                         {
+                            width: pageRenderW,
+                            height: pageRenderH,
                             transform: [
                                 { translateX: panOffset.x },
                                 { translateY: panOffset.y },
@@ -694,17 +724,18 @@ export const RedactToolView: React.FC<Props> = ({
                 >
                     {/* PDF Single Page View */}
                     <Pdf
+                        key={`redact-page-${activePage}`}
                         source={{ uri: pdfUri, cache: true }}
                         page={activePage}
                         singlePage={true}
                         scale={1.0}
                         fitPolicy={2}
                         spacing={0}
-                        style={styles.pdfBackground}
+                        style={{ width: pageRenderW, height: pageRenderH }}
                     />
 
                     {/* Svg strokes layer */}
-                    <Svg style={StyleSheet.absoluteFillObject} pointerEvents="none">
+                    <Svg style={{ width: pageRenderW, height: pageRenderH, position: 'absolute', top: 0, left: 0 }} pointerEvents="none">
                         {/* Completed strokes on active page */}
                         {activeStrokes.map((s) => {
                             if (s.isBlur) {
@@ -1030,15 +1061,13 @@ const styles = StyleSheet.create({
         position: 'relative',
         backgroundColor: '#cbd5e1',
         overflow: 'hidden',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     zoomContentWrapper: {
-        width: '100%',
-        height: '100%',
         position: 'relative',
     },
     pdfBackground: {
-        width: '100%',
-        height: '100%',
         backgroundColor: 'transparent',
     },
     paintOverlay: {

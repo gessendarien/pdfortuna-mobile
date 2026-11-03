@@ -7,6 +7,8 @@ import com.facebook.react.ReactHost
 import com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative
 import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
 
+import org.opencv.android.OpenCVLoader
+
 class MainApplication : Application(), ReactApplication {
 
   override val reactHost: ReactHost by lazy {
@@ -27,6 +29,9 @@ class MainApplication : Application(), ReactApplication {
 
   override fun onCreate() {
     super.onCreate()
+    if (!OpenCVLoader.initLocal()) {
+      OpenCVLoader.initDebug()
+    }
     loadReactNative(this)
   }
 }

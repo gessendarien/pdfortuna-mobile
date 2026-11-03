@@ -140,47 +140,49 @@ export const FileOptionsModal = ({
     // Center the file card in the upper viewing space for prominent user focus
     const cardTop = Math.max(insets.top + 20, insets.top + (availableTopSpace - insets.top) / 2 - 30);
 
-    // Order: bottom-left → mid-left → mid-upper → top-right
-    // Placed along the sector curve of menu-sostenido.png
-    // Inverted order per user request: Eliminar at bottom-left, Compartir at top-right
+    // Order along the sector curve of menu-sostenido.png (left to right):
+    // Position 1 (bottom-left): Compartir
+    // Position 2 (mid-left): Favorito
+    // Position 3 (mid-upper): Renombrar
+    // Position 4 (top-right): Eliminar
     const buttons = [
         {
-            id: 'delete',
-            label: t('fileOptions.delete') || 'Eliminar',
+            id: 'share',
+            label: t('fileOptions.share') || 'Compartir',
             baseX: 90,
             baseY: 275,
-            color: '#ef4444',
-            icon: 'trash-outline',
-            onPress: onDelete,
-        },
-        {
-            id: 'rename',
-            label: t('fileOptions.rename') || 'Renombrar',
-            baseX: 140,
-            baseY: 195,
-            color: '#8b5cf6',
-            icon: 'pencil-outline',
-            onPress: onRename,
+            color: '#3b82f6',
+            icon: 'share-social-outline',
+            onPress: onShare,
         },
         {
             id: 'favorite',
             label: isFavorite
                 ? (t('fileOptions.unfavorite') || 'Quitar fav')
                 : (t('fileOptions.favorite') || 'Favorito'),
-            baseX: 215,
-            baseY: 130,
+            baseX: 140,
+            baseY: 195,
             color: '#ec4899',
             icon: isFavorite ? 'heart' : 'heart-outline',
             onPress: onFavorite,
         },
         {
-            id: 'share',
-            label: t('fileOptions.share') || 'Compartir',
+            id: 'rename',
+            label: t('fileOptions.rename') || 'Renombrar',
+            baseX: 215,
+            baseY: 130,
+            color: '#8b5cf6',
+            icon: 'pencil-outline',
+            onPress: onRename,
+        },
+        {
+            id: 'delete',
+            label: t('fileOptions.delete') || 'Eliminar',
             baseX: 305,
             baseY: 90,
-            color: '#3b82f6',
-            icon: 'share-social-outline',
-            onPress: onShare,
+            color: '#ef4444',
+            icon: 'trash-outline',
+            onPress: onDelete,
         },
     ];
 

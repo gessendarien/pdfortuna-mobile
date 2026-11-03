@@ -33,6 +33,7 @@ interface Props {
     sourcePath: string;
     onProcess: (opts: WatermarkOptions) => Promise<void>;
     isProcessing: boolean;
+    onRegisterBackAction?: (action: (() => boolean) | null) => void;
 }
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -84,11 +85,27 @@ export const WatermarkToolView: React.FC<Props> = ({
     sourcePath,
     onProcess,
     isProcessing,
+    onRegisterBackAction,
 }) => {
     const { colors } = useTheme();
 
     // Step state: 1 = Config, 2 = Interactive Preview & Placement
     const [step, setStep] = useState<1 | 2>(1);
+
+    // Register contextual back action so top header arrow and hardware back return to step 1
+    useEffect(() => {
+        if (step === 2) {
+            onRegisterBackAction?.(() => {
+                setStep(1);
+                return true;
+            });
+        } else {
+            onRegisterBackAction?.(null);
+        }
+        return () => {
+            onRegisterBackAction?.(null);
+        };
+    }, [step, onRegisterBackAction]);
 
     // Config state
     const [watermarkType, setWatermarkType] = useState<'text' | 'image'>('text');
@@ -305,14 +322,40 @@ export const WatermarkToolView: React.FC<Props> = ({
     const handleConfirmSaveMode = (saveMode: 'original' | 'copy') => {
         setSaveModeModalVisible(false);
 
-        // Coordinates in PDF point space
-        const scaleX = pageSize.width / previewContainerSize.width;
-        const scaleY = pageSize.height / previewContainerSize.height;
+        // Aspect fit calculation: PDF page inside previewCanvas
+        const pdfAspect = pageSize.width / pageSize.height;
+        const viewerAspect = previewContainerSize.width / previewContainerSize.height;
 
-        const pdfX = boxPos.x * scaleX;
-        const pdfY = (previewContainerSize.height - (boxPos.y + boxSize.height)) * scaleY;
-        const pdfW = boxSize.width * scaleX;
-        const pdfH = boxSize.height * scaleY;
+        let renderedW = previewContainerSize.width;
+        let renderedH = previewContainerSize.height;
+        let offsetX = 0;
+        let offsetY = 0;
+
+        if (pdfAspect > viewerAspect) {
+            renderedW = previewContainerSize.width;
+            renderedH = previewContainerSize.width / pdfAspect;
+            offsetY = (previewContainerSize.height - renderedH) / 2;
+        } else {
+            renderedH = previewContainerSize.height;
+            renderedW = previewContainerSize.height * pdfAspect;
+            offsetX = (previewContainerSize.width - renderedW) / 2;
+        }
+
+        const centerScreenX = boxPos.x + boxSize.width / 2;
+        const centerScreenY = boxPos.y + boxSize.height / 2;
+
+        const fracCenterX = (centerScreenX - offsetX) / renderedW;
+        const fracCenterY = (centerScreenY - offsetY) / renderedH;
+        const fracW = boxSize.width / renderedW;
+        const fracH = boxSize.height / renderedH;
+
+        const pdfW = fracW * pageSize.width;
+        const pdfH = fracH * pageSize.height;
+        const pCx = fracCenterX * pageSize.width;
+        const pCy = (1 - fracCenterY) * pageSize.height;
+        const pdfX = pCx - pdfW / 2;
+        const pdfY = pCy - pdfH / 2;
+        const pdfFontSize = Math.max(14, Math.round(pdfH * 0.45));
 
         const targetPages = getTargetPages();
 
@@ -320,20 +363,20 @@ export const WatermarkToolView: React.FC<Props> = ({
             opacity,
             layout,
             color: { r: selectedColor.r, g: selectedColor.g, b: selectedColor.b },
-            pageIndex: pageScope === 'all' ? -1 : activePage - 1,
+            pageIndex: pageScope === 'all' ? -1 : undefined,
             pages: targetPages,
             x: pdfX,
             y: pdfY,
             width: pdfW,
             height: pdfH,
-            rotation: layout === 'repeat' ? 45 : rotationDeg,
+            rotation: layout === 'repeat' ? 30 : rotationDeg,
             lineSpacing,
             saveMode,
         };
 
         if (watermarkType === 'text') {
             opts.text = text.trim();
-            opts.size = layout === 'repeat' ? 26 : Math.max(16, Math.round(boxSize.height * 0.48));
+            opts.size = layout === 'repeat' ? 22 : pdfFontSize;
         } else if (selectedImage) {
             opts.imagePath = selectedImage.path;
         }
@@ -405,195 +448,199 @@ export const WatermarkToolView: React.FC<Props> = ({
     // ==========================================
     if (step === 1) {
         return (
-            <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-                {/* Type Selector: Texto vs Imagen */}
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>Tipo de marca de agua</Text>
-                <View style={styles.row}>
-                    <TouchableOpacity
-                        style={[
-                            styles.typeBtn,
-                            {
-                                backgroundColor: watermarkType === 'text' ? colors.primary : colors.surfaceLight,
-                                borderColor: colors.border,
-                            },
-                        ]}
-                        onPress={() => handleSwitchType('text')}
-                        activeOpacity={0.8}
-                    >
-                        <Icon name="title" size={20} color={watermarkType === 'text' ? '#fff' : colors.text} />
-                        <Text style={[styles.typeBtnText, { color: watermarkType === 'text' ? '#fff' : colors.text }]}>
-                            Texto
-                        </Text>
-                    </TouchableOpacity>
-
-                    {/* Image button formatted in 2 rows as requested */}
-                    <TouchableOpacity
-                        style={[
-                            styles.typeBtnTwoRows,
-                            {
-                                backgroundColor: watermarkType === 'image' ? colors.primary : colors.surfaceLight,
-                                borderColor: colors.border,
-                            },
-                        ]}
-                        onPress={() => handleSwitchType('image')}
-                        activeOpacity={0.8}
-                    >
-                        <Icon name="photo-library" size={20} color={watermarkType === 'image' ? '#fff' : colors.text} />
-                        <View style={{ alignItems: 'center' }}>
-                            <Text style={[styles.typeBtnTextSmall, { color: watermarkType === 'image' ? '#fff' : colors.text }]}>
-                                Imagen de
-                            </Text>
-                            <Text style={[styles.typeBtnTextSmall, { color: watermarkType === 'image' ? '#fff' : colors.text }]}>
-                                galería
-                            </Text>
-                        </View>
-                    </TouchableOpacity>
-                </View>
-
-                {/* Text Input or Image Picker */}
-                {watermarkType === 'text' ? (
-                    <View style={{ marginTop: 16 }}>
-                        <Text style={[styles.sectionTitle, { color: colors.text }]}>Texto de la marca</Text>
-                        <TextInput
+            <View style={styles.step1Wrapper}>
+                <ScrollView
+                    style={styles.container}
+                    contentContainerStyle={styles.content}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    {/* Type Selector: Texto vs Imagen */}
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Tipo de marca de agua</Text>
+                    <View style={styles.row}>
+                        <TouchableOpacity
                             style={[
-                                styles.input,
+                                styles.typeBtn,
                                 {
-                                    backgroundColor: colors.surfaceLight,
+                                    backgroundColor: watermarkType === 'text' ? colors.primary : colors.surfaceLight,
                                     borderColor: colors.border,
-                                    color: colors.text,
                                 },
                             ]}
-                            placeholder="Ejemplo: CONFIDENCIAL, COPIA, BORRADOR..."
-                            placeholderTextColor={colors.textSecondary}
-                            value={text}
-                            onChangeText={setText}
-                        />
-
-                        {/* Color Selector: Circular dots from pastel to vivid, no text labels */}
-                        <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 16 }]}>Paleta de color</Text>
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={styles.colorPaletteRow}
+                            onPress={() => handleSwitchType('text')}
+                            activeOpacity={0.8}
                         >
-                            {COLOR_PALETTE.map((c) => {
-                                const isSelected = selectedColor.hex === c.hex;
-                                return (
-                                    <TouchableOpacity
-                                        key={c.hex}
-                                        style={[
-                                            styles.colorDot,
-                                            {
-                                                backgroundColor: c.hex,
-                                                borderColor: c.isBlack ? '#94a3b8' : isSelected ? colors.primary : 'transparent',
-                                                borderWidth: c.isBlack ? 1.5 : isSelected ? 2.5 : 0,
-                                                transform: [{ scale: isSelected ? 1.15 : 1 }],
-                                            },
-                                        ]}
-                                        onPress={() => setSelectedColor(c)}
-                                        activeOpacity={0.8}
-                                    >
-                                        {isSelected && (
-                                            <Icon
-                                                name="check"
-                                                size={15}
-                                                color={c.hex === '#facc15' || c.hex === '#86efac' || c.hex === '#fef08a' ? '#0f172a' : '#ffffff'}
-                                            />
-                                        )}
-                                    </TouchableOpacity>
-                                );
-                            })}
-                        </ScrollView>
-                    </View>
-                ) : selectedImage ? (
-                    <View style={{ marginTop: 16 }}>
-                        <Text style={[styles.sectionTitle, { color: colors.text }]}>Imagen seleccionada</Text>
-                        <View style={[styles.imagePreviewBox, { backgroundColor: colors.surfaceLight, borderColor: colors.border }]}>
-                            <Image source={{ uri: selectedImage.uri }} style={styles.previewThumb} resizeMode="contain" />
-                            <View style={{ flex: 1, marginLeft: 12 }}>
-                                <Text style={[styles.imageName, { color: colors.text }]} numberOfLines={1}>
-                                    {selectedImage.name}
+                            <Icon name="title" size={20} color={watermarkType === 'text' ? '#fff' : colors.text} />
+                            <Text style={[styles.typeBtnText, { color: watermarkType === 'text' ? '#fff' : colors.text }]}>
+                                Texto
+                            </Text>
+                        </TouchableOpacity>
+
+                        {/* Image button formatted in 2 rows as requested */}
+                        <TouchableOpacity
+                            style={[
+                                styles.typeBtnTwoRows,
+                                {
+                                    backgroundColor: watermarkType === 'image' ? colors.primary : colors.surfaceLight,
+                                    borderColor: colors.border,
+                                },
+                            ]}
+                            onPress={() => handleSwitchType('image')}
+                            activeOpacity={0.8}
+                        >
+                            <Icon name="photo-library" size={20} color={watermarkType === 'image' ? '#fff' : colors.text} />
+                            <View style={{ alignItems: 'center' }}>
+                                <Text style={[styles.typeBtnTextSmall, { color: watermarkType === 'image' ? '#fff' : colors.text }]}>
+                                    Imagen de
                                 </Text>
-                                <TouchableOpacity
-                                    style={[styles.changeImgBtn, { borderColor: colors.primary }]}
-                                    onPress={() => setImagePickerVisible(true)}
-                                >
-                                    <Text style={{ color: colors.primary, fontSize: 13, fontWeight: 'bold' }}>
-                                        Cambiar imagen
+                                <Text style={[styles.typeBtnTextSmall, { color: watermarkType === 'image' ? '#fff' : colors.text }]}>
+                                    galería
+                                </Text>
+                            </View>
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Text Input or Image Picker */}
+                    {watermarkType === 'text' ? (
+                        <View style={{ marginTop: 16 }}>
+                            <Text style={[styles.sectionTitle, { color: colors.text }]}>Texto de la marca</Text>
+                            <TextInput
+                                style={[
+                                    styles.input,
+                                    {
+                                        backgroundColor: colors.surfaceLight,
+                                        borderColor: colors.border,
+                                        color: colors.text,
+                                    },
+                                ]}
+                                placeholder="Ejemplo: CONFIDENCIAL, COPIA, BORRADOR..."
+                                placeholderTextColor={colors.textSecondary}
+                                value={text}
+                                onChangeText={setText}
+                            />
+
+                            {/* Color Selector: Circular dots from pastel to vivid, no text labels */}
+                            <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 16 }]}>Paleta de color</Text>
+                            <ScrollView
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={styles.colorPaletteRow}
+                            >
+                                {COLOR_PALETTE.map((c) => {
+                                    const isSelected = selectedColor.hex === c.hex;
+                                    return (
+                                        <TouchableOpacity
+                                            key={c.hex}
+                                            style={[
+                                                styles.colorDot,
+                                                {
+                                                    backgroundColor: c.hex,
+                                                    borderColor: c.isBlack ? '#94a3b8' : isSelected ? colors.primary : 'transparent',
+                                                    borderWidth: c.isBlack ? 1.5 : isSelected ? 2.5 : 0,
+                                                    transform: [{ scale: isSelected ? 1.15 : 1 }],
+                                                },
+                                            ]}
+                                            onPress={() => setSelectedColor(c)}
+                                            activeOpacity={0.8}
+                                        >
+                                            {isSelected && (
+                                                <Icon
+                                                    name="check"
+                                                    size={15}
+                                                    color={c.hex === '#facc15' || c.hex === '#86efac' || c.hex === '#fef08a' ? '#0f172a' : '#ffffff'}
+                                                />
+                                            )}
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </ScrollView>
+                        </View>
+                    ) : selectedImage ? (
+                        <View style={{ marginTop: 16 }}>
+                            <Text style={[styles.sectionTitle, { color: colors.text }]}>Imagen seleccionada</Text>
+                            <View style={[styles.imagePreviewBox, { backgroundColor: colors.surfaceLight, borderColor: colors.border }]}>
+                                <Image source={{ uri: selectedImage.uri }} style={styles.previewThumb} resizeMode="contain" />
+                                <View style={{ flex: 1, marginLeft: 12 }}>
+                                    <Text style={[styles.imageName, { color: colors.text }]} numberOfLines={1}>
+                                        {selectedImage.name}
                                     </Text>
-                                </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[styles.changeImgBtn, { borderColor: colors.primary }]}
+                                        onPress={() => setImagePickerVisible(true)}
+                                    >
+                                        <Text style={{ color: colors.primary, fontSize: 13, fontWeight: 'bold' }}>
+                                            Cambiar imagen
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
                             </View>
                         </View>
+                    ) : null}
+
+                    {/* Layout Selector: Una vez vs Mosaico repetido */}
+                    <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 18 }]}>Disposición</Text>
+                    <View style={styles.row}>
+                        <TouchableOpacity
+                            style={[
+                                styles.layoutOption,
+                                {
+                                    backgroundColor: colors.surfaceLight,
+                                    borderColor: layout === 'single' ? colors.primary : colors.border,
+                                    borderWidth: layout === 'single' ? 2 : 1,
+                                },
+                            ]}
+                            onPress={() => setLayout('single')}
+                            activeOpacity={0.8}
+                        >
+                            <Icon
+                                name={layout === 'single' ? 'radio-button-checked' : 'radio-button-unchecked'}
+                                size={20}
+                                color={layout === 'single' ? colors.primary : colors.textSecondary}
+                            />
+                            <View style={{ flex: 1, marginLeft: 8 }}>
+                                <Text style={[styles.layoutTitle, { color: colors.text }]}>Una vez</Text>
+                                <Text style={[styles.layoutDesc, { color: colors.textSecondary }]}>
+                                    Sello único con rotación libre y escala
+                                </Text>
+                            </View>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[
+                                styles.layoutOption,
+                                {
+                                    backgroundColor: colors.surfaceLight,
+                                    borderColor: layout === 'repeat' ? colors.primary : colors.border,
+                                    borderWidth: layout === 'repeat' ? 2 : 1,
+                                },
+                            ]}
+                            onPress={() => setLayout('repeat')}
+                            activeOpacity={0.8}
+                        >
+                            <Icon
+                                name={layout === 'repeat' ? 'radio-button-checked' : 'radio-button-unchecked'}
+                                size={20}
+                                color={layout === 'repeat' ? colors.primary : colors.textSecondary}
+                            />
+                            <View style={{ flex: 1, marginLeft: 8 }}>
+                                <Text style={[styles.layoutTitle, { color: colors.text }]}>Mosaico continuo</Text>
+                                <Text style={[styles.layoutDesc, { color: colors.textSecondary }]}>
+                                    Cuadrícula continua inclinada cubriendo la hoja
+                                </Text>
+                            </View>
+                        </TouchableOpacity>
                     </View>
-                ) : null}
+                </ScrollView>
 
-                {/* Layout Selector: Una vez vs Mosaico repetido */}
-                <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 18 }]}>Disposición</Text>
-                <View style={styles.row}>
+                {/* Fixed bottom bar for continue button */}
+                <View style={[styles.bottomControlCard, { backgroundColor: colors.surfaceLight, borderTopColor: colors.border }]}>
                     <TouchableOpacity
-                        style={[
-                            styles.layoutOption,
-                            {
-                                backgroundColor: colors.surfaceLight,
-                                borderColor: layout === 'single' ? colors.primary : colors.border,
-                                borderWidth: layout === 'single' ? 2 : 1,
-                            },
-                        ]}
-                        onPress={() => setLayout('single')}
-                        activeOpacity={0.8}
+                        style={[styles.actionBtn, { backgroundColor: colors.primary }]}
+                        onPress={handleNextStep}
+                        activeOpacity={0.85}
                     >
-                        <Icon
-                            name={layout === 'single' ? 'radio-button-checked' : 'radio-button-unchecked'}
-                            size={20}
-                            color={layout === 'single' ? colors.primary : colors.textSecondary}
-                        />
-                        <View style={{ flex: 1, marginLeft: 8 }}>
-                            <Text style={[styles.layoutTitle, { color: colors.text }]}>Una vez</Text>
-                            <Text style={[styles.layoutDesc, { color: colors.textSecondary }]}>
-                                Sello único con rotación libre y escala
-                            </Text>
-                        </View>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        style={[
-                            styles.layoutOption,
-                            {
-                                backgroundColor: colors.surfaceLight,
-                                borderColor: layout === 'repeat' ? colors.primary : colors.border,
-                                borderWidth: layout === 'repeat' ? 2 : 1,
-                            },
-                        ]}
-                        onPress={() => setLayout('repeat')}
-                        activeOpacity={0.8}
-                    >
-                        <Icon
-                            name={layout === 'repeat' ? 'radio-button-checked' : 'radio-button-unchecked'}
-                            size={20}
-                            color={layout === 'repeat' ? colors.primary : colors.textSecondary}
-                        />
-                        <View style={{ flex: 1, marginLeft: 8 }}>
-                            <Text style={[styles.layoutTitle, { color: colors.text }]}>Mosaico continuo</Text>
-                            <Text style={[styles.layoutDesc, { color: colors.textSecondary }]}>
-                                Cuadrícula continua inclinada cubriendo la hoja
-                            </Text>
-                        </View>
+                        <Icon name="arrow-forward" size={20} color="#ffffff" style={{ marginRight: 8 }} />
+                        <Text style={styles.actionBtnText}>Continuar a vista previa</Text>
                     </TouchableOpacity>
                 </View>
-
-                {/* Opacity Slider */}
-                <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 18 }]}>Opacidad predeterminada</Text>
-                {renderOpacitySlider()}
-
-                {/* Next button */}
-                <TouchableOpacity
-                    style={[styles.actionBtn, { backgroundColor: colors.primary, marginTop: 24 }]}
-                    onPress={handleNextStep}
-                    activeOpacity={0.85}
-                >
-                    <Icon name="arrow-forward" size={20} color="#ffffff" style={{ marginRight: 8 }} />
-                    <Text style={styles.actionBtnText}>Continuar a vista previa</Text>
-                </TouchableOpacity>
 
                 <ImagePickerModal
                     visible={imagePickerVisible}
@@ -610,7 +657,7 @@ export const WatermarkToolView: React.FC<Props> = ({
                     }}
                     title="Elegir imagen de marca de agua"
                 />
-            </ScrollView>
+            </View>
         );
     }
 
@@ -628,8 +675,8 @@ export const WatermarkToolView: React.FC<Props> = ({
                     onPress={() => setStep(1)}
                     activeOpacity={0.7}
                 >
-                    <Icon name="arrow-back" size={20} color={colors.text} />
-                    <Text style={[styles.backBtnText, { color: colors.text }]}>Ajustes</Text>
+                    <Icon name="tune" size={17} color={colors.primary} />
+                    <Text style={[styles.backBtnText, { color: colors.primary }]}>Ajustes</Text>
                 </TouchableOpacity>
 
                 {/* Page Nav */}
@@ -806,6 +853,7 @@ export const WatermarkToolView: React.FC<Props> = ({
                 }}
             >
                 <Pdf
+                    key={`watermark-page-${activePage}`}
                     source={{ uri: pdfUri, cache: true }}
                     page={activePage}
                     singlePage={true}
@@ -988,6 +1036,9 @@ export const WatermarkToolView: React.FC<Props> = ({
 };
 
 const styles = StyleSheet.create({
+    step1Wrapper: {
+        flex: 1,
+    },
     container: {
         flex: 1,
     },
@@ -1351,7 +1402,8 @@ const styles = StyleSheet.create({
     },
     bottomControlCard: {
         paddingHorizontal: 16,
-        paddingVertical: 12,
+        paddingTop: 12,
+        paddingBottom: Platform.OS === 'android' ? 18 : 14,
         borderTopWidth: 1,
     },
     resizeControlsPill: {

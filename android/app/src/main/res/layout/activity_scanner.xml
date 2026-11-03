@@ -1,0 +1,579 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000">
+
+    <!-- ======================================================== -->
+    <!-- SCREEN 1: CAMERA CAPTURE                                -->
+    <!-- ======================================================== -->
+    <LinearLayout
+        android:id="@+id/layoutCapture"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:background="#000000"
+        android:visibility="visible">
+
+        <!-- Status Bar Spacer -->
+        <View
+            android:id="@+id/statusBarSpacerCapture"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:background="#000000" />
+
+        <!-- Top Bar -->
+        <RelativeLayout
+            android:id="@+id/layoutCaptureTopBar"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:background="#000000">
+
+            <ImageView
+                android:id="@+id/btnCaptureBack"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_centerVertical="true"
+                android:layout_alignParentStart="true"
+                android:padding="8dp"
+                android:src="@drawable/ic_arrow_back"
+                app:tint="#FFFFFF" />
+
+            <LinearLayout
+                android:id="@+id/btnCaptureAutoMode"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:layout_centerInParent="true"
+                android:background="@drawable/bg_badge_camera_mode"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:gravity="center"
+                android:clickable="true"
+                android:focusable="true">
+
+                <TextView
+                    android:id="@+id/tvCaptureAutoMode"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="AUTO"
+                    android:textColor="#FFFFFF"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.05" />
+            </LinearLayout>
+
+            <ImageView
+                android:id="@+id/btnCaptureMenu"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_centerVertical="true"
+                android:layout_alignParentEnd="true"
+                android:padding="8dp"
+                android:src="@drawable/ic_more_vert"
+                app:tint="#FFFFFF" />
+        </RelativeLayout>
+
+        <!-- Viewfinder with live green contour -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1">
+
+            <androidx.camera.view.PreviewView
+                android:id="@+id/previewView"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+
+            <com.pdfortuna.scanner.CameraOverlayView
+                android:id="@+id/cameraOverlayView"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+
+            <!-- Floating Flash Button on bottom-left of camera -->
+            <ImageView
+                android:id="@+id/btnFlash"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_gravity="bottom|start"
+                android:layout_marginStart="24dp"
+                android:layout_marginBottom="28dp"
+                android:background="@drawable/bg_round_button"
+                android:padding="10dp"
+                android:src="@drawable/ic_flash"
+                app:tint="#FFFFFF" />
+
+            <!-- Shutter Button: Green circular button with light green ring -->
+            <View
+                android:id="@+id/btnShutter"
+                android:layout_width="76dp"
+                android:layout_height="76dp"
+                android:layout_gravity="bottom|center_horizontal"
+                android:layout_marginBottom="12dp"
+                android:background="@drawable/bg_shutter_fairscan" />
+        </FrameLayout>
+
+        <!-- Bottom Sheet Tray (FairScan lavender/gray surface) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="140dp"
+            android:orientation="vertical"
+            android:background="#F6F2F7"
+            android:paddingTop="12dp"
+            android:paddingBottom="16dp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp">
+
+            <!-- Horizontal thumbnail preview list -->
+            <HorizontalScrollView
+                android:id="@+id/scrollCaptureThumbs"
+                android:layout_width="match_parent"
+                android:layout_height="64dp"
+                android:scrollbars="none">
+
+                <LinearLayout
+                    android:id="@+id/containerCaptureThumbs"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical" />
+            </HorizontalScrollView>
+
+            <!-- Bottom action row: [ Import ] and [ ✔ 1 page ] -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="12dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <!-- Import button -->
+                <LinearLayout
+                    android:id="@+id/btnCaptureImport"
+                    android:layout_width="0dp"
+                    android:layout_height="46dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="8dp"
+                    android:background="@drawable/bg_pill_outlined"
+                    android:gravity="center"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_marginEnd="8dp"
+                        android:src="@drawable/ic_image"
+                        app:tint="#DD1F47" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/scanner_import"
+                        android:textColor="#DD1F47"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <!-- Proceed / Page counter button: [ ✔ 1 page ] -->
+                <LinearLayout
+                    android:id="@+id/btnCaptureProceed"
+                    android:layout_width="0dp"
+                    android:layout_height="46dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/bg_pill_green"
+                    android:gravity="center"
+                    android:orientation="horizontal"
+                    android:visibility="invisible">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_marginEnd="6dp"
+                        android:src="@drawable/ic_check"
+                        app:tint="#FFFFFF" />
+
+                    <TextView
+                        android:id="@+id/tvCapturePageCount"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="1 page"
+                        android:textColor="#FFFFFF"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- ======================================================== -->
+    <!-- SCREEN 2: REVIEW / PAGE EDIT (Right side in screenshot) -->
+    <!-- ======================================================== -->
+    <LinearLayout
+        android:id="@+id/layoutReview"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:background="#FFFFFF"
+        android:visibility="gone">
+
+        <!-- Status Bar Spacer -->
+        <View
+            android:id="@+id/statusBarSpacerReview"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:background="#FFFFFF" />
+
+        <!-- Top Bar: [ ← ]   [ 2 / 2 ]   [ ⋮ ] -->
+        <RelativeLayout
+            android:id="@+id/layoutReviewTopBar"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:background="#FFFFFF">
+
+            <ImageView
+                android:id="@+id/btnReviewBack"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_centerVertical="true"
+                android:layout_alignParentStart="true"
+                android:padding="8dp"
+                android:src="@drawable/ic_arrow_back"
+                app:tint="#1C1B1F" />
+
+            <TextView
+                android:id="@+id/tvReviewPageIndicator"
+                android:layout_width="wrap_content"
+                android:layout_height="28dp"
+                android:layout_centerInParent="true"
+                android:background="@drawable/bg_page_indicator"
+                android:gravity="center"
+                android:text="2 / 2"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <ImageView
+                android:id="@+id/btnReviewMenu"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_centerVertical="true"
+                android:layout_alignParentEnd="true"
+                android:padding="8dp"
+                android:src="@drawable/ic_more_vert"
+                app:tint="#1C1B1F" />
+        </RelativeLayout>
+
+        <!-- Document Preview Area -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:background="#EFEFEF"
+            android:padding="16dp">
+
+            <ImageView
+                android:id="@+id/imgReviewDoc"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="fitCenter" />
+        </FrameLayout>
+
+        <!-- Horizontal Instagram-style Filter Carousel (Visible when Magic Wand is toggled) -->
+        <HorizontalScrollView
+            android:id="@+id/scrollFilterSelector"
+            android:layout_width="match_parent"
+            android:layout_height="110dp"
+            android:background="#F8FAFC"
+            android:scrollbars="none"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:id="@+id/containerFilterPreviews"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp" />
+        </HorizontalScrollView>
+
+        <!-- 5 Circular Tools Bar: [Magic] [Crop] [Rotate L] [Rotate R] [Delete] -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="58dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="#F6F2F7"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp">
+
+            <ImageView
+                android:id="@+id/toolMagicFilter"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:layout_marginEnd="12dp"
+                android:background="@drawable/bg_circle_tool"
+                android:padding="10dp"
+                android:src="@drawable/ic_magic_wand"
+                app:tint="#DD1F47" />
+
+            <ImageView
+                android:id="@+id/toolCrop"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:layout_marginEnd="12dp"
+                android:background="@drawable/bg_circle_tool"
+                android:padding="10dp"
+                android:src="@drawable/ic_crop"
+                app:tint="#DD1F47" />
+
+            <ImageView
+                android:id="@+id/toolRotateLeft"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:layout_marginEnd="12dp"
+                android:background="@drawable/bg_circle_tool"
+                android:padding="10dp"
+                android:src="@drawable/ic_rotate_left"
+                app:tint="#DD1F47" />
+
+            <ImageView
+                android:id="@+id/toolRotateRight"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:background="@drawable/bg_circle_tool"
+                android:padding="10dp"
+                android:src="@drawable/ic_rotate_right"
+                app:tint="#DD1F47" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+
+            <ImageView
+                android:id="@+id/toolDelete"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:background="@drawable/bg_circle_tool"
+                android:padding="10dp"
+                android:src="@drawable/ic_delete"
+                app:tint="#DD1F47" />
+        </LinearLayout>
+
+        <!-- Bottom Sheet Tray with Thumbnails and [ + Add page ] [ ✔ Export ] -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="140dp"
+            android:orientation="vertical"
+            android:background="#F6F2F7"
+            android:paddingTop="8dp"
+            android:paddingBottom="16dp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp">
+
+            <!-- Horizontal thumbnail strip -->
+            <HorizontalScrollView
+                android:id="@+id/scrollReviewThumbs"
+                android:layout_width="match_parent"
+                android:layout_height="64dp"
+                android:scrollbars="none">
+
+                <LinearLayout
+                    android:id="@+id/containerReviewThumbs"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical" />
+            </HorizontalScrollView>
+
+            <!-- Bottom action row: [ + Add page ] and [ ✔ Export ] -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="12dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <!-- Add page button -->
+                <LinearLayout
+                    android:id="@+id/btnReviewAddPage"
+                    android:layout_width="0dp"
+                    android:layout_height="46dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="8dp"
+                    android:background="@drawable/bg_pill_outlined"
+                    android:gravity="center"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_marginEnd="8dp"
+                        android:src="@drawable/ic_add"
+                        app:tint="#DD1F47" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/scanner_add_page"
+                        android:textColor="#DD1F47"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <!-- Export button: [ ✔ Export ] -->
+                <LinearLayout
+                    android:id="@+id/btnReviewExport"
+                    android:layout_width="0dp"
+                    android:layout_height="46dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/bg_pill_green"
+                    android:gravity="center"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_marginEnd="6dp"
+                        android:src="@drawable/ic_check"
+                        app:tint="#FFFFFF" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/scanner_export"
+                        android:textColor="#FFFFFF"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- ======================================================== -->
+    <!-- SCREEN 3: INTERACTIVE CROP (4 corners with loupe)       -->
+    <!-- ======================================================== -->
+    <LinearLayout
+        android:id="@+id/layoutCropMode"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:background="#000000"
+        android:visibility="gone">
+
+        <!-- Status Bar Spacer -->
+        <View
+            android:id="@+id/statusBarSpacerCrop"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:background="#000000" />
+
+        <!-- Top Bar with Back -->
+        <RelativeLayout
+            android:id="@+id/layoutCropTopBar"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:background="#000000">
+
+            <ImageView
+                android:id="@+id/btnCropModeBack"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_centerVertical="true"
+                android:layout_alignParentStart="true"
+                android:padding="8dp"
+                android:src="@drawable/ic_arrow_back"
+                app:tint="#FFFFFF" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerInParent="true"
+                android:text="@string/scanner_crop"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+        </RelativeLayout>
+
+        <!-- Crop Canvas -->
+        <com.pdfortuna.scanner.CropOverlayView
+            android:id="@+id/cropOverlayView"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+        <!-- Bottom Action Bar with Done button -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="72dp"
+            android:gravity="center"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp"
+            android:background="#000000">
+
+            <LinearLayout
+                android:id="@+id/btnCropModeDone"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:background="@drawable/bg_pill_green"
+                android:gravity="center"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginEnd="8dp"
+                    android:src="@drawable/ic_check"
+                    app:tint="#FFFFFF" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/scanner_crop_done"
+                    android:textColor="#FFFFFF"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- ======================================================== -->
+    <!-- LOADING OVERLAY                                          -->
+    <!-- ======================================================== -->
+    <LinearLayout
+        android:id="@+id/layoutLoading"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#B3000000"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <ProgressBar
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:indeterminateTint="#DD1F47" />
+
+        <TextView
+            android:id="@+id/tvLoadingStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/scanner_exporting"
+            android:textColor="#FFFFFF"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+</FrameLayout>

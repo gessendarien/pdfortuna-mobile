@@ -1,0 +1,136 @@
+{
+    "appName": "PDFortuna",
+    "permission": {
+        "title": "访问权限",
+        "text": "PDFortuna 需要访问您设备上的文件以查找您的文档。\n本应用不会将任何信息发送到外部服务器，所有数据均保留在您的设备上，因此您的隐私受到严格保护。\n如需继续，请授予必要的权限。",
+        "button": "允许访问"
+    },
+    "home": {
+        "scanning": "正在搜索文档...",
+        "noDocuments": "未找到文档",
+        "noFavorites": "暂无收藏",
+        "noRecent": "暂无最近文档",
+        "noScanner": "暂无扫描文档",
+        "noSearchFavorites": "在收藏中未找到相关文档",
+        "noSearchRecent": "在最近文档中未找到相关文档",
+        "noSearchScanner": "在扫描文档中未找到相关文档",
+        "scanDocument": "扫描文档",
+        "searchPlaceholder": "搜索文档..."
+    },
+    "tabs": {
+        "documents": "文档",
+        "favorites": "收藏",
+        "tools": "工具",
+        "settings": "设置",
+        "all": "全部",
+        "recent": "最近",
+        "scanner": "扫描仪"
+    },
+    "tools": {
+        "title": "PDF 工具",
+        "subtitle": "文档编辑与管理",
+        "comingSoon": "即将推出",
+        "comingSoonAlert": "此功能将在 PDFortuna 的下一次更新中提供。",
+        "sign": "签署文档",
+        "signDesc": "在 PDF 的任意页面添加签名",
+        "merge": "合并文档",
+        "mergeDesc": "将多个 PDF 合并为一个",
+        "split": "拆分文档",
+        "splitDesc": "提取或拆分为多个文件",
+        "deletePages": "删除页面",
+        "deletePagesDesc": "移除不需要的页面",
+        "reorder": "调整页面顺序",
+        "reorderDesc": "重新排列页面顺序",
+        "rotate": "旋转页面",
+        "rotateDesc": "将页面旋转 90°、180° 或 270°",
+        "edit": "编辑文档",
+        "editDesc": "编辑文本并插入注释",
+        "form": "填写表单",
+        "formDesc": "填写交互式 PDF 表单",
+        "watermark": "水印",
+        "watermarkDesc": "添加对角或平铺水印",
+        "redact": "密文 / 涂黑遮盖",
+        "redactDesc": "涂黑遮盖机密数据"
+    },
+    "settings": {
+        "title": "设置",
+        "showOffice": "显示 Word 和 ODF 文档",
+        "showOfficeDesc": "在列表中包含 .doc、.docx、.odt 和 .odf 文件",
+        "openOfficeInApp": "在应用内打开 Word 和 ODF",
+        "openOfficeInAppDesc": "使用内置快速查看器打开，而非调用外部应用。此选项仅为快速预览，不保证与文档完全兼容。",
+        "darkMode": "深色模式",
+        "darkModeDesc": "更改应用外观",
+        "about": "PDFortuna"
+    },
+    "fileOptions": {
+        "favorite": "收藏",
+        "unfavorite": "取消收藏",
+        "addFavorite": "添加到收藏",
+        "removeFavorite": "从收藏中移除",
+        "share": "分享",
+        "rename": "重命名",
+        "delete": "删除",
+        "cancel": "取消"
+    },
+    "filter": {
+        "title": "按类型筛选",
+        "all": "全部",
+        "cancel": "取消"
+    },
+    "rename": {
+        "title": "重命名文件",
+        "scanTitle": "保存扫描文档",
+        "save": "保存",
+        "scanSave": "确定",
+        "cancel": "取消"
+    },
+    "confirm": {
+        "confirm": "确认",
+        "cancel": "取消"
+    },
+    "delete": {
+        "title": "删除文件",
+        "message": "确定要删除“{{name}}”吗？",
+        "confirm": "删除",
+        "cancel": "取消",
+        "undoMessage": "文件已删除",
+        "undo": "撤销"
+    },
+    "credits": {
+        "credits": "鸣谢与致谢",
+        "developedBy": "由 Gessé Darién 💚 开发\nCassca Studios",
+        "privacyTitle": "隐私安全",
+        "privacyText": "本应用不会将任何信息发送到外部服务器，所有数据均保留在您的设备上，因此您的隐私受到严格保护。",
+        "websiteTitle": "官方网站",
+        "websitePre": "访问",
+        "websiteLink": "官方网站",
+        "websitePost": "查阅我们的隐私政策和源代码。"
+    },
+    "viewer": {
+        "document": "文档",
+        "loading": "正在加载文档...",
+        "converting": "正在转换文档...",
+        "conversionError": "转换错误：{{message}}",
+        "retry": "重试",
+        "savedToDownloads": "已保存到下载目录 ✓",
+        "couldNotSave": "无法保存",
+        "couldNotShare": "无法分享",
+        "shareTitle": "分享文件",
+        "saveAs": "另存为",
+        "errorTitle": "无法打开文档",
+        "errorMessage": "无法加载该文件。文件可能已损坏、受密码保护或格式不受支持。",
+        "errorPasswordProtected": "此 PDF 文档受密码保护。",
+        "goBack": "返回"
+    },
+    "errors": {
+        "shareError": "无法分享该文件。"
+    },
+    "privacy": {
+        "title": "隐私政策",
+        "message": "在开始使用应用之前，请阅读我们的隐私政策以了解我们如何处理您的数据。",
+        "requiredMessage": "必须接受我们的隐私政策才能继续使用本应用。请阅读我们的隐私政策以了解我们如何处理您的数据。",
+        "accept": "接受",
+        "decline": "拒绝",
+        "linkText": "隐私政策"
+    }
+}

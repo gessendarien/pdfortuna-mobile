@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, Alert, BackHandler, Modal, ScrollView } from 'react-native';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, Alert, BackHandler, Modal, ScrollView } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -69,27 +69,57 @@ export const PdfToolScreen: React.FC = () => {
 
     const handleAcceptReturnHome = () => {
         setResultPaths([]);
-        navigation.navigate('Home', { targetTab: 'documents', targetSubTab: 'all' });
+        setSelectedFile(null);
+        setBackAction(null);
+        if (navigation.canGoBack()) {
+            navigation.popToTop();
+        }
+        navigation.navigate('Home', { targetTab: 'tools' });
     };
+
+    // Use ref for backAction to avoid functional state update bugs and unnecessary re-renders
+    const backActionRef = useRef<(() => boolean) | null>(null);
+    const setBackAction = useCallback((action: (() => boolean) | null) => {
+        backActionRef.current = action;
+    }, []);
+
+    const handleBackPress = useCallback(() => {
+        if (resultPaths.length > 0) {
+            handleAcceptReturnHome();
+            return true;
+        }
+        if (backActionRef.current && backActionRef.current()) {
+            return true;
+        }
+        if (selectedFile && !initialPdfUri && toolId !== 'merge') {
+            setSelectedFile(null);
+            return true;
+        }
+        navigation.goBack();
+        return true;
+    }, [resultPaths, selectedFile, initialPdfUri, toolId, navigation]);
 
     // Back handler
     useEffect(() => {
-        const onBack = () => {
-            if (resultPaths.length > 0) {
-                handleAcceptReturnHome();
-                return true;
-            }
-            if (selectedFile && !initialPdfUri && toolId !== 'merge') {
-                setSelectedFile(null);
-                return true;
-            }
-            navigation.goBack();
-            return true;
-        };
-
-        const sub = BackHandler.addEventListener('hardwareBackPress', onBack);
+        const sub = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
         return () => sub.remove();
-    }, [resultPaths, selectedFile, initialPdfUri, toolId, navigation]);
+    }, [handleBackPress]);
+
+    // Search & Sort states for document picker
+    const [fileSearchQuery, setFileSearchQuery] = useState('');
+    const [fileSortOrder, setFileSortOrder] = useState<'asc' | 'desc'>('asc');
+
+    const filteredAndSortedFiles = useMemo(() => {
+        let pdfs = availableFiles.filter((f) => f.type === 'pdf');
+        if (fileSearchQuery.trim()) {
+            const q = fileSearchQuery.trim().toLowerCase();
+            pdfs = pdfs.filter((f) => f.name.toLowerCase().includes(q));
+        }
+        return [...pdfs].sort((a, b) => {
+            const cmp = a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true });
+            return fileSortOrder === 'asc' ? cmp : -cmp;
+        });
+    }, [availableFiles, fileSearchQuery, fileSortOrder]);
 
     // Load available files for picker
     useEffect(() => {
@@ -322,12 +352,21 @@ export const PdfToolScreen: React.FC = () => {
     };
 
     return (
-        <View style={[styles.safeArea, { backgroundColor: colors.backgroundLight, paddingTop: insets.top }]}>
+        <View
+            style={[
+                styles.safeArea,
+                {
+                    backgroundColor: colors.backgroundLight,
+                    paddingTop: insets.top,
+                    paddingBottom: Math.max(insets.bottom, 12),
+                },
+            ]}
+        >
             {/* Header */}
             <View style={[styles.navHeader, { backgroundColor: colors.surfaceLight, borderBottomColor: colors.border }]}>
                 {resultPaths.length === 0 && (
                     <TouchableOpacity
-                        onPress={() => navigation.goBack()}
+                        onPress={handleBackPress}
                         style={styles.backBtn}
                     >
                         <Icon name="arrow-back" size={24} color={colors.text} />
@@ -395,28 +434,28 @@ export const PdfToolScreen: React.FC = () => {
                                                 }}
                                                 activeOpacity={0.7}
                                             >
-                                                <Icon name="picture-as-pdf" size={26} color="#ef4444" style={{ marginRight: 12 }} />
-                                                <View style={{ flex: 1 }}>
-                                                    <View style={{ height: 22, justifyContent: 'center' }}>
+                                                <View style={styles.successFileRow}>
+                                                    <Icon name="picture-as-pdf" size={26} color="#ef4444" style={{ marginRight: 10 }} />
+                                                    <View style={{ flex: 1, height: 22, justifyContent: 'center' }}>
                                                         <MarqueeText
                                                             text={fileName}
                                                             style={[styles.successFileName, { color: colors.text }]}
                                                         />
                                                     </View>
-
-                                                    {/* Enlace abajo del nombre del documento para Renombrar */}
-                                                    <TouchableOpacity
-                                                        onPress={() => setRenamingFilePath(filePath)}
-                                                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                                                        style={styles.renameLinkBtn}
-                                                        activeOpacity={0.7}
-                                                    >
-                                                        <Icon name="edit" size={13} color={colors.primary} style={{ marginRight: 4 }} />
-                                                        <Text style={[styles.renameLinkText, { color: colors.primary }]}>
-                                                            Renombrar
-                                                        </Text>
-                                                    </TouchableOpacity>
                                                 </View>
+
+                                                {/* Enlace abajo del documento para Renombrar, centrado con referencia a toda la tarjeta contenedora */}
+                                                <TouchableOpacity
+                                                    onPress={() => setRenamingFilePath(filePath)}
+                                                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                                    style={styles.renameLinkBtn}
+                                                    activeOpacity={0.7}
+                                                >
+                                                    <Icon name="edit" size={11} color={colors.primary} style={{ marginRight: 3 }} />
+                                                    <Text style={[styles.renameLinkText, { color: colors.primary }]}>
+                                                        Renombrar
+                                                    </Text>
+                                                </TouchableOpacity>
                                             </TouchableOpacity>
                                         );
                                     })}
@@ -464,9 +503,58 @@ export const PdfToolScreen: React.FC = () => {
                 ) : !selectedFile ? (
                     /* Document picker for single-document tools */
                     <View style={styles.pickerContainer}>
-                        <Text style={[styles.pickerTitle, { color: colors.text }]}>
-                            Selecciona un documento para {toolTitle.toLowerCase()}
-                        </Text>
+                        {/* Search and Sort Filter Header */}
+                        <View style={styles.pickerSearchRow}>
+                            <View
+                                style={[
+                                    styles.searchBarWrapper,
+                                    {
+                                        backgroundColor: colors.surfaceLight,
+                                        borderColor: colors.border,
+                                    },
+                                ]}
+                            >
+                                <Icon name="search" size={20} color={colors.textSecondary} style={{ marginRight: 8 }} />
+                                <TextInput
+                                    style={[styles.searchInput, { color: colors.text }]}
+                                    placeholder="Buscar documento..."
+                                    placeholderTextColor={colors.textSecondary}
+                                    value={fileSearchQuery}
+                                    onChangeText={setFileSearchQuery}
+                                    autoCorrect={false}
+                                    autoCapitalize="none"
+                                />
+                                {fileSearchQuery.length > 0 && (
+                                    <TouchableOpacity
+                                        onPress={() => setFileSearchQuery('')}
+                                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                    >
+                                        <Icon name="close" size={18} color={colors.textSecondary} />
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+
+                            <TouchableOpacity
+                                style={[
+                                    styles.sortFilterBtn,
+                                    {
+                                        backgroundColor: colors.surfaceLight,
+                                        borderColor: colors.border,
+                                    },
+                                ]}
+                                onPress={() => setFileSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+                                activeOpacity={0.7}
+                                accessibilityLabel={fileSortOrder === 'asc' ? 'Ordenar de la A a la Z' : 'Ordenar de la Z a la A'}
+                            >
+                                <Icon name="sort-by-alpha" size={19} color={colors.primary} />
+                                <Icon
+                                    name={fileSortOrder === 'asc' ? 'arrow-upward' : 'arrow-downward'}
+                                    size={13}
+                                    color={colors.primary}
+                                    style={{ marginLeft: 2 }}
+                                />
+                            </TouchableOpacity>
+                        </View>
 
                         {loadingFiles ? (
                             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 24 }} />
@@ -474,9 +562,16 @@ export const PdfToolScreen: React.FC = () => {
                             <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
                                 No se encontraron documentos PDF en tu dispositivo.
                             </Text>
+                        ) : filteredAndSortedFiles.length === 0 ? (
+                            <View style={styles.emptySearchContainer}>
+                                <Icon name="search-off" size={38} color={colors.textSecondary} style={{ marginBottom: 8 }} />
+                                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                                    No se encontraron documentos que coincidan con "{fileSearchQuery}".
+                                </Text>
+                            </View>
                         ) : (
                             <FlatList
-                                data={availableFiles.filter((f) => f.type === 'pdf')}
+                                data={filteredAndSortedFiles}
                                 keyExtractor={(f) => f.path}
                                 renderItem={({ item }) => (
                                     <TouchableOpacity
@@ -551,6 +646,7 @@ export const PdfToolScreen: React.FC = () => {
                                 sourcePath={selectedFile.path}
                                 onProcess={handleWatermark}
                                 isProcessing={isProcessing}
+                                onRegisterBackAction={setBackAction}
                             />
                         )}
                         {toolId === 'sign' && (
@@ -559,6 +655,7 @@ export const PdfToolScreen: React.FC = () => {
                                 sourcePath={selectedFile.path}
                                 onProcess={handleSignature}
                                 isProcessing={isProcessing}
+                                onRegisterBackAction={setBackAction}
                             />
                         )}
                         {toolId === 'redact' && (
@@ -764,6 +861,41 @@ const styles = StyleSheet.create({
         flex: 1,
         padding: 16,
     },
+    pickerSearchRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 16,
+    },
+    searchBarWrapper: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        height: 44,
+        borderRadius: 12,
+        borderWidth: 1,
+        paddingHorizontal: 12,
+    },
+    searchInput: {
+        flex: 1,
+        fontSize: 14,
+        paddingVertical: 0,
+        height: '100%',
+    },
+    sortFilterBtn: {
+        width: 48,
+        height: 44,
+        borderRadius: 12,
+        borderWidth: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    emptySearchContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 40,
+    },
     pickerTitle: {
         fontSize: 14,
         fontWeight: 'bold',
@@ -839,14 +971,18 @@ const styles = StyleSheet.create({
         paddingRight: 4,
     },
     successFilePill: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
         width: '100%',
+        alignItems: 'center',
         paddingVertical: 12,
         paddingHorizontal: 14,
         borderRadius: 14,
         borderWidth: 1,
         marginBottom: 10,
+    },
+    successFileRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        width: '100%',
     },
     successFileName: {
         fontSize: 14,
@@ -859,14 +995,14 @@ const styles = StyleSheet.create({
     renameLinkBtn: {
         flexDirection: 'row',
         alignItems: 'center',
-        alignSelf: 'flex-start',
+        alignSelf: 'center',
         paddingVertical: 3,
-        paddingHorizontal: 0,
-        marginVertical: 3,
+        paddingHorizontal: 8,
+        marginTop: 6,
     },
     renameLinkText: {
-        fontSize: 13,
-        fontWeight: 'bold',
+        fontSize: 11,
+        fontWeight: '600',
     },
     successActionsRow: {
         flexDirection: 'row',

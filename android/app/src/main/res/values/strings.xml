@@ -1,3 +1,23 @@
 <resources>
     <string name="app_name">PDFortuna</string>
+    <string name="scanner_import">Import</string>
+    <string name="scanner_add_page">Add page</string>
+    <string name="scanner_export">Export</string>
+    <string name="scanner_1_page">1 page</string>
+    <string name="scanner_n_pages">%d pages</string>
+    <string name="scanner_filter_magic">Magic Color</string>
+    <string name="scanner_filter_bw">B&amp;W</string>
+    <string name="scanner_filter_grayscale">Grayscale</string>
+    <string name="scanner_filter_original">Original</string>
+    <string name="scanner_crop">Crop</string>
+    <string name="scanner_crop_done">Done</string>
+    <string name="scanner_filter_sharpen">Sharp</string>
+    <string name="scanner_filter_lighten">Lighten</string>
+    <string name="scanner_delete_title">Delete page</string>
+    <string name="scanner_delete_message">Are you sure you want to delete this page?</string>
+    <string name="scanner_delete_confirm">Delete this page?</string>
+    <string name="scanner_delete">Delete</string>
+    <string name="scanner_cancel">Cancel</string>
+    <string name="scanner_exporting">Exporting PDF...</string>
+    <string name="scanner_camera_permission">Camera permission is required to scan</string>
 </resources>

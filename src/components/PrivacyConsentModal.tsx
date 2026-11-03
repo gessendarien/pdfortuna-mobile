@@ -2,10 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, Modal, TouchableOpacity, StyleSheet, Linking } from 'react-native';
 import { theme } from '../theme';
 import { useTheme } from '../theme/ThemeContext';
-import { t } from '../i18n';
+import i18n, { t } from '../i18n';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-
-const PRIVACY_URL = 'https://gessendarien.github.io/pdfortuna-mobile/#policy';
 
 interface Props {
     visible: boolean;
@@ -17,7 +15,8 @@ export const PrivacyConsentModal = ({ visible, onAccept }: Props) => {
     const [declined, setDeclined] = useState(false);
 
     const handleLinkPress = () => {
-        Linking.openURL(PRIVACY_URL);
+        const lang = i18n.locale || 'en';
+        Linking.openURL(`https://gessendarien.github.io/pdfortuna-mobile/?lang=${lang}#policy`);
     };
 
     const handleDecline = () => {

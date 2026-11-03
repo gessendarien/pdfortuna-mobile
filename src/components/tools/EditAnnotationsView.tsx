@@ -452,6 +452,7 @@ export const EditAnnotationsView: React.FC<Props> = ({
                 >
                     {/* Native PDF View */}
                     <Pdf
+                        key={`edit-page-${activePage}`}
                         source={{ uri: pdfUri, cache: true }}
                         page={activePage}
                         singlePage={true}

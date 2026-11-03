@@ -2,8 +2,9 @@ import { I18n } from 'i18n-js';
 import * as RNLocalize from 'react-native-localize';
 import en from './locales/en.json';
 import es from './locales/es.json';
+import zh from './locales/zh.json';
 
-const i18n = new I18n({ en, es });
+const i18n = new I18n({ en, es, zh });
 
 // Find best available language based on device locale
 const locales = RNLocalize.getLocales();
@@ -11,6 +12,7 @@ const deviceLang = locales[0]?.languageCode ?? 'en';
 
 const getLocale = (lang: string): string => {
     if (lang.startsWith('es')) return 'es';
+    if (lang.startsWith('zh')) return 'zh';
     return 'en';
 };
 

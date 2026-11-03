@@ -1,5 +1,5 @@
 import RNFS from 'react-native-fs';
-import { PDFDocument, rgb, degrees, StandardFonts } from 'pdf-lib';
+import { PDFDocument, PDFPage, rgb, degrees, StandardFonts } from 'pdf-lib';
 import { Buffer } from 'buffer';
 
 export interface WatermarkOptions {
@@ -40,12 +40,21 @@ export interface DocumentEditItem {
 
 export interface RedactionBox {
     pageIndex: number; // 0-based
-    x: number;         // PDF coordinates (pt)
-    y: number;
-    width: number;
-    height: number;
+    x?: number;        // PDF coordinates (pt)
+    y?: number;
+    width?: number;
+    height?: number;
     color?: { r: number; g: number; b: number };
     isBlur?: boolean;
+    points?: Array<{ x: number; y: number }>;
+    strokeWidth?: number;
+    mosaicTiles?: Array<{
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+        color: { r: number; g: number; b: number };
+    }>;
 }
 
 export interface SignaturePlacement {
@@ -61,6 +70,7 @@ export interface SignaturePlacement {
     y: number;
     width: number;
     height: number;
+    pagePlacements?: Record<number, { x: number; y: number; width: number; height: number; rotationDeg?: number }>;
 }
 
 export interface FormFieldInfo {
@@ -71,6 +81,32 @@ export interface FormFieldInfo {
 }
 
 export class PdfToolsService {
+    /**
+     * Geometría visual de una página: tamaño tal como se ve (CropBox + /Rotate) y
+     * conversión de coordenadas visuales (origen abajo-izquierda de la página
+     * mostrada, en puntos) al espacio de usuario real del PDF.
+     */
+    static getPageGeometry(page: PDFPage) {
+        const box = page.getCropBox();
+        const angle = (((page.getRotation().angle % 360) + 360) % 360);
+        const swap = angle === 90 || angle === 270;
+        const visW = swap ? box.height : box.width;
+        const visH = swap ? box.width : box.height;
+        const toUser = (vx: number, vy: number) => {
+            switch (angle) {
+                case 90:
+                    return { x: box.x + box.width - vy, y: box.y + vx };
+                case 180:
+                    return { x: box.x + box.width - vx, y: box.y + box.height - vy };
+                case 270:
+                    return { x: box.x + vy, y: box.y + box.height - vx };
+                default:
+                    return { x: box.x + vx, y: box.y + vy };
+            }
+        };
+        return { visW, visH, angle, toUser };
+    }
+
     /**
      * Resolves and ensures output directory in Downloads/PDFortuna
      */
@@ -303,7 +339,6 @@ export class PdfToolsService {
         const fontSize = opts.size || 36;
         const opacity = Math.max(0.01, Math.min(1.0, opts.opacity ?? 0.3));
         const color = opts.color ? rgb(opts.color.r, opts.color.g, opts.color.b) : rgb(0.86, 0.12, 0.27);
-        const rot = degrees(opts.rotation ?? 45);
 
         let embeddedImage: any = null;
         if (opts.imagePath || opts.imageBase64) {
@@ -331,25 +366,32 @@ export class PdfToolsService {
         const font = opts.text ? await doc.embedFont(StandardFonts.HelveticaBold) : null;
 
         for (let idx = 0; idx < pages.length; idx++) {
-            if (opts.pages && opts.pages.length > 0 && !opts.pages.includes(idx) && !opts.pages.includes(idx + 1)) {
-                continue;
-            }
-            if (opts.pageIndex !== undefined && opts.pageIndex >= 0 && opts.pageIndex !== idx) {
-                continue;
+            if (opts.pages && opts.pages.length > 0) {
+                const isMatch = opts.pages.includes(idx) || opts.pages.includes(idx + 1);
+                if (!isMatch) continue;
+            } else if (opts.pageIndex !== undefined && opts.pageIndex >= 0) {
+                if (opts.pageIndex !== idx) continue;
             }
 
             const page = pages[idx];
             const { width, height } = page.getSize();
+            const geo = this.getPageGeometry(page);
+            // Mosaico: ángulo visual antihorario + rotación propia de la página
+            const rot = degrees((opts.rotation ?? 45) + geo.angle);
 
             if (embeddedImage) {
                 const imgAspect = embeddedImage.height / embeddedImage.width;
                 if (opts.layout === 'repeat') {
-                    const imgW = Math.min(140, width / 3);
+                    const imgW = Math.min(100, width / 4);
                     const imgH = imgW * imgAspect;
+                    const lineSpacingRaw = opts.lineSpacing || 160;
+                    const stepY = Math.max(50, lineSpacingRaw * 0.55);
                     const stepX = imgW * 1.6;
-                    const stepY = imgH * 1.6;
-                    for (let x = 20; x < width; x += stepX) {
-                        for (let y = 20; y < height; y += stepY) {
+                    let rowIndex = 0;
+                    for (let y = -150; y < height + 250; y += stepY) {
+                        rowIndex++;
+                        const xOffset = (rowIndex % 2 === 0) ? stepX / 2 : 0;
+                        for (let x = -250 + xOffset; x < width + 300; x += stepX) {
                             page.drawImage(embeddedImage, {
                                 x,
                                 y,
@@ -363,21 +405,17 @@ export class PdfToolsService {
                 } else if (opts.layout === 'single') {
                     const w = opts.width || 180;
                     const h = opts.height || w * imgAspect;
-                    const x = opts.x !== undefined ? opts.x : (width - w) / 2;
-                    const y = opts.y !== undefined ? opts.y : (height - h) / 2;
+                    const x = opts.x !== undefined ? opts.x : (geo.visW - w) / 2;
+                    const y = opts.y !== undefined ? opts.y : (geo.visH - h) / 2;
 
-                    let drawX = x;
-                    let drawY = y;
-                    const rotDeg = opts.rotation || 0;
-                    if (rotDeg !== 0) {
-                        const rad = (rotDeg * Math.PI) / 180;
-                        const cos = Math.cos(rad);
-                        const sin = Math.sin(rad);
-                        const cx = x + w / 2;
-                        const cy = y + h / 2;
-                        drawX = cx - (w / 2) * cos + (h / 2) * sin;
-                        drawY = cy - (w / 2) * sin - (h / 2) * cos;
-                    }
+                    // El preview gira en sentido horario; pdf-lib en antihorario
+                    const rotDeg = -(opts.rotation || 0) + geo.angle;
+                    const rad = (rotDeg * Math.PI) / 180;
+                    const cos = Math.cos(rad);
+                    const sin = Math.sin(rad);
+                    const { x: cx, y: cy } = geo.toUser(x + w / 2, y + h / 2);
+                    const drawX = cx - (w / 2) * cos + (h / 2) * sin;
+                    const drawY = cy - (w / 2) * sin - (h / 2) * cos;
 
                     page.drawImage(embeddedImage, {
                         x: drawX,
@@ -391,52 +429,67 @@ export class PdfToolsService {
                     // Center diagonal
                     const w = Math.min(width * 0.6, 260);
                     const h = w * imgAspect;
+                    const cx = width / 2;
+                    const cy = height / 2;
+                    const rad = (45 * Math.PI) / 180;
+                    const cos = Math.cos(rad);
+                    const sin = Math.sin(rad);
+                    const drawX = cx - (w / 2) * cos + (h / 2) * sin;
+                    const drawY = cy - (w / 2) * sin - (h / 2) * cos;
                     page.drawImage(embeddedImage, {
-                        x: (width - w) / 2,
-                        y: (height - h) / 2,
+                        x: drawX,
+                        y: drawY,
                         width: w,
                         height: h,
                         opacity,
-                        rotate: rot,
+                        rotate: degrees(45),
                     });
                 }
             } else if (opts.text && font) {
                 const textWidth = font.widthOfTextAtSize(opts.text, fontSize);
-                const textHeight = font.heightAtSize(fontSize);
 
                 if (opts.layout === 'repeat') {
-                    const lineSpacingFactor = opts.lineSpacing || 4.5;
-                    const stepX = Math.max(160, textWidth * 1.3);
-                    const stepY = Math.max(70, textHeight * lineSpacingFactor);
-                    for (let x = 30; x < width + 100; x += stepX) {
-                        for (let y = 30; y < height + 100; y += stepY) {
+                    // Repeat mosaic across the entire page covering all margins
+                    const lineSpacingRaw = opts.lineSpacing || 160;
+                    const stepY = Math.max(35, lineSpacingRaw * 0.42);
+                    const stepX = textWidth + 45;
+                    const rotRepeat = degrees((opts.rotation ?? 30) + geo.angle);
+
+                    let rowIndex = 0;
+                    for (let y = -150; y < height + 250; y += stepY) {
+                        rowIndex++;
+                        const xOffset = (rowIndex % 2 === 0) ? stepX / 2 : 0;
+                        for (let x = -250 + xOffset; x < width + 300; x += stepX) {
                             page.drawText(opts.text, {
                                 x,
                                 y,
-                                size: fontSize * 0.75,
+                                size: fontSize,
                                 font,
                                 color,
                                 opacity,
-                                rotate: rot,
+                                rotate: rotRepeat,
                             });
                         }
                     }
                 } else if (opts.layout === 'single') {
-                    const x = opts.x !== undefined ? opts.x : (width - textWidth) / 2;
-                    const y = opts.y !== undefined ? opts.y : (height - textHeight) / 2;
+                    const boxW = opts.width || textWidth;
+                    const boxH = opts.height || fontSize;
+                    const x = opts.x !== undefined ? opts.x : (geo.visW - boxW) / 2;
+                    const y = opts.y !== undefined ? opts.y : (geo.visH - boxH) / 2;
 
-                    let drawX = x;
-                    let drawY = y;
-                    const rotDeg = opts.rotation || 0;
-                    if (rotDeg !== 0) {
-                        const rad = (rotDeg * Math.PI) / 180;
-                        const cos = Math.cos(rad);
-                        const sin = Math.sin(rad);
-                        const cx = x + textWidth / 2;
-                        const cy = y + textHeight / 2;
-                        drawX = cx - (textWidth / 2) * cos + (textHeight / 2) * sin;
-                        drawY = cy - (textWidth / 2) * sin - (textHeight / 2) * cos;
-                    }
+                    const { x: cx, y: cy } = geo.toUser(x + boxW / 2, y + boxH / 2);
+
+                    // El preview gira en sentido horario; pdf-lib en antihorario
+                    const rotDeg = -(opts.rotation || 0) + geo.angle;
+                    const rad = (rotDeg * Math.PI) / 180;
+                    const cos = Math.cos(rad);
+                    const sin = Math.sin(rad);
+
+                    // Perfectly center the text baseline around the box center (cx, cy)
+                    const rx = (textWidth / 2) * cos - (fontSize * 0.35) * sin;
+                    const ry = (textWidth / 2) * sin + (fontSize * 0.35) * cos;
+                    const drawX = cx - rx;
+                    const drawY = cy - ry;
 
                     page.drawText(opts.text, {
                         x: drawX,
@@ -449,16 +502,21 @@ export class PdfToolsService {
                     });
                 } else {
                     // Center diagonal
-                    const centerX = (width - textWidth) / 2;
-                    const centerY = (height - textHeight) / 2;
+                    const cx = width / 2;
+                    const cy = height / 2;
+                    const rad = (45 * Math.PI) / 180;
+                    const cos = Math.cos(rad);
+                    const sin = Math.sin(rad);
+                    const rx = (textWidth / 2) * cos - (fontSize * 0.35) * sin;
+                    const ry = (textWidth / 2) * sin + (fontSize * 0.35) * cos;
                     page.drawText(opts.text, {
-                        x: centerX,
-                        y: centerY,
+                        x: cx - rx,
+                        y: cy - ry,
                         size: fontSize,
                         font,
                         color,
                         opacity,
-                        rotate: rot,
+                        rotate: degrees(45),
                     });
                 }
             }
@@ -483,67 +541,145 @@ export class PdfToolsService {
         for (const box of boxes) {
             if (box.pageIndex >= 0 && box.pageIndex < pages.length) {
                 const page = pages[box.pageIndex];
-                if (box.isBlur) {
-                    // Opaque pixelated blur / mosaic censorship (100% blocks text)
-                    // Layer 1: Solid opaque slate base to completely obscure underlying content
-                    page.drawRectangle({
-                        x: box.x,
-                        y: box.y,
-                        width: box.width,
-                        height: box.height,
-                        color: rgb(0.58, 0.64, 0.72),
-                        opacity: 1.0,
-                    });
 
-                    // Layer 2: Opaque mosaic pixel tiles
-                    const blockSize = Math.max(3, Math.min(6, Math.min(box.width, box.height) / 2));
-                    const cols = Math.max(1, Math.ceil(box.width / blockSize));
-                    const rows = Math.max(1, Math.ceil(box.height / blockSize));
-                    const stepW = box.width / cols;
-                    const stepH = box.height / rows;
+                if (box.points && box.points.length > 0) {
+                    const strokeThickness = box.strokeWidth || 14;
 
-                    const MOSAIC_PALETTE = [
-                        rgb(0.58, 0.64, 0.72),
-                        rgb(0.79, 0.83, 0.88),
-                        rgb(0.88, 0.91, 0.94),
-                        rgb(0.40, 0.46, 0.55),
-                        rgb(0.94, 0.96, 0.98),
-                        rgb(0.48, 0.54, 0.62),
-                        rgb(0.70, 0.75, 0.82),
-                        rgb(0.82, 0.85, 0.89),
-                    ];
-
-                    for (let c = 0; c < cols; c++) {
-                        for (let r = 0; r < rows; r++) {
-                            const hash = Math.abs(Math.sin((box.x + c * stepW) * 12.9898 + (box.y + r * stepH) * 78.233) * 43758.5453);
-                            const palIdx = Math.floor(hash) % MOSAIC_PALETTE.length;
-                            const tileColor = MOSAIC_PALETTE[palIdx];
-
-                            page.drawRectangle({
-                                x: box.x + c * stepW,
-                                y: box.y + r * stepH,
-                                width: stepW,
-                                height: stepH,
-                                color: tileColor,
+                    if (box.isBlur) {
+                        // Opaque pixelated blur / mosaic censorship
+                        // Layer 1: Solid base line along the path to completely block text underneath
+                        const baseColor = rgb(0.58, 0.64, 0.72);
+                        if (box.points.length === 1) {
+                            page.drawCircle({
+                                x: box.points[0].x,
+                                y: box.points[0].y,
+                                size: strokeThickness / 2,
+                                color: baseColor,
                                 opacity: 1.0,
-                                borderColor: rgb(0.92, 0.94, 0.96),
-                                borderWidth: 0.3,
-                                borderOpacity: 0.6,
+                            });
+                        } else {
+                            for (let i = 0; i < box.points.length - 1; i++) {
+                                page.drawLine({
+                                    start: box.points[i],
+                                    end: box.points[i + 1],
+                                    thickness: strokeThickness,
+                                    color: baseColor,
+                                    opacity: 1.0,
+                                });
+                                page.drawCircle({
+                                    x: box.points[i].x,
+                                    y: box.points[i].y,
+                                    size: strokeThickness / 2,
+                                    color: baseColor,
+                                    opacity: 1.0,
+                                });
+                            }
+                            const lastPt = box.points[box.points.length - 1];
+                            page.drawCircle({
+                                x: lastPt.x,
+                                y: lastPt.y,
+                                size: strokeThickness / 2,
+                                color: baseColor,
+                                opacity: 1.0,
+                            });
+                        }
+
+                        // Layer 2: Seamless mosaic pixel tiles following the stroke
+                        if (box.mosaicTiles && box.mosaicTiles.length > 0) {
+                            for (const tile of box.mosaicTiles) {
+                                page.drawRectangle({
+                                    x: tile.x,
+                                    y: tile.y,
+                                    width: tile.width,
+                                    height: tile.height,
+                                    color: rgb(tile.color.r, tile.color.g, tile.color.b),
+                                    opacity: 1.0,
+                                    borderColor: rgb(1, 1, 1),
+                                    borderWidth: 0.3,
+                                    borderOpacity: 0.45,
+                                });
+                            }
+                        }
+
+                        // Layer 3: Soft feathered core highlight
+                        if (box.points.length > 1) {
+                            const highlightThickness = strokeThickness * 0.35;
+                            const highlightColor = rgb(1, 1, 1);
+                            for (let i = 0; i < box.points.length - 1; i++) {
+                                page.drawLine({
+                                    start: box.points[i],
+                                    end: box.points[i + 1],
+                                    thickness: highlightThickness,
+                                    color: highlightColor,
+                                    opacity: 0.35,
+                                });
+                            }
+                        }
+                    } else {
+                        // Solid continuous censorship line
+                        const solidColor = box.color
+                            ? rgb(box.color.r, box.color.g, box.color.b)
+                            : rgb(0, 0, 0);
+
+                        if (box.points.length === 1) {
+                            page.drawCircle({
+                                x: box.points[0].x,
+                                y: box.points[0].y,
+                                size: strokeThickness / 2,
+                                color: solidColor,
+                                opacity: 1.0,
+                            });
+                        } else {
+                            for (let i = 0; i < box.points.length - 1; i++) {
+                                page.drawLine({
+                                    start: box.points[i],
+                                    end: box.points[i + 1],
+                                    thickness: strokeThickness,
+                                    color: solidColor,
+                                    opacity: 1.0,
+                                });
+                                page.drawCircle({
+                                    x: box.points[i].x,
+                                    y: box.points[i].y,
+                                    size: strokeThickness / 2,
+                                    color: solidColor,
+                                    opacity: 1.0,
+                                });
+                            }
+                            const lastPt = box.points[box.points.length - 1];
+                            page.drawCircle({
+                                x: lastPt.x,
+                                y: lastPt.y,
+                                size: strokeThickness / 2,
+                                color: solidColor,
+                                opacity: 1.0,
                             });
                         }
                     }
-                } else {
-                    const rectColor = box.color
-                        ? rgb(box.color.r, box.color.g, box.color.b)
-                        : rgb(0, 0, 0);
-                    page.drawRectangle({
-                        x: box.x,
-                        y: box.y,
-                        width: box.width,
-                        height: box.height,
-                        color: rectColor,
-                        opacity: 1.0,
-                    });
+                } else if (box.x !== undefined && box.y !== undefined && box.width !== undefined && box.height !== undefined) {
+                    // Fallback for rectangular boxes
+                    if (box.isBlur) {
+                        page.drawRectangle({
+                            x: box.x,
+                            y: box.y,
+                            width: box.width,
+                            height: box.height,
+                            color: rgb(0.58, 0.64, 0.72),
+                            opacity: 1.0,
+                        });
+                    } else {
+                        const rectColor = box.color
+                            ? rgb(box.color.r, box.color.g, box.color.b)
+                            : rgb(0, 0, 0);
+                        page.drawRectangle({
+                            x: box.x,
+                            y: box.y,
+                            width: box.width,
+                            height: box.height,
+                            color: rectColor,
+                            opacity: 1.0,
+                        });
+                    }
                 }
             }
         }
@@ -574,15 +710,6 @@ export class PdfToolsService {
             throw new Error('Página inválida para insertar firma.');
         }
 
-        const rotDeg = placement.rotationDeg || 0;
-        const rad = (rotDeg * Math.PI) / 180;
-        const cos = Math.cos(rad);
-        const sin = Math.sin(rad);
-
-        // Center coordinates of the bounding box
-        const cx = placement.x + placement.width / 2;
-        const cy = placement.y + placement.height / 2;
-
         let embeddedImage: any = null;
         if (placement.signatureBase64) {
             const cleanBase64 = placement.signatureBase64.replace(/^data:image\/\w+;base64,/, '');
@@ -600,43 +727,72 @@ export class PdfToolsService {
 
         const canvasW = placement.canvasWidth || 300;
         const canvasH = placement.canvasHeight || 150;
-        const scaleX = placement.width / canvasW;
-        const scaleY = placement.height / canvasH;
-        const scale = Math.min(scaleX, scaleY);
 
         for (const pageIdx of validPageIndices) {
             const page = pages[pageIdx];
+            const pConfig = placement.pagePlacements?.[pageIdx] || {
+                x: placement.x,
+                y: placement.y,
+                width: placement.width,
+                height: placement.height,
+                rotationDeg: placement.rotationDeg,
+            };
+
+            const geo = this.getPageGeometry(page);
+            // El preview gira en sentido horario (CSS); pdf-lib gira en antihorario.
+            const pRotDeg = -(pConfig.rotationDeg || 0) + geo.angle;
+            const pRad = (pRotDeg * Math.PI) / 180;
+            const pCos = Math.cos(pRad);
+            const pSin = Math.sin(pRad);
+            const userCenter = geo.toUser(
+                pConfig.x + pConfig.width / 2,
+                pConfig.y + pConfig.height / 2
+            );
+            const pCx = userCenter.x;
+            const pCy = userCenter.y;
+            const pScaleX = pConfig.width / canvasW;
+            const pScaleY = pConfig.height / canvasH;
+            const pScale = Math.min(pScaleX, pScaleY);
 
             if (embeddedImage) {
-                let imgX = placement.x;
-                let imgY = placement.y;
-                if (rotDeg !== 0) {
-                    imgX = cx - (placement.width / 2) * cos + (placement.height / 2) * sin;
-                    imgY = cy - (placement.width / 2) * sin - (placement.height / 2) * cos;
+                const imgAspect = embeddedImage.width / embeddedImage.height;
+                const boxAspect = pConfig.width / pConfig.height;
+                let drawW = pConfig.width;
+                let drawH = pConfig.height;
+                if (imgAspect > boxAspect) {
+                    drawW = pConfig.width;
+                    drawH = pConfig.width / imgAspect;
+                } else {
+                    drawH = pConfig.height;
+                    drawW = pConfig.height * imgAspect;
                 }
+                const rx = (drawW / 2) * pCos - (drawH / 2) * pSin;
+                const ry = (drawW / 2) * pSin + (drawH / 2) * pCos;
+                const imgX = pCx - rx;
+                const imgY = pCy - ry;
+
                 page.drawImage(embeddedImage, {
                     x: imgX,
                     y: imgY,
-                    width: placement.width,
-                    height: placement.height,
-                    rotate: degrees(rotDeg),
+                    width: drawW,
+                    height: drawH,
+                    rotate: degrees(pRotDeg),
                 });
             } else if (placement.svgPaths && placement.svgPaths.length > 0) {
-                const lx = placement.width / 2;
-                const ly = -placement.height / 2;
-                const rx = lx * cos - ly * sin;
-                const ry = lx * sin + ly * cos;
-                const svgX = cx - rx;
-                const svgY = cy - ry;
+                // Exactly center the SVG canvas around the box center (pCx, pCy)
+                const rxCenter = (pScale / 2) * (canvasW * pCos + canvasH * pSin);
+                const ryCenter = (pScale / 2) * (canvasW * pSin - canvasH * pCos);
+                const svgX = pCx - rxCenter;
+                const svgY = pCy - ryCenter;
 
                 for (const p of placement.svgPaths) {
                     page.drawSvgPath(p, {
                         x: svgX,
                         y: svgY,
-                        scale,
-                        rotate: degrees(rotDeg),
+                        scale: pScale,
+                        rotate: degrees(pRotDeg),
                         borderColor: strokeColor,
-                        borderWidth: Math.max(1.5, 2.5 * scale),
+                        borderWidth: Math.max(1.5, 2.5 * pScale),
                     });
                 }
             }
@@ -905,11 +1061,14 @@ export class PdfToolsService {
         const pages = doc.getPages();
         return {
             pageCount: pages.length,
-            pages: pages.map((p) => ({
-                width: p.getWidth(),
-                height: p.getHeight(),
-                rotation: p.getRotation().angle,
-            })),
+            pages: pages.map((p) => {
+                const geo = this.getPageGeometry(p);
+                return {
+                    width: geo.visW,
+                    height: geo.visH,
+                    rotation: geo.angle,
+                };
+            }),
         };
     }
 }

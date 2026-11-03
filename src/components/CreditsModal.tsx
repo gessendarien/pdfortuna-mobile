@@ -4,7 +4,7 @@ import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import packageJson from '../../package.json';
 import { theme } from '../theme';
 import { useTheme } from '../theme/ThemeContext';
-import { t } from '../i18n';
+import i18n, { t } from '../i18n';
 
 interface Props {
     visible: boolean;
@@ -13,7 +13,7 @@ interface Props {
 
 export const CreditsModal = ({ visible, onClose }: Props) => {
     const { colors } = useTheme();
-    const githubUrl = 'https://gessendarien.github.io/pdfortuna-mobile/';
+    const githubUrl = `https://gessendarien.github.io/pdfortuna-mobile/?lang=${i18n.locale || 'en'}`;
 
     const handleLink = () => {
         Linking.openURL(githubUrl).catch(err => console.error("Couldn't load page", err));

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
     View,
     Text,
@@ -14,6 +14,8 @@ import {
     ActivityIndicator,
     TextInput,
     LayoutAnimation,
+    Keyboard,
+    Platform,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -31,6 +33,7 @@ interface Props {
     sourcePath: string;
     onProcess: (placement: SignaturePlacement, saveMode: 'original' | 'copy') => Promise<void>;
     isProcessing: boolean;
+    onRegisterBackAction?: (action: (() => boolean) | null) => void;
 }
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -38,47 +41,50 @@ const CANVAS_WIDTH = SCREEN_WIDTH - 32;
 const CANVAS_HEIGHT = 160;
 const SIGNATURE_ASPECT_RATIO = 2.4; // width / height
 
-const parsePageRangeString = (input: string, totalPages: number): number[] => {
-    const pagesSet = new Set<number>();
-    const parts = input.split(',').map((p) => p.trim()).filter(Boolean);
-
-    for (const part of parts) {
-        if (part.includes('-')) {
-            const [startStr, endStr] = part.split('-').map((s) => s.trim());
-            const start = parseInt(startStr, 10);
-            const end = parseInt(endStr, 10);
-            if (!isNaN(start) && !isNaN(end)) {
-                const min = Math.max(1, Math.min(start, end));
-                const max = Math.min(totalPages, Math.max(start, end));
-                for (let p = min; p <= max; p++) {
-                    pagesSet.add(p);
-                }
-            }
-        } else {
-            const single = parseInt(part, 10);
-            if (!isNaN(single) && single >= 1 && single <= totalPages) {
-                pagesSet.add(single);
-            }
-        }
-    }
-
-    return Array.from(pagesSet).sort((a, b) => a - b);
-};
-
 export const SignatureToolView: React.FC<Props> = ({
     totalPages,
     sourcePath,
     onProcess,
     isProcessing,
+    onRegisterBackAction,
 }) => {
     const { colors } = useTheme();
 
     // Steps: 'create' -> 'place'
     const [step, setStep] = useState<'create' | 'place'>('create');
 
-    // Page scope state: 'single' | 'multiple'
-    const [pageScope, setPageScope] = useState<'single' | 'multiple'>('single');
-    const [customPagesInput, setCustomPagesInput] = useState<string>('');
+    // Register contextual back action so top header arrow and hardware back return to 'create'
+    useEffect(() => {
+        if (step === 'place') {
+            onRegisterBackAction?.(() => {
+                setStep('create');
+                return true;
+            });
+        } else {
+            onRegisterBackAction?.(null);
+        }
+        return () => {
+            onRegisterBackAction?.(null);
+        };
+    }, [step, onRegisterBackAction]);
+
+    const [isDrawing, setIsDrawing] = useState(false);
+
+    // Signed pages list (which pages user confirmed to stamp signature on)
+    const [signedPages, setSignedPages] = useState<number[]>([]);
+    // Per-page placement and rotation state
+    const [pagePlacements, setPagePlacements] = useState<
+        Record<number, { boxPos: { x: number; y: number }; boxWidth: number; rotationDeg: number }>
+    >({});
+
+    // PDF Preview Modal state (to visually inspect pages beforehand)
+    const [previewPdfModalVisible, setPreviewPdfModalVisible] = useState(false);
+    const [previewPdfPage, setPreviewPdfPage] = useState(1);
+    const [previewPdfTotalPages, setPreviewPdfTotalPages] = useState(totalPages);
+    const [previewBalloonVisible, setPreviewBalloonVisible] = useState(false);
+    const previewPdfComponentRef = useRef<any>(null);
+
+    const scrollViewRef = useRef<ScrollView>(null);
 
     // Rotation state: 0, 90, 180, 270
     const [rotationDeg, setRotationDeg] = useState<number>(0);
@@ -99,6 +105,7 @@ export const SignatureToolView: React.FC<Props> = ({
     const [pageJumpVisible, setPageJumpVisible] = useState(false);
     const pdfRef = useRef<any>(null);
     const [pdfDimensions, setPdfDimensions] = useState<{ width: number; height: number }>({ width: 595, height: 842 });
+    const pagesDimensionsRef = useRef<Array<{ width: number; height: number }>>([]);
     const [viewerLayout, setViewerLayout] = useState<{ width: number; height: number }>({ width: SCREEN_WIDTH, height: 500 });
     const viewerLayoutRef = useRef<{ width: number; height: number }>({ width: SCREEN_WIDTH, height: 500 });
     viewerLayoutRef.current = viewerLayout;
@@ -114,6 +121,16 @@ export const SignatureToolView: React.FC<Props> = ({
         const pct = Math.max(0, Math.min(1.0, relativeX / trackWidth));
         const deg = Math.round(pct * 360);
         setRotationDeg(deg);
+        if (signedPages.includes(currentPage)) {
+            setPagePlacements((prev) => ({
+                ...prev,
+                [currentPage]: {
+                    boxPos: { ...boxPosRef.current },
+                    boxWidth: boxWidthRef.current,
+                    rotationDeg: deg,
+                },
+            }));
+        }
     };
 
     const handlePageChange = (page: number) => {
@@ -123,6 +140,13 @@ export const SignatureToolView: React.FC<Props> = ({
             pdfRef.current?.setPage(clamped);
         } catch (e) {
             // ignore
+        }
+        if (pagePlacements[clamped]) {
+            setBoxPos(pagePlacements[clamped].boxPos);
+            boxPosRef.current = pagePlacements[clamped].boxPos;
+            setBoxWidth(pagePlacements[clamped].boxWidth);
+            boxWidthRef.current = pagePlacements[clamped].boxWidth;
+            setRotationDeg(pagePlacements[clamped].rotationDeg);
         }
     };
 
@@ -153,7 +177,9 @@ export const SignatureToolView: React.FC<Props> = ({
         PanResponder.create({
             onStartShouldSetPanResponder: () => true,
             onMoveShouldSetPanResponder: () => true,
+            onPanResponderTerminationRequest: () => false,
             onPanResponderGrant: (evt) => {
+                setIsDrawing(true);
                 const { locationX, locationY, pageX, pageY } = evt.nativeEvent;
                 let x = locationX;
                 let y = locationY;
@@ -178,6 +204,16 @@ export const SignatureToolView: React.FC<Props> = ({
                 setCurrentPath((prev) => `${prev} L ${x.toFixed(1)},${y.toFixed(1)}`);
             },
             onPanResponderRelease: () => {
+                setIsDrawing(false);
+                setCurrentPath((prev) => {
+                    if (prev) {
+                        setPaths((old) => [...old, prev]);
+                    }
+                    return '';
+                });
+            },
+            onPanResponderTerminate: () => {
+                setIsDrawing(false);
                 setCurrentPath((prev) => {
                     if (prev) {
                         setPaths((old) => [...old, prev]);
@@ -263,6 +299,16 @@ export const SignatureToolView: React.FC<Props> = ({
             },
             onPanResponderRelease: () => {
                 initialPinchDistance.current = null;
+                if (signedPages.includes(currentPage)) {
+                    setPagePlacements((prev) => ({
+                        ...prev,
+                        [currentPage]: {
+                            boxPos: { ...boxPosRef.current },
+                            boxWidth: boxWidthRef.current,
+                            rotationDeg,
+                        },
+                    }));
+                }
             },
         })
     ).current;
@@ -273,6 +319,7 @@ export const SignatureToolView: React.FC<Props> = ({
             try {
                 const info = await PdfToolsService.getPdfInfo(sourcePath);
                 if (info.pages && info.pages.length > 0) {
+                    pagesDimensionsRef.current = info.pages;
                     setPdfDimensions({
                         width: info.pages[0].width || 595,
                         height: info.pages[0].height || 842,
@@ -321,11 +368,25 @@ export const SignatureToolView: React.FC<Props> = ({
         const newW = Math.min(vWidth * 0.95, curW + 20);
         const deltaW = newW - curW;
         const deltaH = deltaW / SIGNATURE_ASPECT_RATIO;
+        const newPos = {
+            x: Math.max(-newW + 20, Math.min(vWidth - 20, boxPosRef.current.x - deltaW / 2)),
+            y: Math.max(-((newW / SIGNATURE_ASPECT_RATIO)) + 20, Math.min(vHeight - 20, boxPosRef.current.y - deltaH / 2)),
+        };
         setBoxWidth(newW);
-        setBoxPos((prev) => ({
-            x: Math.max(-newW + 20, Math.min(vWidth - 20, prev.x - deltaW / 2)),
-            y: Math.max(-((newW / SIGNATURE_ASPECT_RATIO)) + 20, Math.min(vHeight - 20, prev.y - deltaH / 2)),
-        }));
+        boxWidthRef.current = newW;
+        setBoxPos(newPos);
+        boxPosRef.current = newPos;
+
+        if (signedPages.includes(currentPage)) {
+            setPagePlacements((prev) => ({
+                ...prev,
+                [currentPage]: {
+                    boxPos: newPos,
+                    boxWidth: newW,
+                    rotationDeg,
+                },
+            }));
+        }
     };
 
     const handleZoomOut = () => {
@@ -335,76 +396,167 @@ export const SignatureToolView: React.FC<Props> = ({
         const newW = Math.max(60, curW - 20);
         const deltaW = newW - curW;
         const deltaH = deltaW / SIGNATURE_ASPECT_RATIO;
+        const newPos = {
+            x: Math.max(-newW + 20, Math.min(vWidth - 20, boxPosRef.current.x - deltaW / 2)),
+            y: Math.max(-((newW / SIGNATURE_ASPECT_RATIO)) + 20, Math.min(vHeight - 20, boxPosRef.current.y - deltaH / 2)),
+        };
         setBoxWidth(newW);
-        setBoxPos((prev) => ({
-            x: Math.max(-newW + 20, Math.min(vWidth - 20, prev.x - deltaW / 2)),
-            y: Math.max(-((newW / SIGNATURE_ASPECT_RATIO)) + 20, Math.min(vHeight - 20, prev.y - deltaH / 2)),
-        }));
+        boxWidthRef.current = newW;
+        setBoxPos(newPos);
+        boxPosRef.current = newPos;
+
+        if (signedPages.includes(currentPage)) {
+            setPagePlacements((prev) => ({
+                ...prev,
+                [currentPage]: {
+                    boxPos: newPos,
+                    boxWidth: newW,
+                    rotationDeg,
+                },
+            }));
+        }
     };
 
-    // Calculate PDF coordinates and trigger placement
-    const handleConfirmPlacement = async (saveMode: 'original' | 'copy') => {
-        setConfirmModalVisible(false);
+    const handleSignCurrentPage = () => {
+        if (!signedPages.includes(currentPage)) {
+            const nextPages = [...signedPages, currentPage].sort((a, b) => a - b);
+            setSignedPages(nextPages);
+            setPagePlacements((prev) => ({
+                ...prev,
+                [currentPage]: {
+                    boxPos: { ...boxPosRef.current },
+                    boxWidth: boxWidthRef.current,
+                    rotationDeg,
+                },
+            }));
+        }
+    };
 
-        // Aspect fit calculation: PDF inside viewer layout
-        const pdfAspect = pdfDimensions.width / pdfDimensions.height;
-        const viewerAspect = viewerLayout.width / viewerLayout.height;
+    const handleRemoveSignatureFromCurrentPage = () => {
+        setSignedPages((prev) => prev.filter((p) => p !== currentPage));
+        setPagePlacements((prev) => {
+            const copy = { ...prev };
+            delete copy[currentPage];
+            return copy;
+        });
+    };
 
-        let renderedW = viewerLayout.width;
-        let renderedH = viewerLayout.height;
+    // Calculate PDF coordinates for any given box placement
+    const calculatePdfCoords = (
+        pos: { x: number; y: number },
+        boxW: number,
+        rot: number = 0,
+        pageNum: number = currentPage
+    ) => {
+        const pages = pagesDimensionsRef.current;
+        const pageDim = (pages && pages[pageNum - 1]) || pdfDimensions || { width: 595, height: 842 };
+        const pagePtW = pageDim.width;
+        const pagePtH = pageDim.height;
+        const pageAspect = pagePtW / pagePtH;
+
+        const vW = viewerLayoutRef.current.width || viewerLayout.width || SCREEN_WIDTH;
+        const vH = viewerLayoutRef.current.height || viewerLayout.height || 500;
+        const viewerAspect = vW / vH;
+
+        let renderedW = vW;
+        let renderedH = vH;
         let offsetX = 0;
         let offsetY = 0;
 
-        if (pdfAspect > viewerAspect) {
-            // Fits by width
-            renderedW = viewerLayout.width;
-            renderedH = viewerLayout.width / pdfAspect;
-            offsetY = (viewerLayout.height - renderedH) / 2;
+        if (pageAspect > viewerAspect) {
+            renderedW = vW;
+            renderedH = vW / pageAspect;
+            offsetY = (vH - renderedH) / 2;
+            offsetX = 0;
         } else {
-            // Fits by height
-            renderedH = viewerLayout.height;
-            renderedW = viewerLayout.height * pdfAspect;
-            offsetX = (viewerLayout.width - renderedW) / 2;
+            renderedH = vH;
+            renderedW = vH * pageAspect;
+            offsetX = (vW - renderedW) / 2;
+            offsetY = 0;
         }
 
-        const boxHeight = boxWidth / SIGNATURE_ASPECT_RATIO;
+        const boxH = boxW / SIGNATURE_ASPECT_RATIO;
 
-        // Relative coordinates on the rendered page
-        const relX = (boxPos.x - offsetX) / renderedW;
-        const relY = (boxPos.y - offsetY) / renderedH;
-        const relW = boxWidth / renderedW;
-        const relH = boxHeight / renderedH;
+        // Center of the signature box in screen coordinates
+        const centerScreenX = pos.x + boxW / 2;
+        const centerScreenY = pos.y + boxH / 2;
 
-        // Map to PDF point coordinates (in PDF coordinates, 0 is at bottom)
-        const pdfPtX = Math.max(0, Math.min(pdfDimensions.width - 10, relX * pdfDimensions.width));
-        const pdfPtW = relW * pdfDimensions.width;
-        const pdfPtH = relH * pdfDimensions.height;
-        const pdfPtY = Math.max(0, Math.min(pdfDimensions.height - pdfPtH, pdfDimensions.height - (relY * pdfDimensions.height) - pdfPtH));
+        // Position of center relative to the visible page [0..1]
+        const fracCenterX = (centerScreenX - offsetX) / renderedW;
+        const fracCenterY = (centerScreenY - offsetY) / renderedH;
 
-        let targetPages: number[] = [currentPage - 1];
-        if (pageScope === 'multiple') {
-            const parsed = parsePageRangeString(customPagesInput, totalPages);
-            if (parsed.length > 0) {
-                targetPages = parsed.map((p) => p - 1);
-            }
+        // Normalized width and height of the box relative to page
+        const fracW = boxW / renderedW;
+        const fracH = boxH / renderedH;
+
+        // Target PDF dimensions in points
+        const pdfPtW = fracW * pagePtW;
+        const pdfPtH = fracH * pagePtH;
+
+        // Target center in PDF points (origin at bottom-left in PDF)
+        const pCx = fracCenterX * pagePtW;
+        const pCy = (1 - fracCenterY) * pagePtH;
+
+        // Lower-left corner in PDF points
+        const pdfPtX = pCx - pdfPtW / 2;
+        const pdfPtY = pCy - pdfPtH / 2;
+
+        return {
+            x: pdfPtX,
+            y: pdfPtY,
+            width: pdfPtW,
+            height: pdfPtH,
+            rotationDeg: rot,
+        };
+    };
+
+    // Calculate PDF coordinates and trigger placement across all signed pages
+    const handleConfirmPlacement = async (saveMode: 'original' | 'copy') => {
+        setConfirmModalVisible(false);
+
+        const pagesToSign = signedPages.length > 0 ? signedPages : [currentPage];
+        const targetPages = pagesToSign.map((p) => p - 1);
+
+        const pagePlacementsMap: Record<
+            number,
+            { x: number; y: number; width: number; height: number; rotationDeg?: number }
+        > = {};
+
+        for (const pageNum of pagesToSign) {
+            const pageIdx = pageNum - 1;
+            const cfg = (pageNum === currentPage)
+                ? {
+                    boxPos: { ...boxPosRef.current },
+                    boxWidth: boxWidthRef.current,
+                    rotationDeg,
+                }
+                : (pagePlacements[pageNum] || {
+                    boxPos: { ...boxPosRef.current },
+                    boxWidth: boxWidthRef.current,
+                    rotationDeg,
+                });
+            pagePlacementsMap[pageIdx] = calculatePdfCoords(cfg.boxPos, cfg.boxWidth, cfg.rotationDeg, pageNum);
         }
+
+        const firstPageNum = pagesToSign[0];
+        const firstPlacement = pagePlacementsMap[firstPageNum - 1];
 
         let placement: SignaturePlacement;
 
         if (selectedImage) {
             const base64 = await RNFS.readFile(selectedImage.path, 'base64');
             placement = {
-                pageIndex: currentPage - 1,
+                pageIndex: firstPageNum - 1,
                 pages: targetPages,
-                rotationDeg,
+                pagePlacements: pagePlacementsMap,
+                rotationDeg: firstPlacement.rotationDeg || 0,
                 signatureBase64: base64,
-                x: pdfPtX,
-                y: pdfPtY,
-                width: pdfPtW,
-                height: pdfPtH,
+                x: firstPlacement.x,
+                y: firstPlacement.y,
+                width: firstPlacement.width,
+                height: firstPlacement.height,
             };
         } else {
-            // Vector stroke
             const strokeRgb =
                 color === '#2563eb'
                     ? { r: 0.15, g: 0.39, b: 0.92 }
@@ -413,17 +565,18 @@ export const SignatureToolView: React.FC<Props> = ({
                     : { r: 0.05, g: 0.05, b: 0.05 };
 
             placement = {
-                pageIndex: currentPage - 1,
+                pageIndex: firstPageNum - 1,
                 pages: targetPages,
-                rotationDeg,
+                pagePlacements: pagePlacementsMap,
+                rotationDeg: firstPlacement.rotationDeg || 0,
                 svgPaths: paths,
                 strokeColor: strokeRgb,
                 canvasWidth: CANVAS_WIDTH,
                 canvasHeight: CANVAS_HEIGHT,
-                x: pdfPtX,
-                y: pdfPtY,
-                width: pdfPtW,
-                height: pdfPtH,
+                x: firstPlacement.x,
+                y: firstPlacement.y,
+                width: firstPlacement.width,
+                height: firstPlacement.height,
             };
         }
 
@@ -432,18 +585,11 @@ export const SignatureToolView: React.FC<Props> = ({
 
     const handleProceedToPlace = () => {
         if (!hasSignature) {
-            Alert.alert('Atención', 'Dibuja tu firma o selecciona una imagen antes de continuar.');
+            Alert.alert(
+                'Firma requerida',
+                'Por favor dibuja tu firma con el dedo en el recuadro blanco o selecciona una imagen antes de continuar.'
+            );
             return;
-        }
-        if (pageScope === 'multiple') {
-            const parsed = parsePageRangeString(customPagesInput, totalPages);
-            if (parsed.length === 0) {
-                Alert.alert(
-                    'Páginas requeridas',
-                    'Escribe las páginas que deseas firmar (ej: 1-3, 5) o pulsa "Firmar todas las páginas".'
-                );
-                return;
-            }
         }
         setStep('place');
     };
@@ -454,7 +600,17 @@ export const SignatureToolView: React.FC<Props> = ({
     if (step === 'create') {
         return (
             <View style={styles.container}>
-                <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+                <ScrollView
+                    ref={scrollViewRef}
+                    style={styles.container}
+                    scrollEnabled={!isDrawing}
+                    contentContainerStyle={[
+                        styles.content,
+                        { paddingBottom: 32 },
+                    ]}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                >
                     <Text style={[styles.sectionTitle, { color: colors.text }]}>Escribe tu firma con el dedo</Text>
 
                     {/* Finger Drawing Canvas */}
@@ -528,126 +684,25 @@ export const SignatureToolView: React.FC<Props> = ({
                         <Text style={[styles.pickImageText, { color: colors.text }]}>Elegir desde mis imágenes</Text>
                     </TouchableOpacity>
 
-                    {/* Page Scope Selection */}
-                    <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 22 }]}>
-                        ¿Dónde deseas estampar la firma?
-                    </Text>
-
-                    {/* Option 1: Firmar una sola página */}
+                    {/* Clean Ver PDF button */}
                     <TouchableOpacity
                         style={[
-                            styles.scopeOptionCard,
+                            styles.viewPdfBtn,
                             {
                                 backgroundColor: colors.surfaceLight,
-                                borderColor: pageScope === 'single' ? colors.primary : colors.border,
-                                borderWidth: pageScope === 'single' ? 2 : 1,
+                                borderColor: colors.border,
+                                marginTop: 16,
                             },
                         ]}
                         onPress={() => {
-                            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                            setPageScope('single');
+                            setPreviewPdfPage(1);
+                            setPreviewPdfModalVisible(true);
                         }}
                         activeOpacity={0.8}
                     >
-                        <Icon
-                            name={pageScope === 'single' ? 'radio-button-checked' : 'radio-button-unchecked'}
-                            size={20}
-                            color={pageScope === 'single' ? colors.primary : colors.textSecondary}
-                        />
-                        <View style={{ flex: 1, marginLeft: 10 }}>
-                            <Text style={[styles.scopeOptionTitle, { color: colors.text }]}>Firmar una página</Text>
-                            <Text style={[styles.scopeOptionDesc, { color: colors.textSecondary }]}>
-                                Elige la página específica donde colocarás la firma
-                            </Text>
-                        </View>
+                        <Icon name="visibility" size={18} color={colors.primary} style={{ marginRight: 6 }} />
+                        <Text style={[styles.viewPdfBtnText, { color: colors.text }]}>Ver PDF</Text>
                     </TouchableOpacity>
-
-                    {/* Option 2: Firmar en varias páginas */}
-                    <TouchableOpacity
-                        style={[
-                            styles.scopeOptionCard,
-                            {
-                                backgroundColor: colors.surfaceLight,
-                                borderColor: pageScope === 'multiple' ? colors.primary : colors.border,
-                                borderWidth: pageScope === 'multiple' ? 2 : 1,
-                                marginTop: 10,
-                            },
-                        ]}
-                        onPress={() => {
-                            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                            setPageScope('multiple');
-                        }}
-                        activeOpacity={0.8}
-                    >
-                        <Icon
-                            name={pageScope === 'multiple' ? 'radio-button-checked' : 'radio-button-unchecked'}
-                            size={20}
-                            color={pageScope === 'multiple' ? colors.primary : colors.textSecondary}
-                        />
-                        <View style={{ flex: 1, marginLeft: 10 }}>
-                            <Text style={[styles.scopeOptionTitle, { color: colors.text }]}>Firmar en varias páginas</Text>
-                            <Text style={[styles.scopeOptionDesc, { color: colors.textSecondary }]}>
-                                Aplica la firma en la misma posición en todas las páginas elegidas
-                            </Text>
-                        </View>
-                    </TouchableOpacity>
-
-                    {/* If multiple, range input and all pages quick button */}
-                    {pageScope === 'multiple' && (
-                        <View
-                            style={[
-                                styles.customRangeBox,
-                                { backgroundColor: colors.surfaceLight, borderColor: colors.border },
-                            ]}
-                        >
-                            <Text style={[styles.customRangeHint, { color: colors.textSecondary }]}>
-                                {"Escribe las páginas separadas por guión (-) para rangos y coma (,) para páginas sueltas.\nEj: 1-3, 5"}
-                            </Text>
-                            <TextInput
-                                style={[
-                                    styles.customRangeInput,
-                                    {
-                                        backgroundColor: colors.backgroundLight,
-                                        borderColor: colors.border,
-                                        color: colors.text,
-                                    },
-                                ]}
-                                value={customPagesInput}
-                                onChangeText={setCustomPagesInput}
-                                keyboardType="numbers-and-punctuation"
-                                autoCapitalize="none"
-                                autoCorrect={false}
-                            />
-                            <TouchableOpacity
-                                style={[
-                                    styles.allPagesBtn,
-                                    {
-                                        backgroundColor: customPagesInput === `1-${totalPages}` ? colors.primary : colors.backgroundLight,
-                                        borderColor: customPagesInput === `1-${totalPages}` ? colors.primary : colors.border,
-                                    },
-                                ]}
-                                onPress={() => {
-                                    setCustomPagesInput(`1-${totalPages}`);
-                                }}
-                                activeOpacity={0.8}
-                            >
-                                <Icon
-                                    name="done-all"
-                                    size={16}
-                                    color={customPagesInput === `1-${totalPages}` ? '#ffffff' : colors.primary}
-                                    style={{ marginRight: 6 }}
-                                />
-                                <Text
-                                    style={[
-                                        styles.allPagesBtnText,
-                                        { color: customPagesInput === `1-${totalPages}` ? '#ffffff' : colors.text },
-                                    ]}
-                                >
-                                    Firmar todas las páginas ({totalPages})
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
-                    )}
                 </ScrollView>
 
                 {/* Fixed bottom bar for continue button */}
@@ -660,7 +715,7 @@ export const SignatureToolView: React.FC<Props> = ({
                             },
                         ]}
                         onPress={handleProceedToPlace}
-                        disabled={!hasSignature || isProcessing}
+                        disabled={isProcessing}
                         activeOpacity={0.8}
                     >
                         <Icon name="arrow-forward" size={20} color="#ffffff" style={{ marginRight: 8 }} />
@@ -722,6 +777,102 @@ export const SignatureToolView: React.FC<Props> = ({
                     }}
                     onCancel={() => setShowClearConfirm(false)}
                 />
+
+                {/* PDF Visualizer / Preview Modal */}
+                <Modal
+                    visible={previewPdfModalVisible}
+                    transparent={true}
+                    animationType="fade"
+                    onRequestClose={() => setPreviewPdfModalVisible(false)}
+                >
+                    <View style={styles.modalBackdrop}>
+                        <View
+                            style={[
+                                styles.previewModalCard,
+                                {
+                                    backgroundColor: colors.surfaceLight,
+                                    borderColor: colors.border,
+                                },
+                            ]}
+                        >
+                            {/* Header */}
+                            <View style={[styles.previewModalHeader, { borderBottomColor: colors.border }]}>
+                                <Icon name="picture-as-pdf" size={24} color="#ef4444" style={{ marginRight: 8 }} />
+                                <View style={{ flex: 1 }}>
+                                    <Text style={[styles.previewModalTitle, { color: colors.text }]} numberOfLines={1}>
+                                        {sourcePath.split('/').pop() || 'Documento PDF'}
+                                    </Text>
+                                    <TouchableOpacity
+                                        onPress={() => setPreviewBalloonVisible(true)}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Text style={[styles.previewModalPageInfo, { color: colors.textSecondary }]}>
+                                            Página <Text style={{ color: colors.primary, fontWeight: 'bold' }}>{previewPdfPage}</Text> de {previewPdfTotalPages}
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+                                <TouchableOpacity
+                                    onPress={() => setPreviewPdfModalVisible(false)}
+                                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                    style={styles.previewModalCloseBtn}
+                                >
+                                    <Icon name="close" size={22} color={colors.text} />
+                                </TouchableOpacity>
+                            </View>
+
+                            {/* Page Jump Balloon */}
+                            <PageJumpBalloon
+                                visible={previewBalloonVisible}
+                                currentPage={previewPdfPage}
+                                totalPages={previewPdfTotalPages}
+                                onPageChange={(p) => {
+                                    setPreviewPdfPage(p);
+                                    previewPdfComponentRef.current?.setPage(p);
+                                }}
+                                onClose={() => setPreviewBalloonVisible(false)}
+                                topOffset={50}
+                            />
+
+                            {/* PDF View */}
+                            <View style={styles.previewModalPdfContainer}>
+                                <Pdf
+                                    ref={previewPdfComponentRef}
+                                    source={{
+                                        uri: sourcePath.startsWith('file://') ? sourcePath : `file://${sourcePath}`,
+                                        cache: true,
+                                    }}
+                                    style={styles.previewModalPdf}
+                                    fitPolicy={2}
+                                    spacing={8}
+                                    minScale={1.0}
+                                    maxScale={4.0}
+                                    enablePaging={true}
+                                    enableDoubleTapZoom={true}
+                                    onLoadComplete={(numberOfPages) => {
+                                        setPreviewPdfTotalPages(numberOfPages);
+                                    }}
+                                    onPageChanged={(page) => {
+                                        setPreviewPdfPage(page);
+                                    }}
+                                    onError={(err) => {
+                                        console.warn('Preview PDF error:', err);
+                                    }}
+                                />
+                            </View>
+
+                            {/* Footer with close button */}
+                            <View style={[styles.previewModalFooter, { borderTopColor: colors.border }]}>
+                                <TouchableOpacity
+                                    style={[styles.previewModalCloseFooterBtn, { backgroundColor: colors.primary }]}
+                                    onPress={() => setPreviewPdfModalVisible(false)}
+                                    activeOpacity={0.8}
+                                >
+                                    <Text style={styles.previewModalCloseFooterText}>Cerrar</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </View>
+                </Modal>
             </View>
         );
     }
@@ -730,7 +881,15 @@ export const SignatureToolView: React.FC<Props> = ({
     // STEP 2: INTERACTIVE PDF PLACEMENT
     // ==========================================
     const boxHeight = boxWidth / SIGNATURE_ASPECT_RATIO;
-    const multiPagesCount = pageScope === 'multiple' ? parsePageRangeString(customPagesInput, totalPages).length : 1;
+    const isSignedOnCurrentPage = signedPages.includes(currentPage);
+
+    // Calculate rotated bounding box height to keep resize controls pill clear of rotated box
+    const rad = (rotationDeg * Math.PI) / 180;
+    const halfBoundingH = (Math.abs(boxWidth * Math.sin(rad)) + Math.abs(boxHeight * Math.cos(rad))) / 2;
+    const boxCenterY = boxPos.y + boxHeight / 2;
+    const pillTop = (boxCenterY - halfBoundingH) > 44
+        ? (boxCenterY - halfBoundingH - 36)
+        : (boxCenterY + halfBoundingH + 8);
 
     return (
         <View style={styles.placementContainer}>
@@ -741,16 +900,16 @@ export const SignatureToolView: React.FC<Props> = ({
                     onPress={() => setStep('create')}
                     activeOpacity={0.7}
                 >
-                    <Icon name="arrow-back" size={18} color={colors.primary} style={{ marginRight: 4 }} />
+                    <Icon name="edit" size={16} color={colors.primary} style={{ marginRight: 4 }} />
                     <Text style={[styles.backToCreateText, { color: colors.primary }]}>Cambiar firma</Text>
                 </TouchableOpacity>
 
                 {/* Page Jump / Navigator */}
                 <View style={styles.pageNavigator}>
-                    {pageScope === 'multiple' && (
+                    {signedPages.length > 0 && (
                         <View style={[styles.multiPagesBadge, { backgroundColor: colors.primary }]}>
                             <Text style={styles.multiPagesBadgeText}>
-                                {multiPagesCount} {multiPagesCount === 1 ? 'pág' : 'págs'}
+                                {signedPages.length} {signedPages.length === 1 ? 'pág' : 'págs'}
                             </Text>
                         </View>
                     )}
@@ -789,59 +948,61 @@ export const SignatureToolView: React.FC<Props> = ({
                 </View>
             </View>
 
-            {/* Rotation Slider Bar */}
-            <View style={[styles.quickControlsBar, { backgroundColor: colors.surfaceLight, borderBottomColor: colors.border }]}>
-                <Icon name="rotate-right" size={18} color={colors.primary} style={{ marginRight: 6 }} />
-                <Text style={[styles.quickControlsLabel, { color: colors.textSecondary }]}>Giro:</Text>
+            {/* Rotation Slider Bar - only displayed if current page is signed */}
+            {isSignedOnCurrentPage && (
+                <View style={[styles.quickControlsBar, { backgroundColor: colors.surfaceLight, borderBottomColor: colors.border }]}>
+                    <Icon name="rotate-right" size={18} color={colors.primary} style={{ marginRight: 6 }} />
+                    <Text style={[styles.quickControlsLabel, { color: colors.textSecondary }]}>Giro:</Text>
 
-                <View
-                    ref={rotSliderContainerRef}
-                    style={styles.quickSliderTouchWrapper}
-                    onLayout={() => {
-                        rotSliderContainerRef.current?.measure((_x, _y, width, _h, pageX) => {
-                            if (width) rotSliderWidthRef.current = width;
-                            if (pageX !== undefined) rotSliderPageXRef.current = pageX;
-                        });
-                    }}
-                    onStartShouldSetResponder={() => true}
-                    onMoveShouldSetResponder={() => true}
-                    onResponderGrant={(evt) => {
-                        rotSliderContainerRef.current?.measure((_x, _y, width, _h, pageX) => {
-                            if (width) rotSliderWidthRef.current = width;
-                            if (pageX !== undefined) rotSliderPageXRef.current = pageX;
+                    <View
+                        ref={rotSliderContainerRef}
+                        style={styles.quickSliderTouchWrapper}
+                        onLayout={() => {
+                            rotSliderContainerRef.current?.measure((_x, _y, width, _h, pageX) => {
+                                if (width) rotSliderWidthRef.current = width;
+                                if (pageX !== undefined) rotSliderPageXRef.current = pageX;
+                            });
+                        }}
+                        onStartShouldSetResponder={() => true}
+                        onMoveShouldSetResponder={() => true}
+                        onResponderGrant={(evt) => {
+                            rotSliderContainerRef.current?.measure((_x, _y, width, _h, pageX) => {
+                                if (width) rotSliderWidthRef.current = width;
+                                if (pageX !== undefined) rotSliderPageXRef.current = pageX;
+                                updateRotationTouch(evt.nativeEvent.pageX);
+                            });
+                        }}
+                        onResponderMove={(evt) => {
                             updateRotationTouch(evt.nativeEvent.pageX);
-                        });
-                    }}
-                    onResponderMove={(evt) => {
-                        updateRotationTouch(evt.nativeEvent.pageX);
-                    }}
-                >
-                    <View style={[styles.sliderTrack, { backgroundColor: colors.border }]} pointerEvents="none">
-                        <View
-                            style={[
-                                styles.sliderFill,
-                                {
-                                    width: `${(rotationDeg / 360) * 100}%`,
-                                    backgroundColor: colors.primary,
-                                },
-                            ]}
-                        />
-                        <View
-                            style={[
-                                styles.sliderThumb,
-                                {
-                                    left: `${Math.max(0, Math.min(96, (rotationDeg / 360) * 100 - 3))}%`,
-                                    backgroundColor: colors.primary,
-                                },
-                            ]}
-                        />
+                        }}
+                    >
+                        <View style={[styles.sliderTrack, { backgroundColor: colors.border }]} pointerEvents="none">
+                            <View
+                                style={[
+                                    styles.sliderFill,
+                                    {
+                                        width: `${(rotationDeg / 360) * 100}%`,
+                                        backgroundColor: colors.primary,
+                                    },
+                                ]}
+                            />
+                            <View
+                                style={[
+                                    styles.sliderThumb,
+                                    {
+                                        left: `${Math.max(0, Math.min(96, (rotationDeg / 360) * 100 - 3))}%`,
+                                        backgroundColor: colors.primary,
+                                    },
+                                ]}
+                            />
+                        </View>
                     </View>
-                </View>
 
-                <Text style={[styles.quickSliderValueText, { color: colors.primary }]}>
-                    {rotationDeg}°
-                </Text>
-            </View>
+                    <Text style={[styles.quickSliderValueText, { color: colors.primary }]}>
+                        {rotationDeg}°
+                    </Text>
+                </View>
+            )}
 
             {/* Page Jump Balloon for direct page input */}
             <PageJumpBalloon
@@ -864,119 +1025,176 @@ export const SignatureToolView: React.FC<Props> = ({
                 }}
             >
                 <Pdf
+                    key={`sig-pdf-page-${currentPage}`}
                     ref={pdfRef}
                     source={{ uri: sourcePath.startsWith('file://') ? sourcePath : `file://${sourcePath}` }}
                     page={currentPage}
                     singlePage={true}
                     scale={1.0}
                     fitPolicy={2}
+                    spacing={0}
                     style={styles.pdfView}
-                    onLoadComplete={(numberOfPages, filePath, { width, height }: any) => {
-                        if (width && height) {
-                            setPdfDimensions({ width, height });
-                        }
-                    }}
                     onError={(error) => {
                         console.warn('Pdf viewer error in signature tool:', error);
                     }}
                 />
 
-                {/* Draggable Translucent Signature Box */}
-                <View
-                    style={[
-                        styles.draggableBox,
-                        {
-                            width: boxWidth,
-                            height: boxHeight,
-                            left: boxPos.x,
-                            top: boxPos.y,
-                            borderColor: colors.primary,
-                        },
-                    ]}
-                    {...dragPanResponder.panHandlers}
-                >
-                    {/* Render Signature Inside Box with rotation */}
-                    <View
-                        style={[
-                            StyleSheet.absoluteFill,
-                            {
-                                transform: [{ rotate: `${rotationDeg}deg` }],
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                            },
-                        ]}
-                        pointerEvents="none"
-                    >
-                        {selectedImage ? (
-                            <Image source={{ uri: selectedImage.uri }} style={styles.boxInnerImage} resizeMode="contain" />
-                        ) : (
-                            <Svg
-                                style={StyleSheet.absoluteFill}
-                                viewBox={`0 0 ${CANVAS_WIDTH} ${CANVAS_HEIGHT}`}
-                                preserveAspectRatio="xMidYMid meet"
+                {/* Draggable Translucent Signature Box (only when current page is signed) */}
+                {isSignedOnCurrentPage && (
+                    <>
+                        <View
+                            style={[
+                                styles.draggableBox,
+                                {
+                                    width: boxWidth,
+                                    height: boxHeight,
+                                    left: boxPos.x,
+                                    top: boxPos.y,
+                                    borderColor: colors.primary,
+                                    transform: [{ rotate: `${rotationDeg}deg` }],
+                                },
+                            ]}
+                            {...dragPanResponder.panHandlers}
+                        >
+                            {/* Render Signature Inside Box */}
+                            <View
+                                style={[
+                                    StyleSheet.absoluteFill,
+                                    {
+                                        top: -2,
+                                        left: -2,
+                                        right: -2,
+                                        bottom: -2,
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                    },
+                                ]}
+                                pointerEvents="none"
                             >
-                                {paths.map((p, i) => (
-                                    <Path key={i} d={p} stroke={color} strokeWidth={3} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                                ))}
-                            </Svg>
-                        )}
-                    </View>
+                                {selectedImage ? (
+                                    <Image source={{ uri: selectedImage.uri }} style={styles.boxInnerImage} resizeMode="contain" />
+                                ) : (
+                                    <Svg
+                                        style={StyleSheet.absoluteFill}
+                                        viewBox={`0 0 ${CANVAS_WIDTH} ${CANVAS_HEIGHT}`}
+                                        preserveAspectRatio="xMidYMid meet"
+                                    >
+                                        {paths.map((p, i) => (
+                                            <Path key={i} d={p} stroke={color} strokeWidth={3} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                                        ))}
+                                    </Svg>
+                                )}
+                            </View>
 
-                    {/* Move indicator */}
-                    <View style={styles.moveIndicator} pointerEvents="none">
-                        <Icon name="open-with" size={14} color="rgba(221, 31, 71, 0.7)" />
-                    </View>
-                </View>
+                            {/* Move indicator */}
+                            <View style={styles.moveIndicator} pointerEvents="none">
+                                <Icon name="open-with" size={14} color="rgba(221, 31, 71, 0.7)" />
+                            </View>
+                        </View>
 
-                {/* Resizing and rotating controls pill outside draggableBox so touches always fire */}
-                <View
-                    style={[
-                        styles.resizeControlsPill,
-                        {
-                            left: Math.max(10, Math.min(viewerLayout.width - 105, boxPos.x + boxWidth / 2 - 50)),
-                            top: boxPos.y > 44 ? boxPos.y - 36 : boxPos.y + boxHeight + 8,
-                        },
-                    ]}
-                >
-                    <TouchableOpacity
-                        onPress={handleZoomOut}
-                        style={styles.resizeBtn}
-                        activeOpacity={0.6}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                        <Icon name="remove" size={15} color="#ffffff" />
-                    </TouchableOpacity>
-                    <View style={styles.resizeDivider} />
-                    <TouchableOpacity
-                        onPress={handleZoomIn}
-                        style={styles.resizeBtn}
-                        activeOpacity={0.6}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                        <Icon name="add" size={15} color="#ffffff" />
-                    </TouchableOpacity>
-                    <View style={styles.resizeDivider} />
-                    <TouchableOpacity
-                        onPress={() => setRotationDeg((prev) => (prev + 90) % 360)}
-                        style={styles.resizeBtn}
-                        activeOpacity={0.6}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                        <Icon name="rotate-right" size={15} color="#ffffff" />
-                    </TouchableOpacity>
-                </View>
+                        {/* Resizing and rotating controls pill outside draggableBox so touches always fire */}
+                        <View
+                            style={[
+                                styles.resizeControlsPill,
+                                {
+                                    left: Math.max(10, Math.min(viewerLayout.width - 105, boxPos.x + boxWidth / 2 - 50)),
+                                    top: pillTop,
+                                },
+                            ]}
+                        >
+                            <TouchableOpacity
+                                onPress={handleZoomOut}
+                                style={styles.resizeBtn}
+                                activeOpacity={0.6}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            >
+                                <Icon name="remove" size={15} color="#ffffff" />
+                            </TouchableOpacity>
+                            <View style={styles.resizeDivider} />
+                            <TouchableOpacity
+                                onPress={handleZoomIn}
+                                style={styles.resizeBtn}
+                                activeOpacity={0.6}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            >
+                                <Icon name="add" size={15} color="#ffffff" />
+                            </TouchableOpacity>
+                            <View style={styles.resizeDivider} />
+                            <TouchableOpacity
+                                onPress={() => {
+                                    const newRot = (rotationDeg + 90) % 360;
+                                    setRotationDeg(newRot);
+                                    if (signedPages.includes(currentPage)) {
+                                        setPagePlacements((prev) => ({
+                                            ...prev,
+                                            [currentPage]: {
+                                                boxPos: { ...boxPosRef.current },
+                                                boxWidth: boxWidthRef.current,
+                                                rotationDeg: newRot,
+                                            },
+                                        }));
+                                    }
+                                }}
+                                style={styles.resizeBtn}
+                                activeOpacity={0.6}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            >
+                                <Icon name="rotate-right" size={15} color="#ffffff" />
+                            </TouchableOpacity>
+                        </View>
+                    </>
+                )}
             </View>
 
-            {/* Bottom Bar: Action to stamp signature */}
+            {/* Bottom Bar: Page Actions */}
             <View style={[styles.bottomBar, { backgroundColor: colors.surfaceLight, borderTopColor: colors.border }]}>
-                <TouchableOpacity
-                    style={[styles.applyButton, { backgroundColor: colors.primary }]}
-                    onPress={() => setConfirmModalVisible(true)}
-                    activeOpacity={0.8}
-                >
-                    <Icon name="draw" size={20} color="#ffffff" style={{ marginRight: 8 }} />
-                    <Text style={styles.applyButtonText}>Colocar firma</Text>
-                </TouchableOpacity>
+                {isSignedOnCurrentPage ? (
+                    <>
+                        <TouchableOpacity
+                            style={[styles.applyButton, { backgroundColor: colors.primary }]}
+                            onPress={() => setConfirmModalVisible(true)}
+                            activeOpacity={0.8}
+                        >
+                            <Icon name="check-circle" size={20} color="#ffffff" style={{ marginRight: 8 }} />
+                            <Text style={styles.applyButtonText}>
+                                Colocar firma y continuar{signedPages.length > 1 ? ` (${signedPages.length} págs.)` : ''}
+                            </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={styles.removeSignatureBtn}
+                            onPress={handleRemoveSignatureFromCurrentPage}
+                            activeOpacity={0.7}
+                        >
+                            <Icon name="delete-outline" size={16} color="#ef4444" style={{ marginRight: 4 }} />
+                            <Text style={styles.removeSignatureBtnText}>Quitar firma de esta pág.</Text>
+                        </TouchableOpacity>
+                    </>
+                ) : (
+                    <>
+                        <TouchableOpacity
+                            style={[styles.applyButton, { backgroundColor: colors.primary }]}
+                            onPress={handleSignCurrentPage}
+                            activeOpacity={0.8}
+                        >
+                            <Icon name="draw" size={20} color="#ffffff" style={{ marginRight: 8 }} />
+                            <Text style={styles.applyButtonText}>Firmar esta página</Text>
+                        </TouchableOpacity>
+
+                        {signedPages.length > 0 && (
+                            <TouchableOpacity
+                                style={[styles.continueSecondaryBtn, { borderColor: colors.primary }]}
+                                onPress={() => setConfirmModalVisible(true)}
+                                activeOpacity={0.7}
+                            >
+                                <Icon name="check" size={18} color={colors.primary} style={{ marginRight: 6 }} />
+                                <Text style={[styles.continueSecondaryBtnText, { color: colors.primary }]}>
+                                    Colocar firma y continuar{signedPages.length > 1 ? ` (${signedPages.length} págs.)` : ''}
+                                </Text>
+                            </TouchableOpacity>
+                        )}
+                    </>
+                )}
             </View>
 
             {/* Confirmation Modal: Original vs Copy */}
@@ -1103,18 +1321,34 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: '500',
     },
-    allPagesBtn: {
+    allPagesQuickRow: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        marginTop: 8,
+    },
+    allPagesQuickBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 5,
+        paddingHorizontal: 10,
+        borderRadius: 8,
+        borderWidth: 1,
+    },
+    allPagesQuickBtnText: {
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    viewPdfBtn: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 8,
-        paddingHorizontal: 12,
-        borderRadius: 8,
+        height: 42,
+        borderRadius: 12,
         borderWidth: 1,
-        marginTop: 8,
+        marginTop: 10,
     },
-    allPagesBtnText: {
-        fontSize: 12,
+    viewPdfBtnText: {
+        fontSize: 13,
         fontWeight: '600',
     },
     multiPagesBadge: {
@@ -1220,7 +1454,9 @@ const styles = StyleSheet.create({
         left: 4,
     },
     bottomBar: {
-        padding: 14,
+        paddingHorizontal: 14,
+        paddingTop: 12,
+        paddingBottom: Platform.OS === 'android' ? 18 : 14,
         borderTopWidth: 1,
     },
     applyButton: {
@@ -1234,6 +1470,31 @@ const styles = StyleSheet.create({
     applyButtonText: {
         color: '#ffffff',
         fontSize: 15,
+        fontWeight: 'bold',
+    },
+    removeSignatureBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 10,
+        marginTop: 4,
+    },
+    removeSignatureBtnText: {
+        color: '#ef4444',
+        fontSize: 13,
+        fontWeight: '600',
+    },
+    continueSecondaryBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: 44,
+        borderRadius: 14,
+        borderWidth: 1.5,
+        marginTop: 8,
+    },
+    continueSecondaryBtnText: {
+        fontSize: 14,
         fontWeight: 'bold',
     },
     // Modals
@@ -1384,5 +1645,116 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.25,
         shadowRadius: 2,
+    },
+    singlePagePickerBox: {
+        marginTop: 8,
+        borderRadius: 14,
+        borderWidth: 1,
+        padding: 14,
+    },
+    singlePagePickerHint: {
+        fontSize: 12,
+        marginBottom: 10,
+    },
+    singlePagePickerRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 12,
+    },
+    singlePageNavBtn: {
+        width: 38,
+        height: 38,
+        borderRadius: 12,
+        borderWidth: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    singlePageDisplayPill: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 12,
+        borderWidth: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        minWidth: 140,
+    },
+    singlePageDisplayText: {
+        fontSize: 14,
+    },
+    previewModalCard: {
+        width: '100%',
+        height: '84%',
+        maxWidth: 440,
+        borderRadius: 20,
+        borderWidth: 1,
+        overflow: 'hidden',
+        elevation: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 12,
+    },
+    previewModalHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+    },
+    previewModalTitle: {
+        fontSize: 14,
+        fontWeight: 'bold',
+    },
+    previewModalPageInfo: {
+        fontSize: 11,
+        marginTop: 2,
+    },
+    previewModalCloseBtn: {
+        padding: 4,
+        marginLeft: 8,
+    },
+    previewModalPdfContainer: {
+        flex: 1,
+        backgroundColor: '#0f172a',
+    },
+    previewModalPdf: {
+        flex: 1,
+        backgroundColor: 'transparent',
+    },
+    previewModalFooter: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        borderTopWidth: 1,
+        gap: 10,
+    },
+    addPageQuickBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: 38,
+        minWidth: 165,
+        paddingHorizontal: 12,
+        borderRadius: 10,
+        borderWidth: 1,
+    },
+    addPageQuickBtnText: {
+        fontSize: 12,
+        fontWeight: '700',
+    },
+    previewModalCloseFooterBtn: {
+        paddingVertical: 8,
+        paddingHorizontal: 20,
+        borderRadius: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    previewModalCloseFooterText: {
+        color: '#ffffff',
+        fontSize: 13,
+        fontWeight: 'bold',
     },
 });

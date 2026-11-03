@@ -2,18 +2,8 @@ package com.pdfortuna
 
 import android.app.Activity
 import android.content.Intent
-import android.content.IntentSender
-import android.media.MediaScannerConnection
-import android.net.Uri
-import android.os.Environment
 import com.facebook.react.bridge.*
-import com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions
-import com.google.mlkit.vision.documentscanner.GmsDocumentScanning
-import com.google.mlkit.vision.documentscanner.GmsDocumentScanningResult
-import java.io.File
-import java.io.FileOutputStream
-import java.text.SimpleDateFormat
-import java.util.*
+import com.pdfortuna.scanner.ScannerActivity
 
 class DocumentScannerModule(private val reactContext: ReactApplicationContext) :
     ReactContextBaseJavaModule(reactContext), ActivityEventListener {
@@ -55,42 +45,15 @@ class DocumentScannerModule(private val reactContext: ReactApplicationContext) :
         }
 
         try {
-            val scannerOptions = GmsDocumentScannerOptions.Builder()
-                .setGalleryImportAllowed(allowGallery)
-                .setPageLimit(pageLimit)
-                .setResultFormats(
-                    GmsDocumentScannerOptions.RESULT_FORMAT_PDF,
-                    GmsDocumentScannerOptions.RESULT_FORMAT_JPEG
-                )
-                .setScannerMode(GmsDocumentScannerOptions.SCANNER_MODE_FULL)
-                .build()
-
-            val scanner = GmsDocumentScanning.getClient(scannerOptions)
             scanPromise = promise
-
-            scanner.getStartScanIntent(activity)
-                .addOnSuccessListener { intentSender: IntentSender ->
-                    try {
-                        activity.startIntentSenderForResult(
-                            intentSender,
-                            START_DOCUMENT_SCAN_REQUEST_CODE,
-                            null,
-                            0,
-                            0,
-                            0
-                        )
-                    } catch (e: Exception) {
-                        scanPromise?.reject("INTENT_SENDER_ERROR", e.message, e)
-                        scanPromise = null
-                    }
-                }
-                .addOnFailureListener { e ->
-                    scanPromise?.reject("SCANNER_INITIALIZATION_ERROR", e.message, e)
-                    scanPromise = null
-                }
+            val intent = Intent(activity, ScannerActivity::class.java).apply {
+                putExtra("PAGE_LIMIT", pageLimit)
+                putExtra("ALLOW_GALLERY", allowGallery)
+            }
+            activity.startActivityForResult(intent, START_DOCUMENT_SCAN_REQUEST_CODE)
         } catch (e: Exception) {
             scanPromise = null
-            promise.reject("SCANNER_ERROR", e.message, e)
+            promise.reject("SCANNER_LAUNCH_ERROR", "Failed to launch scanner: ${e.message}", e)
         }
     }
 
@@ -125,60 +88,31 @@ class DocumentScannerModule(private val reactContext: ReactApplicationContext) :
         }
 
         try {
-            val scanningResult = GmsDocumentScanningResult.fromActivityResultIntent(data)
-            val pdf = scanningResult?.pdf
+            val path = data.getStringExtra("path")
+            val name = data.getStringExtra("name")
+            val pageCount = data.getIntExtra("pageCount", 1)
+            val uri = data.getStringExtra("uri")
 
-            if (pdf == null) {
+            if (path == null) {
                 val resultMap = Arguments.createMap()
                 resultMap.putBoolean("canceled", false)
                 resultMap.putBoolean("success", false)
-                resultMap.putString("error", "No PDF document was generated")
+                resultMap.putString("error", "No PDF document path returned")
                 promise.resolve(resultMap)
                 return
             }
 
-            val pdfUri: Uri = pdf.uri
-            val pageCount = pdf.pageCount
-
-            // Destination directory: Documents/PDFortuna or fallback to app files
-            val documentsDir = File(
-                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS),
-                "PDFortuna"
-            )
-            if (!documentsDir.exists()) {
-                documentsDir.mkdirs()
-            }
-
-            val timestamp = SimpleDateFormat("dd-MM-yyyy_HH-mm", Locale.getDefault()).format(Date())
-            val targetFileName = "Escaneo_$timestamp.pdf"
-            val targetFile = File(documentsDir, targetFileName)
-
-            // Copy content from Google ML Kit URI to destination file
-            reactContext.contentResolver.openInputStream(pdfUri)?.use { input ->
-                FileOutputStream(targetFile).use { output ->
-                    input.copyTo(output)
-                }
-            }
-
-            // Register with Android MediaScanner so file system indexes it immediately
-            MediaScannerConnection.scanFile(
-                reactContext,
-                arrayOf(targetFile.absolutePath),
-                arrayOf("application/pdf"),
-                null
-            )
-
             val resultMap = Arguments.createMap()
             resultMap.putBoolean("success", true)
             resultMap.putBoolean("canceled", false)
-            resultMap.putString("path", targetFile.absolutePath)
-            resultMap.putString("name", targetFile.name)
+            resultMap.putString("path", path)
+            resultMap.putString("name", name ?: "Escaneo.pdf")
             resultMap.putInt("pageCount", pageCount)
-            resultMap.putString("uri", Uri.fromFile(targetFile).toString())
+            resultMap.putString("uri", uri ?: "file://$path")
 
             promise.resolve(resultMap)
         } catch (e: Exception) {
-            promise.reject("FILE_SAVE_ERROR", "Failed to save scanned PDF: ${e.message}", e)
+            promise.reject("SCAN_RESULT_ERROR", "Failed to parse scan result: ${e.message}", e)
         }
     }
 

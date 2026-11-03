@@ -256,6 +256,7 @@ export const PageThumbnailGrid: React.FC<Props> = ({
                         <View style={styles.modalPreviewBody}>
                             {sourcePath && previewModalPage ? (
                                 <Pdf
+                                    key={`grid-modal-pdf-${previewModalPage}`}
                                     source={{
                                         uri: sourcePath.startsWith('file://') ? sourcePath : `file://${sourcePath}`,
                                     }}
